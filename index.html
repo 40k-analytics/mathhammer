@@ -508,6 +508,13 @@ footer.app-footer {
   padding: 16px;
 }
 
+.btn-switch {
+  padding: 16px 24px; font-size: 14px; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.5px;
+  background: var(--white); color: var(--navy); border: 2px solid var(--navy); border-radius: 6px; font-weight: 700; cursor: pointer;
+}
+.btn-switch:hover:not(:disabled) { background: var(--blue-tint); }
+.btn-switch:disabled { opacity: 0.5; cursor: not-allowed; }
+
 </style>
 </head>
 <body>
@@ -519,6 +526,7 @@ footer.app-footer {
 
 <div class="calc-bar hidden" id="calc-bar-top">
   <button class="btn btn-calc-top" id="calc-btn" disabled>Calculate</button>
+  <button class="btn btn-switch switch-btn" disabled title="Swap the attacker and defender units">Switch Attacker &amp; Defender</button>
   <p class="calc-hint" id="calc-hint">Pick an attacker (unit + weapon) and a defender unit below to enable Calculate.</p>
 </div>
 
@@ -589,6 +597,7 @@ footer.app-footer {
 
 <div class="calc-bar calc-bar-bottom">
   <button class="btn btn-calc-top" id="calc-btn-2" disabled>Calculate</button>
+  <button class="btn btn-switch switch-btn" disabled title="Swap the attacker and defender units">Switch Attacker &amp; Defender</button>
   <p class="calc-hint" id="calc-hint-2">Pick an attacker (unit + weapon) and a defender unit below to enable Calculate.</p>
 </div>
 
@@ -608,6 +617,7 @@ footer.app-footer {
     <div class="card" id="defender-panel"></div>
     <div class="calc-bar calc-bar-defender">
       <button class="btn btn-calc-top" id="calc-btn-3" disabled>Calculate</button>
+    <button class="btn btn-switch switch-btn" disabled title="Swap the attacker and defender units">Switch Attacker &amp; Defender</button>
       <p class="calc-hint" id="calc-hint-3">Pick an attacker (unit + weapon) and a defender unit to enable Calculate.</p>
     </div>
   </section>
@@ -884,7 +894,10 @@ function simulate(attackers, defender, trials) {
       const diceAttacks = parseDiceExpr(atk.attacksExpr);
       let numWeapons = atk.weaponsCount || 1;
       let totalAttacks = 0;
-      for (let w = 0; w < numWeapons; w++) totalAttacks += diceAttacks();
+      // "Extra attacks (+N)" applies to EACH model's weapon: 10 models with
+      // A2 and +1 => 10 x (2 + 1) = 30 attacks.
+      const flatBonus = mods.attacksBonus || 0;
+      for (let w = 0; w < numWeapons; w++) totalAttacks += Math.max(0, diceAttacks() + flatBonus);
       if (mods.extraAttacks) totalAttacks += numWeapons;
       if (atk.kw.rapidFireN && mods.halfRange) totalAttacks += atk.kw.rapidFireN * numWeapons;
       sumAttacks += totalAttacks;
@@ -1583,7 +1596,7 @@ if (typeof module !== "undefined") {
         <div class="mod-grid">
           ${stepper("toHit", "To Hit (+/-)", -3, 3)}
           ${stepper("strengthBonus", "Strength (+/-)", -3, 6)}
-          ${stepper("attacksBonus", "Extra flat attacks", 0, 10)}
+          ${stepper("attacksBonus", "Extra attacks per model (+N)", 0, 10)}
           ${stepper("damageBonus", "Damage (+/-)", -3, 6)}
           ${stepper("worsenDefenderSave", "Worsen Defender's Save (+N)", 0, 3)}
         </div>
@@ -1795,6 +1808,28 @@ if (typeof module !== "undefined") {
     });
   }
 
+  // Swaps roles: the first attacker's unit becomes the defender, and the
+  // current defender unit becomes the single attacker (with its default
+  // weapon). Needs a picked unit on both sides; other attackers are dropped.
+  function switchAttackerAndDefender() {
+    if (!defender.unitId) return;
+    const atkWithUnit = attackers.find((a) => a.unitId);
+    if (!atkWithUnit) return;
+    const oldAttackerUnit = unitById[atkWithUnit.unitId];
+    const oldDefenderUnit = unitById[defender.unitId];
+    if (!oldAttackerUnit || !oldDefenderUnit) return;
+
+    defender.unitId = oldAttackerUnit.id;
+    defender.faction = oldAttackerUnit.faction;
+    applyUnitToDefender(oldAttackerUnit);
+
+    attackers = [
+      { id: uid(), unitId: oldDefenderUnit.id, weaponRows: [newWeaponRow(oldDefenderUnit)] },
+    ];
+    renderAttackers();
+    renderDefender();
+  }
+
   // Calculate is disabled until there's at least one attacker with a unit +
   // weapon chosen AND a defender unit has been explicitly picked (either
   // from the Defender box or the linked selector in Efficiency Finder).
@@ -1825,6 +1860,9 @@ if (typeof module !== "undefined") {
     CALC_BTN_IDS.forEach((id) => {
       const btn = document.getElementById(id);
       if (btn) btn.disabled = !enabled;
+    });
+    document.querySelectorAll(".switch-btn").forEach((btn) => {
+      btn.disabled = !enabled;
     });
     CALC_HINT_IDS.forEach((id) => {
       const hint = document.getElementById(id);
@@ -2381,20 +2419,29 @@ if (typeof module !== "undefined") {
     const wrap = document.getElementById("dmg-per-point-wrap");
     const note = document.getElementById("dmg-per-point-note");
 
-    const byAttacker = {};
-    const order = [];
+    // One bar per attacker + weapon (damage of that weapon / the unit's
+    // points x 100), grouped by attacker; units with several weapon rows get
+    // an extra navy "All weapons" total bar after their weapons.
+    const groups = [];
+    const byId = {};
     perAttacker.forEach((p, i) => {
       const m = meta && meta[i];
       if (!m || !m.unitPoints) return;
-      if (!byAttacker[m.attackerId]) {
-        byAttacker[m.attackerId] = { label: m.unitName, points: m.unitPoints, damage: 0 };
-        order.push(m.attackerId);
+      if (!byId[m.attackerId]) {
+        byId[m.attackerId] = { unitName: m.unitName, points: m.unitPoints, items: [] };
+        groups.push(byId[m.attackerId]);
       }
-      byAttacker[m.attackerId].damage += p.meanDamage;
+      byId[m.attackerId].items.push({ label: p.label, damage: p.meanDamage });
     });
-    const rows = order.map((k) => {
-      const r = byAttacker[k];
-      return { label: r.label, perHundred: (r.damage / r.points) * 100 };
+    const rows = [];
+    groups.forEach((g) => {
+      g.items.forEach((it) => {
+        rows.push({ label: splitWeaponLabel(it.label), perHundred: (it.damage / g.points) * 100, total: false });
+      });
+      if (g.items.length > 1) {
+        const sum = g.items.reduce((s, it) => s + it.damage, 0);
+        rows.push({ label: [g.unitName, "- All weapons"], perHundred: (sum / g.points) * 100, total: true });
+      }
     });
 
     if (!rows.length) {
@@ -2407,6 +2454,7 @@ if (typeof module !== "undefined") {
       return;
     }
     wrap.style.display = "";
+    wrap.style.height = Math.max(240, rows.length * 58) + "px";
     note.style.display = "none";
 
     const ctx = document.getElementById("chart-dmg-per-point").getContext("2d");
@@ -2419,7 +2467,7 @@ if (typeof module !== "undefined") {
           {
             label: "Damage / 100 pts",
             data: rows.map((r) => r.perHundred),
-            backgroundColor: COLORS.green,
+            backgroundColor: rows.map((r) => (r.total ? COLORS.navy : COLORS.green)),
             borderRadius: 2,
           },
         ],
@@ -2789,6 +2837,9 @@ if (typeof module !== "undefined") {
     CALC_BTN_IDS.forEach((id) => {
       const btn = document.getElementById(id);
       if (btn) btn.addEventListener("click", runSimulation);
+    });
+    document.querySelectorAll(".switch-btn").forEach((btn) => {
+      btn.addEventListener("click", switchAttackerAndDefender);
     });
     document.querySelectorAll(".scenario-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
