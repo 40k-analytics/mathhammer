@@ -515,6 +515,19 @@ footer.app-footer {
 .btn-switch:hover:not(:disabled) { background: var(--blue-tint); }
 .btn-switch:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.legend-toggle-bar {
+  max-width: 1400px; margin: 0 auto; padding: 14px 20px 0;
+  display: flex; align-items: center; gap: 12px;
+}
+.legend-toggle-label { font-size: 13px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.5px; }
+.legend-toggle { display: inline-flex; border: 2px solid var(--navy); border-radius: 999px; overflow: hidden; }
+.legend-opt {
+  background: var(--white); color: var(--navy); border: 0; padding: 7px 20px;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.legend-opt.active { background: var(--navy); color: var(--white); }
+.legend-opt:not(.active):hover { background: var(--blue-tint); }
+
 </style>
 </head>
 <body>
@@ -523,6 +536,14 @@ footer.app-footer {
   <span class="subtitle">Warhammer 40,000 — damage calculator &amp; probabilities</span>
   <span class="note" id="unit-count-note"></span>
 </header>
+
+<div class="legend-toggle-bar">
+  <span class="legend-toggle-label">Show Legend Units</span>
+  <div class="legend-toggle" role="group" aria-label="Show Legend Units">
+    <button type="button" class="legend-opt active" data-legends="off">Off</button>
+    <button type="button" class="legend-opt" data-legends="on">On</button>
+  </div>
+</div>
 
 <div class="calc-bar hidden" id="calc-bar-top">
   <button class="btn btn-calc-top" id="calc-btn" disabled>Calculate</button>
@@ -1182,6 +1203,17 @@ if (typeof module !== "undefined") {
   const unitById = {};
   DATA.units.forEach((u) => (unitById[u.id] = u));
 
+  // "Show Legend Units" switch (Off by default): when off, Legends units and
+  // factions that consist only of Legends units are hidden from every picker.
+  let showLegends = false;
+  function visibleUnits(faction) {
+    const list = unitsByFaction[faction] || [];
+    return showLegends ? list : list.filter((u) => !u.legends);
+  }
+  function visibleFactions() {
+    return DATA.factions.filter((f) => visibleUnits(f).length > 0);
+  }
+
   const ANTI_KEYWORDS = [
     "INFANTRY",
     "VEHICLE",
@@ -1282,7 +1314,7 @@ if (typeof module !== "undefined") {
   }
 
   function newAttacker() {
-    const list = unitsByFaction[DATA.factions[0]] || [];
+    const list = visibleUnits(visibleFactions()[0]);
     const unitId = list.length ? list[0].id : null;
     const unit = unitId ? unitById[unitId] : null;
     return {
@@ -1306,7 +1338,7 @@ if (typeof module !== "undefined") {
 
   // ============================= RENDER: ATTACKERS ============================
   function factionOptions(selected) {
-    return DATA.factions
+    return visibleFactions()
       .map((f) => `<option value="${esc(f)}" ${f === selected ? "selected" : ""}>${esc(f)}</option>`)
       .join("");
   }
@@ -1322,7 +1354,7 @@ if (typeof module !== "undefined") {
   }
 
   function unitOptions(faction, selectedId) {
-    const list = unitsByFaction[faction] || [];
+    const list = visibleUnits(faction);
     return list
       .map(
         (u) =>
@@ -1397,7 +1429,7 @@ if (typeof module !== "undefined") {
     card.dataset.id = a.id;
 
     const unit = a.unitId ? unitById[a.unitId] : null;
-    const faction = unit ? unit.faction : DATA.factions[0];
+    const faction = unit ? unit.faction : visibleFactions()[0];
 
     card.innerHTML = `
       <div class="card-head">
@@ -1426,7 +1458,7 @@ if (typeof module !== "undefined") {
 
     factionSel.addEventListener("change", (e) => {
       const f = e.target.value;
-      const list = unitsByFaction[f] || [];
+      const list = visibleUnits(f);
       unitSel.innerHTML = unitOptions(f, null);
       const newUnitId = list.length ? list[0].id : null;
       a.unitId = newUnitId;
@@ -2581,7 +2613,7 @@ if (typeof module !== "undefined") {
   // damage per 100 points using each unit's best weapon.
   function runEfficiencyFinder() {
     const faction = document.getElementById("eff-faction-sel").value;
-    const list = unitsByFaction[faction] || [];
+    const list = visibleUnits(faction);
     const statusEl = document.getElementById("eff-status");
     const resultsEl = document.getElementById("eff-results");
 
@@ -2829,7 +2861,47 @@ if (typeof module !== "undefined") {
     });
   }
 
+  // Switches Legends visibility; anything currently selected that would
+  // become hidden (a Legends attacker/defender unit, or a faction made up of
+  // Legends only) is replaced/cleared so every picker stays consistent.
+  function setShowLegends(on) {
+    showLegends = on;
+    document.querySelectorAll(".legend-opt").forEach((b) => {
+      b.classList.toggle("active", (b.dataset.legends === "on") === on);
+    });
+    if (!on) {
+      attackers.forEach((a) => {
+        const u = a.unitId ? unitById[a.unitId] : null;
+        if (u && u.legends) {
+          let list = visibleUnits(u.faction);
+          if (!list.length) list = visibleUnits(visibleFactions()[0]);
+          const nu = list.length ? list[0] : null;
+          a.unitId = nu ? nu.id : null;
+          a.weaponRows = [newWeaponRow(nu)];
+        }
+      });
+      const du = defender.unitId ? unitById[defender.unitId] : null;
+      if (du && du.legends) defender.unitId = null;
+      if (defender.faction && !visibleFactions().includes(defender.faction)) {
+        defender.faction = "";
+        defender.unitId = null;
+      }
+    }
+    renderAttackers();
+    renderDefender();
+    const effFactionSel = document.getElementById("eff-faction-sel");
+    if (effFactionSel) {
+      const cur = effFactionSel.value;
+      const vf = visibleFactions();
+      effFactionSel.innerHTML = factionOptions(vf.includes(cur) ? cur : vf[0]);
+    }
+    updateCalcBtnState();
+  }
+
   function init() {
+    document.querySelectorAll(".legend-opt").forEach((btn) => {
+      btn.addEventListener("click", () => setShowLegends(btn.dataset.legends === "on"));
+    });
     new MutationObserver(() => enhanceNumberInputs(document)).observe(document.body, { childList: true, subtree: true });
     document.getElementById("add-attacker").addEventListener("click", () => {
       attackers.push(newAttacker());
@@ -2855,7 +2927,7 @@ if (typeof module !== "undefined") {
 
     const effFactionSel = document.getElementById("eff-faction-sel");
     if (effFactionSel) {
-      effFactionSel.innerHTML = factionOptions(DATA.factions[0]);
+      effFactionSel.innerHTML = factionOptions(visibleFactions()[0]);
       const effRunBtn = document.getElementById("eff-run-btn");
       effRunBtn.addEventListener("click", () => {
         // Show an "Analyzing…" state immediately, then defer the heavy loop
