@@ -254,6 +254,25 @@ main {
 }
 .num-input { width: 86px; }
 .num-input.small { width: 64px; }
+.num-stepper { display: inline-flex; align-items: stretch; vertical-align: middle; }
+.num-stepper .num-input {
+  border-radius: 0; text-align: center; width: 56px; -moz-appearance: textfield; appearance: textfield;
+}
+.num-stepper .num-input.small { width: 48px; }
+.num-stepper .num-input::-webkit-outer-spin-button,
+.num-stepper .num-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.step-btn {
+  background: var(--navy); color: var(--white); border: 1px solid var(--navy);
+  width: 28px; font-size: 16px; font-weight: 700; line-height: 1; cursor: pointer; padding: 0;
+}
+.step-btn:first-child { border-radius: 6px 0 0 6px; }
+.step-btn:last-child { border-radius: 0 6px 6px 0; }
+.step-btn:hover { background: var(--blue-tint); color: var(--navy); }
+.melee-note {
+  background: var(--blue-tint); color: var(--navy); border: 1px solid var(--blue-light);
+  border-radius: 8px; padding: 10px 14px; font-size: 13px; margin: 0 0 16px;
+}
+.calc-bar-defender { padding: 16px 0 4px; }
 
 .weapon-rows { margin-top: 4px; }
 .weapon-row {
@@ -505,6 +524,7 @@ footer.app-footer {
 
 <section id="results-panel" class="results-full hidden">
   <div class="col-head"><h2>Results</h2></div>
+  <p class="melee-note hidden" id="melee-note">Melee attacks only: range and cover don't apply to melee weapons (cover's -1 is a Ballistic Skill penalty, and Melta / Rapid Fire are ranged rules), so a single result is shown.</p>
   <div class="scenario-bar" id="scenario-bar">
     <button class="scenario-btn" data-scenario="longNoCover">Long Range · No Cover</button>
     <button class="scenario-btn" data-scenario="halfNoCover">Half Range · No Cover</button>
@@ -586,6 +606,10 @@ footer.app-footer {
       <h2>Defender</h2>
     </div>
     <div class="card" id="defender-panel"></div>
+    <div class="calc-bar calc-bar-defender">
+      <button class="btn btn-calc-top" id="calc-btn-3" disabled>Calculate</button>
+      <p class="calc-hint" id="calc-hint-3">Pick an attacker (unit + weapon) and a defender unit to enable Calculate.</p>
+    </div>
   </section>
 </main>
 
@@ -1001,7 +1025,8 @@ function simulate(attackers, defender, trials) {
             damage = rollDamage(atk, mods);
           }
 
-          if (defender.damageReduction) damage = Math.max(0, damage - defender.damageReduction);
+          // Damage reduction can never reduce an unsaved wound's damage below 1.
+          if (defender.damageReduction) damage = Math.max(1, damage - defender.damageReduction);
 
           sumDamageBeforeFnp += damage;
           pa.sumDamageBeforeFnp += damage;
@@ -1160,7 +1185,7 @@ if (typeof module !== "undefined") {
   let attackers = [];
   let nextId = 1;
   let defender = {
-    faction: DATA.factions[0],
+    faction: "", // no preselected defender faction ("Select defender" placeholder)
     unitId: null,
     toughness: 4,
     save: 3,
@@ -1191,7 +1216,8 @@ if (typeof module !== "undefined") {
     { id: "longCover", label: "Long Range · In Cover", halfRange: false, cover: true },
     { id: "halfCover", label: "Half Range · In Cover", halfRange: true, cover: true },
   ];
-  let scenarioResults = null; // { [scenarioId]: { result, def, meta } }
+  let scenarioResults = null;
+  let scenarioMeleeOnly = false; // { [scenarioId]: { result, def, meta } }
   let currentScenarioId = SCENARIOS[0].id;
 
   function scenarioById(id) {
@@ -1270,6 +1296,16 @@ if (typeof module !== "undefined") {
     return DATA.factions
       .map((f) => `<option value="${esc(f)}" ${f === selected ? "selected" : ""}>${esc(f)}</option>`)
       .join("");
+  }
+
+  // Defender selectors start empty: a "Select defender" placeholder faction,
+  // and the unit picker stays disabled until a faction is chosen.
+  function defFactionOptions(selected) {
+    return `<option value="" ${selected ? "" : "selected"}>Select defender</option>` + factionOptions(selected);
+  }
+  function defUnitOptions(faction, selectedId) {
+    if (!faction) return `<option value="">— Select faction first —</option>`;
+    return `<option value="">— Custom profile —</option>${unitOptions(faction, selectedId)}`;
   }
 
   function unitOptions(faction, selectedId) {
@@ -1662,15 +1698,16 @@ if (typeof module !== "undefined") {
   function renderDefender() {
     const wrap = document.getElementById("defender-panel");
     const unit = defender.unitId ? unitById[defender.unitId] : null;
-    const faction = defender.faction || DATA.factions[0];
+    const faction = defender.faction || "";
 
     wrap.innerHTML = `
       <div class="picker-section-label">Select Defender</div>
       <div class="picker-row">
-        <select class="sel def-faction-sel">${factionOptions(faction)}</select>
-        <select class="sel def-unit-sel"><option value="">— Custom profile —</option>${unitOptions(faction, defender.unitId)}</select>
+        <select class="sel def-faction-sel">${defFactionOptions(faction)}</select>
+        <select class="sel def-unit-sel" ${faction ? "" : "disabled"}>${defUnitOptions(faction, defender.unitId)}</select>
       </div>
       <div class="unit-stat-line-wrap">${renderUnitCard(unit)}</div>
+      <div class="def-details" ${unit ? "" : 'style="display:none"'}>
       <div class="def-grid">
         <label>Toughness <input type="number" class="num-input" data-def="toughness" value="${defender.toughness}" min="1" max="20"/></label>
         <label>Save (N+) <input type="number" class="num-input" data-def="save" value="${defender.save}" min="2" max="7"/></label>
@@ -1687,6 +1724,7 @@ if (typeof module !== "undefined") {
         ).join("")}
       </div>
       ${renderDefenderModifierGroups()}
+      </div>
     `;
 
     const factionSel = wrap.querySelector(".def-faction-sel");
@@ -1735,10 +1773,11 @@ if (typeof module !== "undefined") {
     if (!factionSel || !unitSel || !cardWrap) return;
 
     const unit = defender.unitId ? unitById[defender.unitId] : null;
-    const faction = defender.faction || DATA.factions[0];
+    const faction = defender.faction || "";
 
-    factionSel.innerHTML = factionOptions(faction);
-    unitSel.innerHTML = `<option value="">— Custom profile —</option>${unitOptions(faction, defender.unitId)}`;
+    factionSel.innerHTML = defFactionOptions(faction);
+    unitSel.innerHTML = defUnitOptions(faction, defender.unitId);
+    unitSel.disabled = !faction;
     cardWrap.innerHTML = renderUnitCard(unit);
 
     factionSel.addEventListener("change", (e) => {
@@ -1766,8 +1805,8 @@ if (typeof module !== "undefined") {
   // Two Calculate buttons exist (one above the results/graphs, one just
   // above the Attacker/Defender boxes) and must always reflect the same
   // enabled/disabled state and hint text.
-  const CALC_BTN_IDS = ["calc-btn", "calc-btn-2"];
-  const CALC_HINT_IDS = ["calc-hint", "calc-hint-2"];
+  const CALC_BTN_IDS = ["calc-btn", "calc-btn-2", "calc-btn-3"];
+  const CALC_HINT_IDS = ["calc-hint", "calc-hint-2", "calc-hint-3"];
 
   function updateCalcBtnState() {
     const validAttacker = hasValidAttacker();
@@ -1920,7 +1959,7 @@ if (typeof module !== "undefined") {
         const weapon = row.weaponIdx != null ? unit.weapons[row.weaponIdx] : null;
         if (!weapon) return;
         engineAttackers.push(buildEngineAttacker(unit, weapon, row));
-        meta.push({ attackerId: a.id, unitId: unit.id, unitName: unit.name, unitPoints: unit.pointsMin || null });
+        meta.push({ attackerId: a.id, unitId: unit.id, unitName: unit.name, unitPoints: unit.pointsMin || null, isMelee: weapon.type === "Melee" });
       });
     });
     return { engineAttackers, meta };
@@ -1958,8 +1997,13 @@ if (typeof module !== "undefined") {
     // Run all 4 Range/Cover scenarios up front (same attackers/defender,
     // only halfRange + coverBonus vary) so switching the scenario buttons
     // afterward is instant with no recalculation.
+    // Melee-only selections: range and cover are irrelevant (cover is a BS
+    // penalty; Melta/Rapid Fire are ranged rules), so compute one scenario
+    // and show an explanatory note instead of the Range/Cover buttons.
+    scenarioMeleeOnly = meta.length > 0 && meta.every((m) => m.isMelee);
+    const scenariosToRun = scenarioMeleeOnly ? [SCENARIOS[0]] : SCENARIOS;
     scenarioResults = {};
-    SCENARIOS.forEach((sc) => {
+    scenariosToRun.forEach((sc) => {
       const atkForScenario = engineAttackers.map((a) =>
         Object.assign({}, a, { mods: Object.assign({}, a.mods, { halfRange: sc.halfRange }) })
       );
@@ -1986,6 +2030,10 @@ if (typeof module !== "undefined") {
     if (calcBarTop) calcBarTop.classList.remove("hidden");
 
     updateScenarioButtons();
+    const scenarioBar = document.getElementById("scenario-bar");
+    const meleeNote = document.getElementById("melee-note");
+    if (scenarioBar) scenarioBar.style.display = scenarioMeleeOnly ? "none" : "";
+    if (meleeNote) meleeNote.classList.toggle("hidden", !scenarioMeleeOnly);
 
     document.getElementById("stat-attacks").textContent = result.meanAttacks.toFixed(2);
     document.getElementById("stat-hits").textContent = result.meanHits.toFixed(2);
@@ -2254,7 +2302,7 @@ if (typeof module !== "undefined") {
   // currently selected via the scenario buttons.
   function renderCoverComparisonChart() {
     const box = document.getElementById("cover-comparison-box");
-    if (!scenarioResults) {
+    if (!scenarioResults || scenarioMeleeOnly) {
       if (box) box.style.display = "none";
       return;
     }
@@ -2695,7 +2743,45 @@ if (typeof module !== "undefined") {
   }
 
   // ============================= INIT ==================================
+  // Wraps every number input in [-] input [+] stepper buttons (left/right).
+  // Runs on all current inputs and, via a MutationObserver, on any inputs
+  // created by later re-renders. Buttons dispatch a normal "input" event so
+  // each field's existing handler picks the change up unchanged.
+  function enhanceNumberInputs(root) {
+    (root || document).querySelectorAll('input[type="number"]').forEach((inp) => {
+      if (inp.parentElement && inp.parentElement.classList.contains("num-stepper")) return;
+      const wrap = document.createElement("span");
+      wrap.className = "num-stepper";
+      const mk = (txt, dir, title) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "step-btn";
+        b.textContent = txt;
+        b.title = title;
+        b.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const step = parseFloat(inp.step) || 1;
+          const min = inp.min !== "" ? parseFloat(inp.min) : -Infinity;
+          const max = inp.max !== "" ? parseFloat(inp.max) : Infinity;
+          const cur = parseFloat(inp.value);
+          let next = (isNaN(cur) ? 0 : cur) + dir * step;
+          next = Math.min(max, Math.max(min, next));
+          inp.value = String(next);
+          inp.dispatchEvent(new Event("input", { bubbles: true }));
+          inp.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        return b;
+      };
+      inp.parentNode.insertBefore(wrap, inp);
+      wrap.appendChild(mk("−", -1, "Decrease"));
+      wrap.appendChild(inp);
+      wrap.appendChild(mk("+", 1, "Increase"));
+    });
+  }
+
   function init() {
+    new MutationObserver(() => enhanceNumberInputs(document)).observe(document.body, { childList: true, subtree: true });
     document.getElementById("add-attacker").addEventListener("click", () => {
       attackers.push(newAttacker());
       renderAttackers();
