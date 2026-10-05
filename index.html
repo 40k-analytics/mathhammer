@@ -4268,6 +4268,14 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
       const first = attackers.find((x) => x.unitId && unitById[x.unitId]);
       attackers.push(first ? newAttacker({ faction: unitById[first.unitId].faction, blankUnit: true }) : newAttacker());
       renderAttackers();
+      // Bring the new attacker card into view.
+      const cards = document.querySelectorAll("#attackers-list .attacker-card");
+      const last = cards[cards.length - 1];
+      if (last && last.scrollIntoView) {
+        try {
+          last.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch (e) {}
+      }
     });
     CALC_BTN_IDS.forEach((id) => {
       const btn = document.getElementById(id);
