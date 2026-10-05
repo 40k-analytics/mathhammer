@@ -550,6 +550,16 @@ footer.app-footer {
 .matchup-banner .mb-sc { margin-left: auto; font-size: 13px; font-weight: 700; background: rgba(255,255,255,0.15); border-radius: 999px; padding: 4px 12px; }
 .chart-sub { font-size: 12px; color: var(--slate, #475569); font-weight: 600; margin: -4px 0 10px; }
 
+.group-tab-copy { border-style: dashed; margin-left: auto; }
+.vuln-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.vuln-table th, .vuln-table td { padding: 8px 10px; text-align: center; border: 1px solid #fff; }
+.vuln-table thead th { background: var(--navy); color: #fff; }
+.vuln-table tbody th { background: var(--blue-tint, #eaf1f8); color: var(--navy); }
+
+.group-tab-rename { background: transparent; border: 0; color: var(--blue); font-size: 12px; font-weight: 700; cursor: pointer; }
+.group-rename-input { border: 2px solid var(--navy); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; color: var(--navy); width: 150px; }
+.chart-explain { font-size: 12px; color: var(--slate, #475569); margin: 8px 0 10px; line-height: 1.5; }
+
 </style>
 </head>
 <body>
@@ -635,6 +645,45 @@ footer.app-footer {
     <h3>Expected damage per 100 points (by attacker)</h3>
     <div class="chart-canvas-wrap" id="dmg-per-point-wrap"><canvas id="chart-dmg-per-point"></canvas></div>
     <div class="rule-empty-note" id="dmg-per-point-note" style="display:none">No points-cost data available for the selected attacker unit(s).</div>
+  </div>
+  <div class="chart-box" id="group-weapon-box" style="display:none">
+    <h3>Damage by weapon — Group A vs Group B</h3>
+    <div class="chart-canvas-wrap" id="group-weapon-wrap"><canvas id="chart-group-weapon"></canvas></div>
+  </div>
+  <div class="chart-box" id="variance-box">
+    <h3>Damage spread — P10 / median / P90</h3>
+    <div class="chart-canvas-wrap"><canvas id="chart-variance"></canvas></div>
+    <div id="variance-table"></div>
+  </div>
+  <div class="chart-box" id="waterfall-box">
+    <h3>Where the attacks go (waterfall)</h3>
+    <div class="chart-canvas-wrap"><canvas id="chart-waterfall"></canvas></div>
+  </div>
+  <div class="chart-box" id="cost-box">
+    <h3>Points efficiency — defender points destroyed per attacker point</h3>
+    <div class="chart-canvas-wrap"><canvas id="chart-cost"></canvas></div>
+    <div class="rule-empty-note" id="cost-note"></div>
+  </div>
+  <div class="chart-box" id="archetype-box">
+    <h3>Versus typical targets (% of target's wounds destroyed)</h3>
+    <div class="chart-canvas-wrap"><canvas id="chart-archetype"></canvas></div>
+    <div id="archetype-table"></div>
+  </div>
+  <div class="chart-box" id="vuln-box">
+    <h3>Toughness × Save heatmap (expected damage)</h3>
+    <div id="vuln-body"></div>
+  </div>
+  <div class="chart-box" id="scaling-box">
+    <h3>Unit size scaling — damage and kill chance</h3>
+    <div class="chart-canvas-wrap"><canvas id="chart-scaling"></canvas></div>
+  </div>
+  <div class="chart-box" id="sensitivity-box">
+    <h3>Modifier sensitivity — which buff is worth the most</h3>
+    <div class="chart-canvas-wrap" id="sensitivity-wrap"><canvas id="chart-sensitivity"></canvas></div>
+  </div>
+  <div class="chart-box" id="phase-box">
+    <h3>Shooting vs Overwatch vs Melee</h3>
+    <div class="chart-canvas-wrap"><canvas id="chart-phase"></canvas></div>
   </div>
   <div class="chart-box" id="rules-breakdown-box">
     <h3>Special rule triggers (expected per calculation)</h3>
@@ -1465,7 +1514,24 @@ if (typeof module !== "undefined") {
       b.textContent = g.label;
       b.addEventListener("click", () => setActiveGroup(g.id));
       bar.appendChild(b);
+      if (g.id === activeGroupId) {
+        const ed = document.createElement("button");
+        ed.type = "button";
+        ed.className = "group-tab-rename";
+        ed.title = "Rename group";
+        ed.textContent = "\u270E Rename";
+        ed.addEventListener("click", () => startRenameGroup(g, b, ed));
+        bar.appendChild(ed);
+      }
     });
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "group-tab group-tab-copy";
+    copy.id = "copy-to-b";
+    copy.textContent = "Copy to " + (groups[1] ? groups[1].label : "Group B");
+    copy.title = "Copy all attackers, weapons and modifiers from Group A into Group B";
+    copy.addEventListener("click", copyGroupAToB);
+    bar.appendChild(copy);
     if (groups.length < MAX_GROUPS) {
       const add = document.createElement("button");
       add.type = "button";
@@ -1479,10 +1545,39 @@ if (typeof module !== "undefined") {
       rm.type = "button";
       rm.className = "group-tab-remove";
       rm.id = "remove-group";
-      rm.textContent = "\u00d7 Remove Group B";
+      rm.textContent = "\u00d7 Remove " + (groups[1] ? groups[1].label : "Group B");
       rm.addEventListener("click", removeAttackerGroup);
       bar.appendChild(rm);
     }
+  }
+
+  function startRenameGroup(g, tabBtn, editBtn) {
+    const inp = document.createElement("input");
+    inp.type = "text";
+    inp.className = "group-rename-input";
+    inp.maxLength = 24;
+    inp.value = g.label;
+    tabBtn.replaceWith(inp);
+    editBtn.remove();
+    inp.focus();
+    inp.select();
+    let done = false;
+    const commit = (save) => {
+      if (done) return;
+      done = true;
+      const v = inp.value.trim();
+      if (save && v) g.label = v;
+      if (groupResults && groupResults[g.id]) groupResults[g.id].label = g.label;
+      renderGroupTabs();
+      if (groupResults && Object.keys(groupResults).length && !document.getElementById("results-panel").classList.contains("hidden")) {
+        renderResults(currentScenarioId);
+      }
+    };
+    inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") commit(true);
+      else if (e.key === "Escape") commit(false);
+    });
+    inp.addEventListener("blur", () => commit(true));
   }
 
   function setActiveGroup(id) {
@@ -1492,6 +1587,29 @@ if (typeof module !== "undefined") {
     if (!g) return;
     activeGroupId = id;
     attackers = g.attackers;
+    renderAttackers();
+  }
+
+  // Deep-copies every attacker (unit, weapon rows, counts, modifiers, anti
+  // lists) from Group A into Group B, replacing whatever B held. Creates B
+  // if it does not exist yet and switches to it.
+  function copyGroupAToB() {
+    syncActiveGroup();
+    const a = groups.find((g) => g.id === "A");
+    if (!a) return;
+    const cloned = JSON.parse(JSON.stringify(a.attackers)).map((at) => {
+      at.id = uid();
+      at.weaponRows.forEach((r) => (r.id = uid("w")));
+      return at;
+    });
+    let b = groups.find((g) => g.id === "B");
+    if (!b) {
+      b = { id: "B", label: "Group B", attackers: [] };
+      groups.push(b);
+    }
+    b.attackers = cloned;
+    activeGroupId = "B";
+    attackers = b.attackers;
     renderAttackers();
   }
 
@@ -2197,7 +2315,7 @@ if (typeof module !== "undefined") {
         points += m.unitPoints || 0;
       }
     });
-    return { label: g.label, scenarioResults: results, meleeOnly, points };
+    return { label: g.label, scenarioResults: results, meleeOnly, points, engine: engineAttackers, meta, baseDef };
   }
 
   function showGroupView(id) {
@@ -2207,9 +2325,17 @@ if (typeof module !== "undefined") {
   }
 
   let lastDefenderName = "";
+  let lastDefenderPts = null;
+  let extrasCache = {};
 
   function runSimulation() {
     syncActiveGroup();
+    extrasCache = {};
+    lastDefenderPts = null;
+    if (defender.unitId && unitById[defender.unitId]) {
+      const du = unitById[defender.unitId];
+      if (du.pointsMin) lastDefenderPts = (du.pointsMin / (du.modelsMin || 1)) * (defender.models || 1);
+    }
     lastDefenderName = defender.unitId && unitById[defender.unitId] ? unitDisplayName(unitById[defender.unitId]) : "Custom defender";
     const baseDef = buildDefenderProfile();
     const bundles = {};
@@ -2278,6 +2404,435 @@ if (typeof module !== "undefined") {
     renderRulesBreakdown(result.rules);
     renderRerollBreakdown(result.rerolls);
     renderCoverComparisonChart();
+    renderExtras();
+  }
+
+  // ============================ EXTRA ANALYSES ==============================
+  // Extra "what-if" simulations run on demand for the group being viewed
+  // (fewer trials than the main run) and cached until the next Calculate.
+  const EXTRA_TRIALS = 4000;
+  const SENS_TRIALS = 8000;
+
+  function viewScenario(gr) {
+    return gr.meleeOnly ? SCENARIOS[0] : scenarioById(currentScenarioId);
+  }
+
+  // Runs a variant of a group's engine attackers. opts: filter({a,i,melee}),
+  // mods(mods)->overrides, count (multiplier of weapon copies), kw(kw)->kw,
+  // def (replacement defender), trials.
+  function runVariant(gr, sc, opts) {
+    opts = opts || {};
+    let items = gr.engine.map((a, i) => ({ a, i, melee: gr.meta[i].isMelee }));
+    if (opts.filter) items = items.filter(opts.filter);
+    if (!items.length) return null;
+    const list = items.map((x) => {
+      const mods = Object.assign({}, x.a.mods, { halfRange: sc.halfRange }, opts.mods ? opts.mods(x.a.mods) : {});
+      const copy = Object.assign({}, x.a, { mods });
+      if (opts.count) copy.weaponsCount = Math.max(1, Math.round((x.a.weaponsCount || 1) * opts.count));
+      if (opts.kw) copy.kw = opts.kw(x.a.kw);
+      return copy;
+    });
+    const def = Object.assign({}, opts.def || gr.baseDef, { coverBonus: sc.cover });
+    return simulate(list, def, opts.trials || EXTRA_TRIALS);
+  }
+
+  function plainDefender(t, sv, w, models, inv) {
+    return {
+      toughness: t, save: sv, invuln: inv || 0, wounds: w, models: models, fnp: 0, coverBonus: false,
+      keywords: [], toughnessBonus: 0, saveBonus: 0, damageReduction: 0, hitPenalty: 0,
+      woundPenalty: 0, apReduction: 0, rerollSave: "none",
+    };
+  }
+
+  const ARCHETYPES = [
+    { label: ["Horde", "T3 5+ \u00b7 20\u00d7W1"], def: () => plainDefender(3, 5, 1, 20) },
+    { label: ["Elite infantry", "T4 3+ \u00b7 10\u00d7W2"], def: () => plainDefender(4, 3, 2, 10) },
+    { label: ["Terminators", "T5 2+/4++ \u00b7 5\u00d7W3"], def: () => plainDefender(5, 2, 3, 5, 4) },
+    { label: ["Monster", "T9 3+ \u00b7 1\u00d7W12"], def: () => plainDefender(9, 3, 12, 1) },
+    { label: ["Vehicle", "T10 2+ \u00b7 1\u00d7W16"], def: () => plainDefender(10, 2, 16, 1) },
+  ];
+
+  const SENS_VARIANTS = [
+    { label: "+1 to hit", mods: (m) => ({ toHit: (m.toHit || 0) + 1 }) },
+    { label: "+1 to wound", mods: (m) => ({ toWound: (m.toWound || 0) + 1 }) },
+    { label: "Re-roll hit 1s", mods: () => ({ rerollHit: "ones" }) },
+    { label: "Re-roll failed hits", mods: () => ({ rerollHit: "failed" }) },
+    { label: "Re-roll failed wounds", mods: () => ({ rerollWound: "failed" }) },
+    { label: "+1 Strength", mods: (m) => ({ strengthBonus: (m.strengthBonus || 0) + 1 }) },
+    { label: "+1 AP", mods: (m) => ({ apBonus: (m.apBonus || 0) + 1 }) },
+    { label: "+1 Damage", mods: (m) => ({ damageBonus: (m.damageBonus || 0) + 1 }) },
+    { label: "+1 Attack per model", mods: (m) => ({ attacksBonus: (m.attacksBonus || 0) + 1 }) },
+    { label: "Lethal Hits", mods: () => ({ lethalHits: true }) },
+    {
+      label: "Sustained Hits 1", mods: () => ({ sustainedHits: true }),
+      kw: (kw) => Object.assign({}, kw, { sustainedDiceExpr: kw.sustainedDiceExpr || "1" }),
+    },
+    { label: "Devastating Wounds", mods: () => ({ devastatingWounds: true }) },
+  ];
+
+  // Datalabel with a white rounded box behind it (readable on any colour).
+  function LABEL_BOX(color, align, fmt) {
+    return {
+      display: true, color: color, anchor: "end", align: align, offset: 6,
+      backgroundColor: "rgba(255,255,255,0.95)", borderColor: color, borderWidth: 1, borderRadius: 4,
+      padding: { top: 2, bottom: 2, left: 5, right: 5 },
+      font: { size: 11, weight: "700" },
+      formatter: (v) => (typeof v === "number" ? fmt(v) : ""),
+    };
+  }
+
+  function percentile(sorted, p) {
+    if (!sorted.length) return 0;
+    const idx = Math.min(sorted.length - 1, Math.max(0, Math.round((p / 100) * (sorted.length - 1))));
+    return sorted[idx];
+  }
+
+  function setBoxVisible(id, on) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = on ? "" : "none";
+  }
+
+  function makeChart(key, canvasId, cfg) {
+    const el = document.getElementById(canvasId);
+    if (!el) return;
+    if (charts[key]) charts[key].destroy();
+    // Consistent tooltip number format (dot decimals, 2 digits; ranges as lo\u2013hi).
+    const o = cfg.options || (cfg.options = {});
+    o.plugins = o.plugins || {};
+    o.plugins.tooltip = Object.assign({ backgroundColor: COLORS.navy }, o.plugins.tooltip, {
+      callbacks: {
+        label: (c) => {
+          const v = c.raw;
+          const f = (x) => (typeof x === "number" ? (Math.abs(x) >= 100 ? x.toFixed(0) : x.toFixed(2)) : x);
+          const txt = Array.isArray(v) ? f(v[0]) + " \u2013 " + f(v[1]) : f(v);
+          const suffix = c.dataset.yAxisID === "y1" ? "%" : "";
+          return (c.dataset.label ? c.dataset.label + ": " : "") + txt + suffix;
+        },
+      },
+    });
+    charts[key] = new Chart(el.getContext("2d"), cfg);
+  }
+
+  function renderExtras() {
+    if (!groupResults || !groupResults[viewGroupId]) return;
+    const gr = groupResults[viewGroupId];
+    const sc = viewScenario(gr);
+    const key = viewGroupId + "|" + sc.id;
+    const cache = extrasCache[key] || (extrasCache[key] = {});
+    const entry = gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id];
+    renderVarianceChart();
+    renderWaterfallChart(entry.result);
+    renderCostChart();
+    renderGroupWeaponChart(sc);
+    renderArchetypeChart(sc);
+    renderScalingChart(gr, sc, cache);
+    renderSensitivityChart(gr, sc, entry, cache);
+    renderPhaseChart(gr, sc, cache);
+    renderVulnerabilityTable(gr, sc, cache);
+  }
+
+  // 1) Variance: P10 - P90 range and median per group and scenario.
+  function renderVarianceChart() {
+    const ids = Object.keys(groupResults);
+    const scs = SCENARIOS.filter((s) => ids.some((id) => groupResults[id].scenarioResults[s.id]));
+    const stats = {};
+    ids.forEach((id) => {
+      stats[id] = scs.map((s) => {
+        const e = groupResults[id].scenarioResults[s.id] || groupResults[id].scenarioResults[SCENARIOS[0].id];
+        const sorted = e.result.damageSamples.slice().sort((a, b) => a - b);
+        return { p10: percentile(sorted, 10), p50: percentile(sorted, 50), p90: percentile(sorted, 90), mean: e.result.meanDamage };
+      });
+    });
+    const labels = scs.map((s) => s.label.split(" \u00b7 "));
+    const colors = [COLORS.blue, COLORS.red];
+    const datasets = [];
+    ids.forEach((id, gi) => {
+      datasets.push({
+        type: "bar", label: groupResults[id].label + " (P10\u2013P90)",
+        data: stats[id].map((x) => [x.p10, x.p90]),
+        backgroundColor: colors[gi] + "88", borderColor: colors[gi], borderWidth: 1, borderRadius: 2,
+        datalabels: { display: false },
+      });
+      datasets.push({
+        type: "line", label: groupResults[id].label + " median",
+        data: stats[id].map((x) => x.p50), showLine: false, pointStyle: "rectRot",
+pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
+        borderColor: colors[gi], backgroundColor: colors[gi],
+        datalabels: LABEL_BOX(colors[gi], gi === 0 ? "left" : "right", (v) => v.toFixed(1)),
+      });
+    });
+    makeChart("variance", "chart-variance", {
+      type: "bar",
+      data: { labels, datasets },
+      options: withDatalabels(chartBaseOptions("", "Damage"), { display: false }),
+    });
+    let html = '<p class="chart-explain"><b>P10</b> = 10% of simulated runs deal this much damage or less (a bad roll). <b>P90</b> = only 10% of runs deal more (a great roll). <b>Median</b> (diamond) = the typical result. Each bar spans P10 to P90, i.e. the middle 80% of outcomes \u2014 a short bar means a reliable result.</p>' +
+      '<table class="group-compare-table"><thead><tr><th>Group / scenario</th><th>P10</th><th>Median</th><th>Mean</th><th>P90</th></tr></thead><tbody>';
+    ids.forEach((id) => scs.forEach((s, i) => {
+      const x = stats[id][i];
+      html += "<tr><td>" + esc(groupResults[id].label) + " \u00b7 " + esc(s.label) + "</td><td>" + x.p10.toFixed(1) +
+        "</td><td>" + x.p50.toFixed(1) + "</td><td>" + x.mean.toFixed(1) + "</td><td>" + x.p90.toFixed(1) + "</td></tr>";
+    }));
+    document.getElementById("variance-table").innerHTML = html + "</tbody></table>";
+  }
+
+  // 2) Waterfall: attacks -> hit roll -> wound roll -> saves -> unsaved.
+  function renderWaterfallChart(r) {
+    const A = r.meanAttacks, H = r.meanHits, W = r.meanWounds, U = r.meanUnsaved;
+    const deltas = [A, H - A, W - H, U - W, U];
+    const labels = ["Attacks", "Hit roll", "Wound roll", "Saves", "Unsaved"];
+    const data = [[0, A], [Math.min(A, H), Math.max(A, H)], [Math.min(H, W), Math.max(H, W)], [Math.min(W, U), Math.max(W, U)], [0, U]];
+    const colors = deltas.map((d, i) => (i === 0 || i === 4 ? COLORS.blue : d < 0 ? COLORS.red : COLORS.green));
+    const texts = deltas.map((d, i) => (i === 0 || i === 4 ? d.toFixed(2) : (d >= 0 ? "+" : "") + d.toFixed(2)));
+    makeChart("waterfall", "chart-waterfall", {
+      type: "bar",
+      data: { labels, datasets: [{ label: "Expected count", data, backgroundColor: colors, borderRadius: 2 }] },
+      options: withDatalabels(
+        Object.assign(chartBaseOptions("", "Expected count"), { plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } } }),
+        { display: true, color: COLORS.navy, anchor: "end", align: "top", offset: 4, font: { size: 11, weight: "700" },
+          formatter: (v, ctx) => texts[ctx.dataIndex] }
+      ),
+    });
+  }
+
+  // 3) Cost efficiency: defender points destroyed per attacker point spent,
+  // for every attacker unit in every group (plus a total per group).
+  function renderCostChart() {
+    const note = document.getElementById("cost-note");
+    const ids = Object.keys(groupResults);
+    const first = groupResults[ids[0]].scenarioResults[SCENARIOS[0].id].def;
+    if (!lastDefenderPts || !first.wounds * first.models) {
+      setBoxVisible("cost-box", false);
+      return;
+    }
+    setBoxVisible("cost-box", true);
+    const colors = [COLORS.blue, COLORS.red];
+    const labels = [], vals = [], cols = [], notes = [];
+    ids.forEach((id, gi) => {
+      const gr = groupResults[id];
+      const sc = viewScenario(gr);
+      const entry = gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id];
+      const pool = entry.def.wounds * entry.def.models;
+      const byId = {};
+      const rows = [];
+      entry.result.perAttacker.forEach((p, i) => {
+        const m = entry.meta[i];
+        if (!m || !m.unitPoints) return;
+        if (!byId[m.attackerId]) {
+          byId[m.attackerId] = { name: m.unitName, points: m.unitPoints, dmg: 0 };
+          rows.push(byId[m.attackerId]);
+        }
+        byId[m.attackerId].dmg += p.meanDamage;
+      });
+      rows.forEach((r) => {
+        labels.push([gr.label, r.name, r.points + " pts"]);
+        vals.push((Math.min(1, r.dmg / pool) * lastDefenderPts) / r.points);
+        cols.push(colors[gi]);
+      });
+      if (rows.length > 1 && gr.points) {
+        labels.push([gr.label, "Total", gr.points + " pts"]);
+        vals.push((Math.min(1, entry.result.meanDamage / pool) * lastDefenderPts) / gr.points);
+        cols.push(colors[gi]);
+      }
+      const killed = entry.result.meanModelsKilled;
+      const destroyed = Math.min(1, entry.result.meanDamage / pool) * lastDefenderPts;
+      notes.push(gr.label + " (" + gr.points + " pts) destroys ~" + destroyed.toFixed(0) + " pts" +
+        (killed > 0 && gr.points ? ", " + (gr.points / killed).toFixed(0) + " attacker pts per defender model killed" : ""));
+    });
+    note.textContent = "Defender worth " + Math.round(lastDefenderPts) + " pts. " + notes.join(". ") +
+      ". A ratio above 1.0 means the attacker trades up.";
+    makeChart("cost", "chart-cost", {
+      type: "bar",
+      data: { labels, datasets: [{ label: "Defender pts destroyed per attacker pt", data: vals, backgroundColor: cols, borderRadius: 2 }] },
+      options: withDatalabels(
+        Object.assign(chartBaseOptions("", "Points destroyed / points spent"), { plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } } }),
+        topLabel(2, "", 0)
+      ),
+    });
+  }
+
+  // 4) Per-weapon comparison between the two groups.
+  function renderGroupWeaponChart(sc) {
+    const ids = Object.keys(groupResults);
+    if (ids.length < 2) {
+      setBoxVisible("group-weapon-box", false);
+      return;
+    }
+    setBoxVisible("group-weapon-box", true);
+    const per = {};
+    const labelOrder = [];
+    ids.forEach((id) => {
+      const g = groupResults[id];
+      const e = g.scenarioResults[sc.id] || g.scenarioResults[SCENARIOS[0].id];
+      per[id] = {};
+      e.result.perAttacker.forEach((p) => {
+        per[id][p.label] = (per[id][p.label] || 0) + p.meanDamage;
+        if (labelOrder.indexOf(p.label) < 0) labelOrder.push(p.label);
+      });
+    });
+    const colors = [COLORS.blue, COLORS.red];
+    const wrap = document.getElementById("group-weapon-wrap");
+    if (wrap) wrap.style.height = Math.max(240, labelOrder.length * 46 + 80) + "px";
+    makeChart("groupWeapon", "chart-group-weapon", {
+      type: "bar",
+      data: {
+        labels: labelOrder.map(splitWeaponLabel),
+        datasets: ids.map((id, gi) => ({
+          label: groupResults[id].label,
+          data: labelOrder.map((l) => (per[id][l] != null ? per[id][l] : null)),
+          backgroundColor: colors[gi], borderRadius: 2,
+        })),
+      },
+      options: withDatalabels(chartBaseOptions("Expected damage", ""), endLabel(2, "", 0.01), { indexAxis: "y" }),
+    });
+  }
+
+  // 5) Generic defender archetypes, all groups side by side.
+  function renderArchetypeChart(sc) {
+    const ids = Object.keys(groupResults);
+    const colors = [COLORS.blue, COLORS.red];
+    const res = {};
+    ids.forEach((id) => {
+      const g = groupResults[id];
+      const gsc = g.meleeOnly ? SCENARIOS[0] : sc;
+      res[id] = ARCHETYPES.map((a) => {
+        const d = a.def();
+        const r = runVariant(g, gsc, { def: d });
+        const pool = d.wounds * d.models;
+        return { dmg: r.meanDamage, pct: Math.min(100, (r.meanDamage / pool) * 100) };
+      });
+    });
+    makeChart("archetype", "chart-archetype", {
+      type: "bar",
+      data: {
+        labels: ARCHETYPES.map((a) => a.label),
+        datasets: ids.map((id, gi) => ({
+          label: groupResults[id].label, data: res[id].map((x) => x.pct),
+          backgroundColor: colors[gi], borderRadius: 2,
+        })),
+      },
+      options: withDatalabels(chartBaseOptions("", "% of target's wounds destroyed"), topLabel(0, "%", 0.5), {
+        scales: Object.assign({}, chartBaseOptions("", "% of target's wounds destroyed").scales, {
+          y: Object.assign({}, chartBaseOptions("", "").scales.y, { title: { display: true, text: "% of target's wounds destroyed", color: COLORS.slate }, max: 115, grace: 0 }),
+        }),
+      }),
+    });
+    let html = '<table class="group-compare-table"><thead><tr><th>Target</th>' +
+      ids.map((id) => "<th>" + esc(groupResults[id].label) + "</th>").join("") + "</tr></thead><tbody>";
+    ARCHETYPES.forEach((a, i) => {
+      const vals = ids.map((id) => res[id][i].dmg);
+      let best = -1;
+      if (ids.length > 1 && Math.abs(vals[0] - vals[1]) > 1e-9) best = vals[0] > vals[1] ? 0 : 1;
+      html += "<tr><td>" + esc(a.label.join(" \u2014 ")) + "</td>" + ids.map((id, k) =>
+        '<td class="' + (k === best ? "best" : "") + '">' + res[id][i].dmg.toFixed(1) + " (" + res[id][i].pct.toFixed(0) + "%)</td>").join("") + "</tr>";
+    });
+    document.getElementById("archetype-table").innerHTML = html + "</tbody></table>";
+  }
+
+  // 6) Unit-size scaling: damage and kill chance at different attacker sizes.
+  function renderScalingChart(gr, sc, cache) {
+    if (!cache.scaling) {
+      cache.scaling = [0.5, 1, 1.5, 2, 3].map((f) => {
+        const r = runVariant(gr, sc, { count: f });
+        const mk = r.modelsKilledSamples || [];
+        const models = (gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id]).def.models;
+        const kills = mk.filter((k) => k >= models).length;
+        return { f, dmg: r.meanDamage, kill: mk.length ? (kills / mk.length) * 100 : 0 };
+      });
+    }
+    const d = cache.scaling;
+    const opts = withDatalabels(chartBaseOptions("Weapon copies firing (relative to current)", "Expected damage"), topLabel(1, "", 0.01));
+    opts.scales.y1 = { position: "right", min: 0, max: 112, title: { display: true, text: "Chance to kill unit (%)", color: COLORS.slate },
+      ticks: { color: COLORS.slate, callback: (v) => (v <= 100 ? v : "") }, grid: { drawOnChartArea: false } };
+    makeChart("scaling", "chart-scaling", {
+      type: "bar",
+      data: {
+        labels: d.map((x) => "\u00d7" + x.f + (x.f === 1 ? " (current)" : "")),
+        datasets: [
+          { type: "bar", label: "Expected damage", data: d.map((x) => x.dmg), backgroundColor: COLORS.blue, borderRadius: 2, yAxisID: "y",
+            datalabels: { display: true, color: "#fff", anchor: "end", align: "start", offset: 6,
+              font: { size: 11, weight: "700" }, formatter: (v) => v.toFixed(1) } },
+          { type: "line", label: "Chance to kill unit (%)", data: d.map((x) => x.kill), borderColor: COLORS.red,
+            backgroundColor: COLORS.red, yAxisID: "y1", tension: 0.25,
+            datalabels: LABEL_BOX(COLORS.red, "top", (v) => v.toFixed(0) + "%") },
+        ],
+      },
+      options: opts,
+    });
+  }
+
+  // 7) Which buff is worth the most.
+  function renderSensitivityChart(gr, sc, entry, cache) {
+    if (!cache.sens) {
+      const base = runVariant(gr, sc, { trials: SENS_TRIALS }).meanDamage;
+      const rows = SENS_VARIANTS.map((v) => {
+        const r = runVariant(gr, sc, { mods: v.mods, kw: v.kw, trials: SENS_TRIALS });
+        return { label: v.label, pct: base > 0 ? (r.meanDamage / base - 1) * 100 : 0, dmg: r.meanDamage };
+      });
+      rows.sort((a, b) => b.pct - a.pct);
+      cache.sens = { base, rows };
+    }
+    const rows = cache.sens.rows;
+    const wrap = document.getElementById("sensitivity-wrap");
+    if (wrap) wrap.style.height = Math.max(260, rows.length * 34 + 60) + "px";
+    makeChart("sensitivity", "chart-sensitivity", {
+      type: "bar",
+      data: {
+        labels: rows.map((r) => r.label),
+        datasets: [{ label: "Change in expected damage (%)", data: rows.map((r) => r.pct),
+          backgroundColor: rows.map((r) => (r.pct >= 0 ? COLORS.green : COLORS.red)), borderRadius: 2 }],
+      },
+      options: withDatalabels(
+        Object.assign(chartBaseOptions("Change in expected damage vs current (%)", ""), { plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } } }),
+        endLabel(1, "%", null), { indexAxis: "y" }
+      ),
+    });
+  }
+
+  // 8) Shooting vs Overwatch vs Melee for the weapons in the group.
+  function renderPhaseChart(gr, sc, cache) {
+    if (!cache.phase) {
+      const variants = [
+        { label: "Shooting", o: { filter: (x) => !x.melee, mods: () => ({ fireOverwatch: false }) } },
+        { label: "Overwatch (ranged weapons)", o: { filter: (x) => !x.melee, mods: () => ({ fireOverwatch: true }) } },
+        { label: "Melee", o: { filter: (x) => x.melee, mods: () => ({ fireOverwatch: false }) } },
+      ];
+      cache.phase = variants
+        .map((v) => { const r = runVariant(gr, sc, v.o); return r ? { label: v.label, dmg: r.meanDamage } : null; })
+        .filter(Boolean);
+    }
+    const d = cache.phase;
+    setBoxVisible("phase-box", d.length >= 2 || (d.length === 1 && d[0].label !== "Melee" && d[0].label !== "Shooting"));
+    const cols = { Shooting: COLORS.blue, "Overwatch (ranged weapons)": COLORS.slate, Melee: COLORS.red };
+    makeChart("phase", "chart-phase", {
+      type: "bar",
+      data: { labels: d.map((x) => x.label), datasets: [{ label: "Expected damage", data: d.map((x) => x.dmg),
+        backgroundColor: d.map((x) => cols[x.label]), borderRadius: 2 }] },
+      options: withDatalabels(
+        Object.assign(chartBaseOptions("", "Expected damage"), { plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } } }),
+        topLabel(2, "", 0.01)
+      ),
+    });
+  }
+
+  // 9) Toughness x Save heatmap (expected damage vs a single big wound pool).
+  function renderVulnerabilityTable(gr, sc, cache) {
+    const Ts = [3, 4, 5, 6, 8, 10, 12];
+    const Svs = [2, 3, 4, 5, 6, 7];
+    if (!cache.vuln) {
+      cache.vuln = Ts.map((t) => Svs.map((sv) => runVariant(gr, sc, { def: plainDefender(t, sv, 1000, 1), trials: 2500 }).meanDamage));
+    }
+    const grid = cache.vuln;
+    const max = Math.max.apply(null, grid.map((r) => Math.max.apply(null, r)));
+    let html = '<table class="vuln-table"><thead><tr><th>Toughness \\ Save</th>' +
+      Svs.map((v) => "<th>" + (v === 7 ? "None" : v + "+") + "</th>").join("") + "</tr></thead><tbody>";
+    Ts.forEach((t, i) => {
+      html += "<tr><th>T" + t + "</th>" + grid[i].map((v) => {
+        const a = max > 0 ? (0.08 + 0.72 * (v / max)).toFixed(2) : 0;
+        return '<td style="background:rgba(46,92,138,' + a + ');color:' + (a > 0.5 ? "#fff" : COLORS.navy) + '">' + v.toFixed(1) + "</td>";
+      }).join("") + "</tr>";
+    });
+    document.getElementById("vuln-body").innerHTML = html + "</tbody></table>";
   }
 
   // ---- Attacker-group comparison -------------------------------------------
