@@ -1009,6 +1009,13 @@ function rollEvalWithTracking(threshold, critThreshold, policy) {
 //           extraAttacks }
 // }
 // defender: { toughness, save, invuln, fnp, wounds, models, coverBonus, keywords: [] }
+// Blast X: X extra attacks per 5 models in the target unit. The data keyword
+// carries no X, so read it from the weapon's rules text ("BLAST 2"); default 1.
+function blastNFromWeapon(weapon) {
+  const m = /blast\s*(\d+)/i.exec((weapon && weapon.rulesText) || "");
+  return m ? parseInt(m[1], 10) : 1;
+}
+
 function buildAttackerRuntime(weapon, overrides) {
   const kw = {};
   (weapon.keywords || []).forEach((k) => {
@@ -1021,6 +1028,8 @@ function buildAttackerRuntime(weapon, overrides) {
       kw.meltaN = k.n;
     } else if (k.code === "RAPID_FIRE") {
       kw.rapidFireN = k.n;
+    } else if (k.code === "BLAST") {
+      kw.blastN = blastNFromWeapon(weapon);
     } else if (k.code === "CLEAVE") {
       kw.cleaveN = k.n;
     } else {
@@ -1104,6 +1113,8 @@ function simulate(attackers, defender, trials) {
       for (let w = 0; w < numWeapons; w++) totalAttacks += Math.max(0, diceAttacks() + flatBonus);
       if (mods.extraAttacks) totalAttacks += numWeapons;
       if (atk.kw.rapidFireN && mods.halfRange) totalAttacks += atk.kw.rapidFireN * numWeapons;
+      // Blast X: +X attacks per weapon for every 5 models in the target unit (rounded down).
+      if (atk.kw.blastN) totalAttacks += atk.kw.blastN * Math.floor((defender.models || 1) / 5) * numWeapons;
       sumAttacks += totalAttacks;
       pa.sumAttacks += totalAttacks;
 
@@ -2444,6 +2455,7 @@ if (typeof module !== "undefined") {
       else if (k.code === "MELTA") kw.meltaN = k.n;
       else if (k.code === "RAPID_FIRE") kw.rapidFireN = k.n;
       else if (k.code === "TORRENT") kw.TORRENT = true;
+      else if (k.code === "BLAST") kw.blastN = blastNFromWeapon(weapon);
       else if (k.code === "IGNORES_COVER") kw.ignoresCoverWeapon = true;
     });
     kw.anti = (row.antiList || []).map((x) => ({ keyword: x.keyword, threshold: x.threshold }));
@@ -2667,7 +2679,8 @@ if (typeof module !== "undefined") {
 
   const ARCHETYPES = [
     { label: ["Horde", "T3 5+ \u00b7 20\u00d7W1"], def: () => plainDefender(3, 5, 1, 20) },
-    { label: ["Elite infantry", "T4 3+ \u00b7 10\u00d7W2"], def: () => plainDefender(4, 3, 2, 10) },
+    { label: ["Medium infantry", "T4 3+ \u00b7 10\u00d7W2"], def: () => plainDefender(4, 3, 2, 10) },
+    { label: ["Elite infantry", "T5 3+ \u00b7 10\u00d7W2"], def: () => plainDefender(5, 3, 2, 10) },
     { label: ["Terminators", "T5 2+/4++ \u00b7 5\u00d7W3"], def: () => plainDefender(5, 2, 3, 5, 4) },
     { label: ["Monster", "T9 3+ \u00b7 1\u00d7W12"], def: () => plainDefender(9, 3, 12, 1) },
     { label: ["Vehicle", "T10 2+ \u00b7 1\u00d7W16"], def: () => plainDefender(10, 2, 16, 1) },
