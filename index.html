@@ -528,6 +528,28 @@ footer.app-footer {
 .legend-opt.active { background: var(--navy); color: var(--white); }
 .legend-opt:not(.active):hover { background: var(--blue-tint); }
 
+.group-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; align-items: center; }
+.group-tab, .group-view-btn {
+  background: var(--white); color: var(--navy); border: 2px solid var(--navy); border-radius: 999px;
+  padding: 7px 18px; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.group-tab.active, .group-view-btn.active { background: var(--navy); color: var(--white); }
+.group-tab-add { border-style: dashed; }
+.group-tab-remove { background: transparent; border: 0; color: var(--red); font-size: 13px; font-weight: 700; cursor: pointer; }
+.group-view-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 16px; }
+.group-view-bar .group-view-label { font-size: 13px; font-weight: 700; color: var(--navy); text-transform: uppercase; letter-spacing: 0.5px; margin-right: 4px; }
+.group-verdict { font-size: 14px; font-weight: 700; color: var(--navy); margin: 0 0 10px; }
+.group-compare-table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 13px; }
+.group-compare-table th, .group-compare-table td { padding: 7px 10px; border-bottom: 1px solid var(--blue-light); text-align: right; }
+.group-compare-table th:first-child, .group-compare-table td:first-child { text-align: left; }
+.group-compare-table td.best { background: #dcfce7; font-weight: 800; color: #166534; }
+
+.matchup-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--navy); color: #fff;
+  border-radius: 8px; padding: 12px 18px; margin: 0 0 14px; font-size: 17px; font-weight: 800; }
+.matchup-banner .mb-vs { color: var(--blue-light); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
+.matchup-banner .mb-sc { margin-left: auto; font-size: 13px; font-weight: 700; background: rgba(255,255,255,0.15); border-radius: 999px; padding: 4px 12px; }
+.chart-sub { font-size: 12px; color: var(--slate, #475569); font-weight: 600; margin: -4px 0 10px; }
+
 </style>
 </head>
 <body>
@@ -553,6 +575,7 @@ footer.app-footer {
 
 <section id="results-panel" class="results-full hidden">
   <div class="col-head"><h2>Results</h2></div>
+  <div class="matchup-banner" id="matchup-banner"></div>
   <p class="melee-note hidden" id="melee-note">Melee attacks only: range and cover don't apply to melee weapons (cover's -1 is a Ballistic Skill penalty, and Melta / Rapid Fire are ranged rules), so a single result is shown.</p>
   <div class="scenario-bar" id="scenario-bar">
     <button class="scenario-btn" data-scenario="longNoCover">Long Range · No Cover</button>
@@ -560,6 +583,13 @@ footer.app-footer {
     <button class="scenario-btn" data-scenario="longCover">Long Range · In Cover</button>
     <button class="scenario-btn" data-scenario="halfCover">Half Range · In Cover</button>
   </div>
+  <div class="chart-box hidden" id="group-compare-box">
+    <h3 id="group-compare-title">Attacker group comparison</h3>
+    <div id="group-compare-verdict" class="group-verdict"></div>
+    <div id="group-compare-table"></div>
+    <div class="chart-canvas-wrap"><canvas id="chart-group-compare"></canvas></div>
+  </div>
+  <div class="group-view-bar hidden" id="group-view-bar"></div>
   <div class="stats-grid">
     <div class="stat-tile"><div class="val" id="stat-attacks">0</div><div class="lbl">Attacks</div></div>
     <div class="stat-tile"><div class="val" id="stat-hits">0</div><div class="lbl">Hits</div></div>
@@ -628,6 +658,7 @@ footer.app-footer {
       <h2>Attackers</h2>
       <button class="btn" id="add-attacker">+ Add attacker</button>
     </div>
+    <div class="group-tabs" id="group-tabs"></div>
     <div id="attackers-list"></div>
   </section>
 
@@ -1231,6 +1262,18 @@ if (typeof module !== "undefined") {
   ];
 
   let attackers = [];
+  // Attacker groups: up to two independent lists of attackers (each with its
+  // own weapon rows) that are simulated against the same defender and can be
+  // compared. `attackers` always points at the ACTIVE group's list.
+  const MAX_GROUPS = 2;
+  let groups = [{ id: "A", label: "Group A", attackers }];
+  let activeGroupId = "A";
+  let groupResults = null; // { A: {label, scenarioResults, meleeOnly, points}, ... }
+  let viewGroupId = "A";
+  function syncActiveGroup() {
+    const g = groups.find((x) => x.id === activeGroupId);
+    if (g) g.attackers = attackers;
+  }
   let nextId = 1;
   let defender = {
     faction: "", // no preselected defender faction ("Select defender" placeholder)
@@ -1410,7 +1453,77 @@ if (typeof module !== "undefined") {
     return (weapon.keywords || []).find((k) => k.code === code);
   }
 
+  function renderGroupTabs() {
+    const bar = document.getElementById("group-tabs");
+    if (!bar) return;
+    bar.innerHTML = "";
+    groups.forEach((g) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "group-tab" + (g.id === activeGroupId ? " active" : "");
+      b.dataset.group = g.id;
+      b.textContent = g.label;
+      b.addEventListener("click", () => setActiveGroup(g.id));
+      bar.appendChild(b);
+    });
+    if (groups.length < MAX_GROUPS) {
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "group-tab group-tab-add";
+      add.id = "add-group";
+      add.textContent = "+ Add attacker group";
+      add.addEventListener("click", addAttackerGroup);
+      bar.appendChild(add);
+    } else {
+      const rm = document.createElement("button");
+      rm.type = "button";
+      rm.className = "group-tab-remove";
+      rm.id = "remove-group";
+      rm.textContent = "\u00d7 Remove Group B";
+      rm.addEventListener("click", removeAttackerGroup);
+      bar.appendChild(rm);
+    }
+  }
+
+  function setActiveGroup(id) {
+    if (id === activeGroupId) return;
+    syncActiveGroup();
+    const g = groups.find((x) => x.id === id);
+    if (!g) return;
+    activeGroupId = id;
+    attackers = g.attackers;
+    renderAttackers();
+  }
+
+  function addAttackerGroup() {
+    if (groups.length >= MAX_GROUPS) return;
+    syncActiveGroup();
+    const g = { id: "B", label: "Group B", attackers: [newAttacker()] };
+    groups.push(g);
+    activeGroupId = "B";
+    attackers = g.attackers;
+    renderAttackers();
+  }
+
+  function removeAttackerGroup() {
+    if (groups.length < 2) return;
+    syncActiveGroup();
+    groups = groups.filter((g) => g.id !== "B");
+    activeGroupId = "A";
+    attackers = groups[0].attackers;
+    if (groupResults) {
+      delete groupResults.B;
+      if (viewGroupId === "B") viewGroupId = "A";
+      if (groupResults.A) {
+        showGroupView(viewGroupId);
+        renderResults(currentScenarioId);
+      }
+    }
+    renderAttackers();
+  }
+
   function renderAttackers() {
+    renderGroupTabs();
     const wrap = document.getElementById("attackers-list");
     wrap.innerHTML = "";
     if (!attackers.length) {
@@ -1869,7 +1982,10 @@ if (typeof module !== "undefined") {
   // weapon chosen AND a defender unit has been explicitly picked (either
   // from the Defender box or the linked selector in Efficiency Finder).
   function hasValidAttacker() {
-    return attackers.some((a) => a.unitId && a.weaponRows.some((r) => r.weaponIdx != null));
+    syncActiveGroup();
+    return groups.some((g) =>
+      g.attackers.some((a) => a.unitId && a.weaponRows.some((r) => r.weaponIdx != null))
+    );
   }
 
   // Two Calculate buttons exist (one above the results/graphs, one just
@@ -2022,10 +2138,10 @@ if (typeof module !== "undefined") {
   // + name + points cost) — index-aligned with engineAttackers (and so, once
   // run through simulate(), with result.perAttacker too), used to aggregate
   // "damage per 100 points" per attacker unit across its weapon rows.
-  function buildEngineInputs() {
+  function buildEngineInputs(list) {
     const engineAttackers = [];
     const meta = [];
-    attackers.forEach((a) => {
+    (list || attackers).forEach((a) => {
       const unit = a.unitId ? unitById[a.unitId] : null;
       if (!unit) return;
       a.weaponRows.forEach((row) => {
@@ -2059,39 +2175,61 @@ if (typeof module !== "undefined") {
     };
   }
 
-  function runSimulation() {
-    const { engineAttackers, meta } = buildEngineInputs();
-    if (!engineAttackers.length) {
-      alert("Add at least one attacker with a weapon selected before calculating.");
-      return;
-    }
-    const baseDef = buildDefenderProfile();
-
-    // Run all 4 Range/Cover scenarios up front (same attackers/defender,
-    // only halfRange + coverBonus vary) so switching the scenario buttons
-    // afterward is instant with no recalculation.
-    // Melee-only selections: range and cover are irrelevant (cover is a BS
-    // penalty; Melta/Rapid Fire are ranged rules), so compute one scenario
-    // and show an explanatory note instead of the Range/Cover buttons.
-    scenarioMeleeOnly = meta.length > 0 && meta.every((m) => m.isMelee);
-    const scenariosToRun = scenarioMeleeOnly ? [SCENARIOS[0]] : SCENARIOS;
-    scenarioResults = {};
-    scenariosToRun.forEach((sc) => {
+  // Simulates one attacker group under all (or, melee-only, one) Range/Cover
+  // scenarios. Returns the per-group result bundle.
+  function computeGroup(g, engineAttackers, meta, baseDef) {
+    const meleeOnly = meta.length > 0 && meta.every((m) => m.isMelee);
+    const toRun = meleeOnly ? [SCENARIOS[0]] : SCENARIOS;
+    const results = {};
+    toRun.forEach((sc) => {
       const atkForScenario = engineAttackers.map((a) =>
         Object.assign({}, a, { mods: Object.assign({}, a.mods, { halfRange: sc.halfRange }) })
       );
       const defForScenario = Object.assign({}, baseDef, { coverBonus: sc.cover });
       const result = simulate(atkForScenario, defForScenario, 20000);
-      scenarioResults[sc.id] = { result, def: defForScenario, meta };
+      results[sc.id] = { result, def: defForScenario, meta };
     });
+    const seen = {};
+    let points = 0;
+    meta.forEach((m) => {
+      if (!seen[m.attackerId]) {
+        seen[m.attackerId] = true;
+        points += m.unitPoints || 0;
+      }
+    });
+    return { label: g.label, scenarioResults: results, meleeOnly, points };
+  }
 
-    if (!scenarioResults[currentScenarioId]) currentScenarioId = SCENARIOS[0].id;
+  function showGroupView(id) {
+    viewGroupId = id;
+    scenarioResults = groupResults[id].scenarioResults;
+    scenarioMeleeOnly = groupResults[id].meleeOnly;
+  }
+
+  let lastDefenderName = "";
+
+  function runSimulation() {
+    syncActiveGroup();
+    lastDefenderName = defender.unitId && unitById[defender.unitId] ? unitDisplayName(unitById[defender.unitId]) : "Custom defender";
+    const baseDef = buildDefenderProfile();
+    const bundles = {};
+    groups.forEach((g) => {
+      const { engineAttackers, meta } = buildEngineInputs(g.attackers);
+      if (engineAttackers.length) bundles[g.id] = computeGroup(g, engineAttackers, meta, baseDef);
+    });
+    if (!Object.keys(bundles).length) {
+      alert("Add at least one attacker with a weapon selected before calculating.");
+      return;
+    }
+    groupResults = bundles;
+    if (!bundles[viewGroupId]) viewGroupId = Object.keys(bundles)[0];
+    showGroupView(viewGroupId);
     renderResults(currentScenarioId);
   }
 
   function renderResults(scenarioId) {
     currentScenarioId = scenarioId;
-    const entry = scenarioResults[scenarioId];
+    const entry = scenarioResults[scenarioId] || scenarioResults[SCENARIOS[0].id];
     const { result, def, meta } = entry;
 
     const panel = document.getElementById("results-panel");
@@ -2103,9 +2241,13 @@ if (typeof module !== "undefined") {
     if (calcBarTop) calcBarTop.classList.remove("hidden");
 
     updateScenarioButtons();
+    renderGroupViewBar();
+    renderGroupComparison();
+    renderMatchupLabels();
     const scenarioBar = document.getElementById("scenario-bar");
     const meleeNote = document.getElementById("melee-note");
-    if (scenarioBar) scenarioBar.style.display = scenarioMeleeOnly ? "none" : "";
+    const anyRanged = groupResults ? Object.values(groupResults).some((r) => !r.meleeOnly) : !scenarioMeleeOnly;
+    if (scenarioBar) scenarioBar.style.display = anyRanged ? "" : "none";
     if (meleeNote) meleeNote.classList.toggle("hidden", !scenarioMeleeOnly);
 
     document.getElementById("stat-attacks").textContent = result.meanAttacks.toFixed(2);
@@ -2136,6 +2278,170 @@ if (typeof module !== "undefined") {
     renderRulesBreakdown(result.rules);
     renderRerollBreakdown(result.rerolls);
     renderCoverComparisonChart();
+  }
+
+  // ---- Attacker-group comparison -------------------------------------------
+  function groupMetrics(id) {
+    const gr = groupResults[id];
+    const entry = gr.scenarioResults[currentScenarioId] || gr.scenarioResults[SCENARIOS[0].id];
+    const r = entry.result;
+    const def = entry.def;
+    const pool = def.wounds * def.models;
+    const ks = r.modelsKilledSamples || [];
+    const full = ks.filter((k) => k >= def.models).length;
+    return {
+      dmg: r.meanDamage,
+      killed: r.meanModelsKilled,
+      pct: pool > 0 ? Math.min(100, (r.meanDamage / pool) * 100) : 0,
+      killUnit: ks.length ? (full / ks.length) * 100 : 0,
+      points: gr.points,
+      per100: gr.points > 0 ? (r.meanDamage / gr.points) * 100 : null,
+    };
+  }
+
+  // Matchup text ("Attackers vs Defender") so screenshots of any chart are
+  // self-explanatory: a banner at the top of the results plus a subtitle
+  // under every chart heading.
+  function groupAttackerNames(id) {
+    const gr = groupResults[id];
+    const first = Object.values(gr.scenarioResults)[0];
+    const seen = [];
+    first.meta.forEach((m) => {
+      if (m && m.unitName && seen.indexOf(m.unitName) < 0) seen.push(m.unitName);
+    });
+    return seen.join(", ");
+  }
+
+  function renderMatchupLabels() {
+    const panel = document.getElementById("results-panel");
+    if (!panel || !groupResults) return;
+    const ids = Object.keys(groupResults);
+    const multi = ids.length > 1;
+    const atkText = (id) => (multi ? groupResults[id].label + ": " : "") + groupAttackerNames(id);
+    const viewText = atkText(viewGroupId);
+    const sc = scenarioById(currentScenarioId);
+    const scText = scenarioMeleeOnly ? "Melee" : sc.label;
+    const banner = document.getElementById("matchup-banner");
+    if (banner) {
+      banner.innerHTML =
+        '<span class="mb-side">' + esc(multi ? ids.map(atkText).join("  |  ") : viewText) + "</span>" +
+        '<span class="mb-vs">vs</span><span class="mb-side">' + esc(lastDefenderName) + "</span>" +
+        '<span class="mb-sc">' + esc(scText) + "</span>";
+    }
+    panel.querySelectorAll(".chart-box h3").forEach((h) => {
+      let sub = h.nextElementSibling;
+      if (!sub || !sub.classList.contains("chart-sub")) {
+        sub = document.createElement("div");
+        sub.className = "chart-sub";
+        h.parentNode.insertBefore(sub, h.nextSibling);
+      }
+      const isCompare = h.id === "group-compare-title";
+      sub.textContent = (isCompare ? ids.map(atkText).join("  |  ") : viewText) + " vs " + lastDefenderName + " \u00b7 " + scText;
+    });
+  }
+
+  function renderGroupViewBar() {
+    const bar = document.getElementById("group-view-bar");
+    if (!bar) return;
+    const ids = groupResults ? Object.keys(groupResults) : [];
+    if (ids.length < 2) {
+      bar.classList.add("hidden");
+      bar.innerHTML = "";
+      return;
+    }
+    bar.classList.remove("hidden");
+    bar.innerHTML = '<span class="group-view-label">Show full results for</span>';
+    ids.forEach((id) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "group-view-btn" + (id === viewGroupId ? " active" : "");
+      b.dataset.group = id;
+      b.textContent = groupResults[id].label;
+      b.addEventListener("click", () => {
+        showGroupView(id);
+        renderResults(currentScenarioId);
+      });
+      bar.appendChild(b);
+    });
+  }
+
+  function renderGroupComparison() {
+    const box = document.getElementById("group-compare-box");
+    if (!box) return;
+    const ids = groupResults ? Object.keys(groupResults) : [];
+    if (ids.length < 2) {
+      box.classList.add("hidden");
+      if (charts.groupCompare) {
+        charts.groupCompare.destroy();
+        charts.groupCompare = null;
+      }
+      return;
+    }
+    box.classList.remove("hidden");
+    const sc = scenarioById(currentScenarioId);
+    const anyRanged = Object.values(groupResults).some((r) => !r.meleeOnly);
+    document.getElementById("group-compare-title").textContent =
+      "Attacker group comparison" + (anyRanged ? " \u2014 " + sc.label : " \u2014 melee");
+
+    const m = {};
+    ids.forEach((id) => (m[id] = groupMetrics(id)));
+    const rows = [
+      { key: "dmg", label: "Expected damage", fmt: (v) => v.toFixed(2), higher: true },
+      { key: "killed", label: "Models killed", fmt: (v) => v.toFixed(2), higher: true },
+      { key: "pct", label: "% of unit's wounds", fmt: (v) => v.toFixed(1) + "%", higher: true },
+      { key: "killUnit", label: "Chance to kill unit", fmt: (v) => v.toFixed(1) + "%", higher: true },
+      { key: "points", label: "Points", fmt: (v) => (v ? v + " pts" : "-"), higher: false, noBest: true },
+      { key: "per100", label: "Damage per 100 pts", fmt: (v) => (v == null ? "-" : v.toFixed(2)), higher: true },
+    ];
+    let html = '<table class="group-compare-table"><thead><tr><th></th>' +
+      ids.map((id) => "<th>" + esc(groupResults[id].label) + "</th>").join("") + "</tr></thead><tbody>";
+    rows.forEach((r) => {
+      const vals = ids.map((id) => m[id][r.key]);
+      let bestIdx = -1;
+      if (!r.noBest && vals.every((v) => v != null)) {
+        const best = r.higher ? Math.max(...vals) : Math.min(...vals);
+        if (vals.filter((v) => Math.abs(v - best) < 1e-9).length === 1) bestIdx = vals.indexOf(best);
+      }
+      html += "<tr><td>" + r.label + "</td>" + ids.map((id, i) =>
+        '<td class="' + (i === bestIdx ? "best" : "") + '">' + r.fmt(m[id][r.key]) + "</td>").join("") + "</tr>";
+    });
+    html += "</tbody></table>";
+    document.getElementById("group-compare-table").innerHTML = html;
+
+    // Verdict line (by expected damage; also by damage per point when known)
+    const [a, b] = ids;
+    const verdict = document.getElementById("group-compare-verdict");
+    const hi = m[a].dmg >= m[b].dmg ? a : b;
+    const lo = hi === a ? b : a;
+    let text = m[hi].dmg === m[lo].dmg
+      ? "Both groups deal the same expected damage."
+      : groupResults[hi].label + " deals " + (m[lo].dmg > 0 ? (((m[hi].dmg / m[lo].dmg) - 1) * 100).toFixed(0) + "% " : "") + "more expected damage (" + m[hi].dmg.toFixed(2) + " vs " + m[lo].dmg.toFixed(2) + ").";
+    if (m[a].per100 != null && m[b].per100 != null && m[a].per100 !== m[b].per100) {
+      const eff = m[a].per100 > m[b].per100 ? a : b;
+      text += " " + groupResults[eff].label + " is more points-efficient (" + m[eff].per100.toFixed(2) + " dmg / 100 pts).";
+    }
+    verdict.textContent = text;
+
+    // Expected damage by scenario, one bar per group
+    const labels = SCENARIOS.map((s) => s.label.split(" \u00b7 "));
+    const ctx = document.getElementById("chart-group-compare").getContext("2d");
+    if (charts.groupCompare) charts.groupCompare.destroy();
+    charts.groupCompare = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: ids.map((id, i) => ({
+          label: groupResults[id].label,
+          data: SCENARIOS.map((s) => {
+            const e = groupResults[id].scenarioResults[s.id] || groupResults[id].scenarioResults[SCENARIOS[0].id];
+            return e.result.meanDamage;
+          }),
+          backgroundColor: i === 0 ? COLORS.blue : COLORS.red,
+          borderRadius: 2,
+        })),
+      },
+      options: withDatalabels(chartBaseOptions("", "Expected damage"), topLabel(2, "", 0.01)),
+    });
   }
 
   // Highlights whichever scenario button matches currentScenarioId; wired up
@@ -2873,7 +3179,8 @@ if (typeof module !== "undefined") {
       b.classList.toggle("active", (b.dataset.legends === "on") === on);
     });
     if (!on) {
-      attackers.forEach((a) => {
+      syncActiveGroup();
+      groups.forEach((g) => g.attackers.forEach((a) => {
         const u = a.unitId ? unitById[a.unitId] : null;
         if (u && u.legends) {
           let list = visibleUnits(u.faction);
@@ -2882,7 +3189,7 @@ if (typeof module !== "undefined") {
           a.unitId = nu ? nu.id : null;
           a.weaponRows = [newWeaponRow(nu)];
         }
-      });
+      }));
       const du = defender.unitId ? unitById[defender.unitId] : null;
       if (du && du.legends) defender.unitId = null;
       if (defender.faction && !visibleFactions().includes(defender.faction)) {
