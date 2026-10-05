@@ -574,6 +574,25 @@ footer.app-footer {
 .unit-size-row .num-input { width: 70px; }
 .unit-size-pts { color: var(--blue); font-weight: 800; }
 
+.saved-panel { margin: 0 0 14px; border: 1px solid var(--blue-light); border-radius: 8px; background: #fff; }
+.saved-panel > summary { cursor: pointer; padding: 10px 14px; font-weight: 800; font-size: 13px; color: var(--navy); text-transform: uppercase; letter-spacing: 0.5px; }
+.saved-body { padding: 4px 14px 14px; }
+.saved-save-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.saved-name { flex: 1; border: 1px solid var(--blue-light); border-radius: 6px; padding: 8px 10px; font-size: 13px; }
+.saved-list { margin-bottom: 10px; }
+.saved-item { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--blue-tint, #eaf1f8); font-size: 13px; }
+.saved-item .si-main { flex: 1; min-width: 0; }
+.saved-item .si-name { font-weight: 800; color: var(--navy); }
+.saved-item .si-sum { color: var(--slate, #475569); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.saved-item button { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.saved-item button.si-del { color: var(--red); border-color: var(--red); }
+.saved-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.saved-import-label { display: inline-flex; align-items: center; cursor: pointer; }
+.share-link-box { width: 100%; margin-top: 10px; border: 1px solid var(--blue-light); border-radius: 6px; padding: 7px 10px; font-size: 12px; }
+.saved-msg { margin-top: 8px; font-size: 12px; font-weight: 700; color: var(--blue); white-space: pre-line; }
+.saved-msg.warn { color: var(--red); }
+.saved-hint { font-size: 11px; color: var(--slate, #475569); margin: 8px 0 0; }
+
 </style>
 </head>
 <body>
@@ -607,13 +626,13 @@ footer.app-footer {
     <button class="scenario-btn" data-scenario="longCover">Long Range · In Cover</button>
     <button class="scenario-btn" data-scenario="halfCover">Half Range · In Cover</button>
   </div>
-  <div class="chart-box hidden" id="group-compare-box">
+  <div class="chart-box" id="group-compare-box" style="display:none">
     <h3 id="group-compare-title">Attacker group comparison</h3>
     <div id="group-compare-verdict" class="group-verdict"></div>
     <div id="group-compare-table"></div>
     <div class="chart-canvas-wrap"><canvas id="chart-group-compare"></canvas></div>
   </div>
-  <div class="group-view-bar hidden" id="group-view-bar"></div>
+  <div class="group-view-bar" id="group-view-bar" style="display:none"></div>
   <div class="stats-grid">
     <div class="stat-tile"><div class="val" id="stat-attacks">0</div><div class="lbl">Attacks</div></div>
     <div class="stat-tile"><div class="val" id="stat-hits">0</div><div class="lbl">Hits</div></div>
@@ -648,7 +667,7 @@ footer.app-footer {
     <div class="chart-canvas-wrap"><canvas id="chart-cover-comparison"></canvas></div>
   </div>
   <div class="chart-box">
-    <h3>Probability of killing at least N models</h3>
+    <h3 id="kills-title">Probability of killing at least N models</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-kills"></canvas></div>
   </div>
   <div class="chart-box">
@@ -722,6 +741,24 @@ footer.app-footer {
       <button class="btn" id="add-attacker">+ Add attacker</button>
     </div>
     <div class="group-tabs" id="group-tabs"></div>
+    <details class="saved-panel" id="saved-panel">
+      <summary>Saved groups &amp; share link</summary>
+      <div class="saved-body">
+        <div class="saved-save-row">
+          <input type="text" id="saved-name" class="saved-name" maxlength="60" placeholder="Name, e.g. 10 Blightlords + Lord of Virulence" />
+          <button type="button" class="btn" id="saved-save">Save current group</button>
+        </div>
+        <div id="saved-list" class="saved-list"></div>
+        <div class="saved-actions">
+          <button type="button" class="btn btn-secondary" id="saved-export">Export saved groups (file)</button>
+          <label class="btn btn-secondary saved-import-label">Import file<input type="file" id="saved-import" accept=".json,application/json" hidden /></label>
+          <button type="button" class="btn btn-secondary" id="share-copy">Copy share link</button>
+        </div>
+        <input type="text" id="share-link-box" class="share-link-box hidden" readonly />
+        <div id="saved-msg" class="saved-msg"></div>
+        <p class="saved-hint">Saved groups live in this browser only. Use Export / Import to move them between devices. The share link contains both attacker groups, the defender and the selected range/cover scenario, and recalculates when opened.</p>
+      </div>
+    </details>
     <div id="attackers-list"></div>
   </section>
 
@@ -1455,7 +1492,10 @@ if (typeof module !== "undefined") {
     return row;
   }
 
-  function newAttacker() {
+  function newAttacker(opts) {
+    if (opts && opts.faction && opts.blankUnit) {
+      return { id: uid(), unitId: null, faction: opts.faction, unitSize: 1, weaponRows: [newWeaponRow(null)] };
+    }
     const list = visibleUnits(visibleFactions()[0]);
     const unitId = list.length ? list[0].id : null;
     const unit = unitId ? unitById[unitId] : null;
@@ -1496,9 +1536,10 @@ if (typeof module !== "undefined") {
     return `<option value="">— Custom profile —</option>${unitOptions(faction, selectedId)}`;
   }
 
-  function unitOptions(faction, selectedId) {
+  function unitOptions(faction, selectedId, allowBlank) {
     const list = visibleUnits(faction);
-    return list
+    const blank = allowBlank && !selectedId ? '<option value="" selected>Select unit</option>' : "";
+    return blank + list
       .map(
         (u) =>
           `<option value="${u.id}" ${u.id === selectedId ? "selected" : ""}>${esc(unitDisplayName(u))}</option>`
@@ -1711,7 +1752,7 @@ if (typeof module !== "undefined") {
     card.dataset.id = a.id;
 
     const unit = a.unitId ? unitById[a.unitId] : null;
-    const faction = unit ? unit.faction : visibleFactions()[0];
+    const faction = unit ? unit.faction : a.faction || visibleFactions()[0];
 
     card.innerHTML = `
       <div class="card-head">
@@ -1720,7 +1761,7 @@ if (typeof module !== "undefined") {
       <div class="picker-section-label">Select Attacker</div>
       <div class="picker-row">
         <select class="sel faction-sel">${factionOptions(faction)}</select>
-        <select class="sel unit-sel">${unitOptions(faction, a.unitId)}</select>
+        <select class="sel unit-sel">${unitOptions(faction, a.unitId, !a.unitId)}</select>
       </div>
       <div class="unit-stat-line-wrap">${renderUnitCard(unit)}</div>
       <div class="unit-size-row">
@@ -1766,6 +1807,7 @@ if (typeof module !== "undefined") {
 
     factionSel.addEventListener("change", (e) => {
       const f = e.target.value;
+      a.faction = f;
       const list = visibleUnits(f);
       unitSel.innerHTML = unitOptions(f, null);
       const newUnitId = list.length ? list[0].id : null;
@@ -1775,7 +1817,7 @@ if (typeof module !== "undefined") {
     });
 
     unitSel.addEventListener("change", (e) => {
-      a.unitId = e.target.value;
+      a.unitId = e.target.value || null;
       onUnitChanged();
     });
 
@@ -2431,6 +2473,9 @@ if (typeof module !== "undefined") {
     if (!bundles[viewGroupId]) viewGroupId = Object.keys(bundles)[0];
     showGroupView(viewGroupId);
     renderResults(currentScenarioId);
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e) {}
   }
 
   function renderResults(scenarioId) {
@@ -2478,7 +2523,7 @@ if (typeof module !== "undefined") {
     renderDamageHistogram(result.damageSamples);
     renderDamageCumulative(result.damageSamples);
     renderStageFunnel(result, def);
-    renderKillProbability(result.modelsKilledSamples, def.models);
+    renderKillProbability(result.modelsKilledSamples, def.models, result.damageSamples, def.wounds * def.models);
     renderWeaponBreakdown(result.perAttacker);
     renderDamagePerPoint(result.perAttacker, meta);
     renderRulesBreakdown(result.rules);
@@ -2994,11 +3039,11 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
     if (!bar) return;
     const ids = groupResults ? Object.keys(groupResults) : [];
     if (ids.length < 2) {
-      bar.classList.add("hidden");
+      bar.style.display = "none";
       bar.innerHTML = "";
       return;
     }
-    bar.classList.remove("hidden");
+    bar.style.display = "flex";
     bar.innerHTML = '<span class="group-view-label">Show full results for</span>';
     ids.forEach((id) => {
       const b = document.createElement("button");
@@ -3019,14 +3064,14 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
     if (!box) return;
     const ids = groupResults ? Object.keys(groupResults) : [];
     if (ids.length < 2) {
-      box.classList.add("hidden");
+      box.style.display = "none";
       if (charts.groupCompare) {
         charts.groupCompare.destroy();
         charts.groupCompare = null;
       }
       return;
     }
-    box.classList.remove("hidden");
+    box.style.display = "";
     const sc = scenarioById(currentScenarioId);
     const anyRanged = Object.values(groupResults).some((r) => !r.meleeOnly);
     document.getElementById("group-compare-title").textContent =
@@ -3361,7 +3406,32 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
     });
   }
 
-  function renderKillProbability(modelsKilledSamples, maxModels) {
+  function renderKillProbability(modelsKilledSamples, maxModels, damageSamples, pool) {
+    const title = document.getElementById("kills-title");
+    // A single-model defender (monster, vehicle, character) has nothing to
+    // count: show how much of its wound pool gets removed instead.
+    if (maxModels <= 1 && damageSamples && pool > 0) {
+      if (title) title.textContent = "Probability of removing at least X% of the target's wounds";
+      const labels = [], data = [];
+      for (let pct = 10; pct <= 100; pct += 10) {
+        const need = Math.ceil((pct / 100) * pool - 1e-9);
+        labels.push(pct === 100 ? "100% (destroyed)" : pct + "%");
+        data.push((damageSamples.filter((d) => d >= need).length / damageSamples.length) * 100);
+      }
+      const opts = withDatalabels(chartBaseOptions("Share of the target's " + pool + " wounds removed", "Probability (%)"), topLabel(0, "%", 0.5));
+      opts.scales.y.max = 115;
+      opts.scales.y.grace = 0;
+      opts.plugins = Object.assign({}, opts.plugins, { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } });
+      const c0 = document.getElementById("chart-kills").getContext("2d");
+      if (charts.kills) charts.kills.destroy();
+      charts.kills = new Chart(c0, {
+        type: "bar",
+        data: { labels, datasets: [{ label: "Probability of removing at least X% of wounds (%)", data, backgroundColor: data.map((v, i) => (i === data.length - 1 ? COLORS.red : COLORS.blue)), borderRadius: 2 }] },
+        options: opts,
+      });
+      return;
+    }
+    if (title) title.textContent = "Probability of killing at least N models";
     const counts = new Array(maxModels + 1).fill(0);
     modelsKilledSamples.forEach((k) => {
       const killed = Math.min(maxModels, k);
@@ -3858,13 +3928,345 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
     updateCalcBtnState();
   }
 
+  // ===================== SAVED GROUPS / EXPORT / SHARE LINK =====================
+  // Everything is stored by NAME (faction + unit name, weapon name + type) and
+  // not by internal index, so saved groups and links survive data updates.
+  const STORE_KEY = "mathhammer.savedGroups.v1";
+
+  function storeLoad() {
+    try {
+      const v = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  function storeSave(list) {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(list));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function savedMsg(text, warn) {
+    const el = document.getElementById("saved-msg");
+    if (!el) return;
+    el.textContent = text || "";
+    el.classList.toggle("warn", !!warn);
+  }
+
+  function modsDiff(mods) {
+    const def = defaultMods();
+    const out = {};
+    Object.keys(mods || {}).forEach((k) => {
+      if (JSON.stringify(mods[k]) !== JSON.stringify(def[k])) out[k] = mods[k];
+    });
+    return out;
+  }
+
+  function serializeAttacker(a) {
+    const u = a.unitId ? unitById[a.unitId] : null;
+    if (!u) return null;
+    return {
+      id: u.id, f: u.faction, n: u.name, s: a.unitSize || u.modelsMin || 1,
+      r: a.weaponRows
+        .filter((r) => r.weaponIdx != null && u.weapons[r.weaponIdx])
+        .map((r) => {
+          const w = u.weapons[r.weaponIdx];
+          return { w: w.name, t: w.type, c: r.count, m: modsDiff(r.mods), a: r.antiList || [] };
+        }),
+    };
+  }
+
+  function findUnitByRef(o) {
+    let u = o.id ? unitById[o.id] : null;
+    if (u && u.name === o.n) return u;
+    u = DATA.units.find((x) => x.faction === o.f && x.name === o.n) || DATA.units.find((x) => x.name === o.n);
+    return u || null;
+  }
+
+  function deserializeAttacker(o, warnings) {
+    const u = findUnitByRef(o);
+    if (!u) {
+      warnings.push('Unit not found: "' + o.n + '" (' + o.f + ")");
+      return null;
+    }
+    if (u.legends && !showLegends) setShowLegends(true);
+    const rows = [];
+    (o.r || []).forEach((r) => {
+      let idx = u.weapons.findIndex((w) => w.name === r.w && w.type === r.t);
+      if (idx < 0) idx = u.weapons.findIndex((w) => w.name === r.w);
+      if (idx < 0) {
+        warnings.push('Weapon not found on ' + u.name + ': "' + r.w + '" (skipped)');
+        return;
+      }
+      rows.push({
+        id: uid("w"), weaponIdx: idx, count: Math.max(1, parseInt(r.c, 10) || 1),
+        mods: Object.assign(defaultMods(), r.m || {}), antiList: Array.isArray(r.a) ? r.a : [],
+      });
+    });
+    if (!rows.length) rows.push(newWeaponRow(u));
+    return { id: uid(), unitId: u.id, unitSize: Math.max(1, parseInt(o.s, 10) || u.modelsMin || 1), weaponRows: rows };
+  }
+
+  function currentGroupAttackers(gid) {
+    syncActiveGroup();
+    const g = groups.find((x) => x.id === gid);
+    return g ? g.attackers.map(serializeAttacker).filter(Boolean) : [];
+  }
+
+  function summarize(list) {
+    return (list || []).map((a) => a.s + "x " + a.n).join(", ") || "(empty)";
+  }
+
+  function applyAttackersToGroup(gid, list, label) {
+    syncActiveGroup();
+    let g = groups.find((x) => x.id === gid);
+    if (!g) {
+      if (groups.length >= MAX_GROUPS) return;
+      g = { id: gid, label: label || "Group " + gid, attackers: [] };
+      groups.push(g);
+    } else if (label) {
+      g.label = label;
+    }
+    g.attackers = list.length ? list : [newAttacker()];
+    activeGroupId = gid;
+    attackers = g.attackers;
+    renderAttackers();
+  }
+
+  function renderSavedList() {
+    const wrap = document.getElementById("saved-list");
+    if (!wrap) return;
+    const list = storeLoad();
+    wrap.innerHTML = list.length ? "" : '<div class="empty-hint small">No saved groups yet.</div>';
+    list.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "saved-item";
+      row.innerHTML = '<div class="si-main"><div class="si-name"></div><div class="si-sum"></div></div>' +
+        '<button type="button" data-act="A">Load into A</button><button type="button" data-act="B">Load into B</button>' +
+        '<button type="button" class="si-del" data-act="del">Delete</button>';
+      row.querySelector(".si-name").textContent = p.name;
+      row.querySelector(".si-sum").textContent = summarize(p.attackers);
+      row.querySelector(".si-sum").title = summarize(p.attackers);
+      row.querySelectorAll("button").forEach((b) =>
+        b.addEventListener("click", () => {
+          const act = b.dataset.act;
+          if (act === "del") {
+            const l = storeLoad();
+            l.splice(i, 1);
+            storeSave(l);
+            renderSavedList();
+            return;
+          }
+          const warnings = [];
+          const loaded = p.attackers.map((o) => deserializeAttacker(o, warnings)).filter(Boolean);
+          applyAttackersToGroup(act, loaded);
+          savedMsg(warnings.length ? "Loaded with warnings:\n" + warnings.join("\n") : 'Loaded "' + p.name + '" into Group ' + act + ".", warnings.length > 0);
+        })
+      );
+      wrap.appendChild(row);
+    });
+  }
+
+  function saveCurrentGroup() {
+    const nameEl = document.getElementById("saved-name");
+    const list = currentGroupAttackers(activeGroupId);
+    if (!list.length) {
+      savedMsg("Pick at least one attacker unit first.", true);
+      return;
+    }
+    let name = (nameEl.value || "").trim() || summarize(list).slice(0, 40);
+    const store = storeLoad();
+    let finalName = name, n = 2;
+    while (store.some((p) => p.name === finalName)) finalName = name + " (" + n++ + ")";
+    store.push({ name: finalName, savedAt: new Date().toISOString(), attackers: list });
+    if (!storeSave(store)) {
+      savedMsg("Could not save in this browser (storage blocked). Use Export instead.", true);
+      return;
+    }
+    nameEl.value = "";
+    renderSavedList();
+    savedMsg('Saved "' + finalName + '".');
+  }
+
+  function exportSaved() {
+    const store = storeLoad();
+    if (!store.length) {
+      savedMsg("Nothing to export yet. Save a group first.", true);
+      return;
+    }
+    const blob = new Blob([JSON.stringify({ app: "mathhammer", version: 1, groups: store }, null, 1)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "mathhammer-saved-groups.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    savedMsg("Exported " + store.length + " group(s).");
+  }
+
+  function importSavedText(text) {
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      savedMsg("That file is not valid JSON.", true);
+      return;
+    }
+    const incoming = Array.isArray(data) ? data : data && Array.isArray(data.groups) ? data.groups : null;
+    if (!incoming) {
+      savedMsg("No saved groups found in that file.", true);
+      return;
+    }
+    const store = storeLoad();
+    let added = 0;
+    incoming.forEach((p) => {
+      if (!p || !Array.isArray(p.attackers)) return;
+      let name = String(p.name || "Imported group").slice(0, 60), final = name, n = 2;
+      while (store.some((x) => x.name === final)) final = name + " (" + n++ + ")";
+      store.push({ name: final, savedAt: p.savedAt || new Date().toISOString(), attackers: p.attackers });
+      added++;
+    });
+    storeSave(store);
+    renderSavedList();
+    savedMsg("Imported " + added + " group(s).");
+  }
+
+  // ---- Share link (state lives in the URL hash, never sent to a server) ----
+  const DEF_FIELDS = ["toughness", "save", "invuln", "wounds", "models", "fnp", "keywords", "toughnessBonus",
+    "saveBonus", "damageReduction", "hitPenalty", "woundPenalty", "apReduction", "rerollSave"];
+
+  function b64enc(str) {
+    return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function b64dec(s) {
+    s = s.replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    return decodeURIComponent(escape(atob(s)));
+  }
+
+  function buildShareState() {
+    syncActiveGroup();
+    const du = defender.unitId ? unitById[defender.unitId] : null;
+    const d = {};
+    DEF_FIELDS.forEach((k) => (d[k] = defender[k]));
+    return {
+      v: 1,
+      g: groups.map((g) => ({ l: g.label, a: g.attackers.map(serializeAttacker).filter(Boolean) })),
+      d: Object.assign({ id: du ? du.id : null, n: du ? du.name : null, f: du ? du.faction : defender.faction }, { x: d }),
+      sc: currentScenarioId,
+      lg: showLegends ? 1 : 0,
+    };
+  }
+
+  function buildShareLink() {
+    const base = location.href.split("#")[0];
+    return base + "#s=" + b64enc(JSON.stringify(buildShareState()));
+  }
+
+  function applyShareState(st, warnings) {
+    if (st.lg) setShowLegends(true);
+    // defender first
+    if (st.d) {
+      const u = st.d.n ? findUnitByRef({ id: st.d.id, n: st.d.n, f: st.d.f }) : null;
+      if (st.d.n && !u) warnings.push('Defender not found: "' + st.d.n + '"');
+      if (u) {
+        if (u.legends && !showLegends) setShowLegends(true);
+        defender.unitId = u.id;
+        defender.faction = u.faction;
+      }
+      if (st.d.x) DEF_FIELDS.forEach((k) => { if (st.d.x[k] !== undefined) defender[k] = st.d.x[k]; });
+      renderDefender();
+    }
+    // groups
+    const loaded = (st.g || []).slice(0, MAX_GROUPS).map((g, i) => ({
+      id: i === 0 ? "A" : "B",
+      label: g.l || (i === 0 ? "Group A" : "Group B"),
+      attackers: (g.a || []).map((o) => deserializeAttacker(o, warnings)).filter(Boolean),
+    }));
+    if (loaded.length) {
+      loaded.forEach((g) => { if (!g.attackers.length) g.attackers = [newAttacker()]; });
+      groups = loaded;
+      activeGroupId = "A";
+      attackers = groups[0].attackers;
+      renderAttackers();
+    }
+    if (st.sc && SCENARIOS.some((s) => s.id === st.sc)) currentScenarioId = st.sc;
+  }
+
+  function copyShareLink() {
+    const link = buildShareLink();
+    const box = document.getElementById("share-link-box");
+    box.classList.remove("hidden");
+    box.value = link;
+    box.focus();
+    box.select();
+    let ok = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link);
+        ok = true;
+      } else {
+        ok = document.execCommand && document.execCommand("copy");
+      }
+    } catch (e) {}
+    savedMsg(ok ? "Share link copied to the clipboard." : "Share link ready below. Copy it with Ctrl+C.");
+  }
+
+  function loadFromHash() {
+    const m = /^#s=(.+)$/.exec(location.hash || "");
+    if (!m) return;
+    const warnings = [];
+    try {
+      applyShareState(JSON.parse(b64dec(m[1])), warnings);
+    } catch (e) {
+      savedMsg("The share link could not be read.", true);
+      const p = document.getElementById("saved-panel");
+      if (p) p.open = true;
+      return;
+    }
+    if (warnings.length) {
+      savedMsg("Link loaded with warnings:\n" + warnings.join("\n"), true);
+      const p = document.getElementById("saved-panel");
+      if (p) p.open = true;
+    }
+    updateCalcBtnState();
+    if (hasValidAttacker() && defender.unitId) setTimeout(runSimulation, 50);
+  }
+
+  function initSavedGroups() {
+    const g = (id) => document.getElementById(id);
+    if (!g("saved-save")) return;
+    g("saved-save").addEventListener("click", saveCurrentGroup);
+    g("saved-name").addEventListener("keydown", (e) => { if (e.key === "Enter") saveCurrentGroup(); });
+    g("saved-export").addEventListener("click", exportSaved);
+    g("share-copy").addEventListener("click", copyShareLink);
+    g("saved-import").addEventListener("change", (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => importSavedText(String(rd.result || ""));
+      rd.readAsText(f);
+      e.target.value = "";
+    });
+    renderSavedList();
+  }
+
   function init() {
     document.querySelectorAll(".legend-opt").forEach((btn) => {
       btn.addEventListener("click", () => setShowLegends(btn.dataset.legends === "on"));
     });
     new MutationObserver(() => enhanceNumberInputs(document)).observe(document.body, { childList: true, subtree: true });
     document.getElementById("add-attacker").addEventListener("click", () => {
-      attackers.push(newAttacker());
+      // Reuse the first attacker's faction (unit left unselected) so several
+      // units from the same army can be added quickly.
+      const first = attackers.find((x) => x.unitId && unitById[x.unitId]);
+      attackers.push(first ? newAttacker({ faction: unitById[first.unitId].faction, blankUnit: true }) : newAttacker());
       renderAttackers();
     });
     CALC_BTN_IDS.forEach((id) => {
@@ -3882,6 +4284,7 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
     });
     renderDefender();
     renderAttackers();
+    initSavedGroups();
     document.getElementById("unit-count-note").textContent =
       DATA.unitCount + " units across " + DATA.factions.length + " factions (11th ed.)";
 
@@ -3905,6 +4308,7 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
         }, 10);
       });
     }
+    loadFromHash();
   }
 
   document.addEventListener("DOMContentLoaded", init);
