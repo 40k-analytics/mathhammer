@@ -1287,9 +1287,9 @@ footer.app-footer a {
     <div class="stat-tile accent"><div class="val" id="stat-unsaved">0</div><div class="lbl">Unsaved</div></div>
     <div class="stat-tile accent2" title="Average total damage dealt across all simulations, including overkill (damage beyond what is needed to destroy the target). It is an average over many outcomes, so it can exceed the target's wounds."><div class="val" id="stat-damage">0</div><div class="lbl">Exp. damage <span class="info-dot" title="Average total damage dealt across all simulations, including overkill. It can exceed the target's wounds.">?</span></div></div>
     <div class="stat-tile accent2" title="Average number of models destroyed per simulation. Against a single model this equals the probability of killing it (0.83 = 83% of simulations)."><div class="val" id="stat-models-killed">0</div><div class="lbl">Models killed <span class="info-dot" title="Average models destroyed per simulation. Against a single model this equals the chance to kill it.">?</span></div></div>
-    <div class="stat-tile" title="Expected damage as a percentage of the defending unit's total wound pool (wounds per model × number of models). Capped at 100%.">
+    <div class="stat-tile" title="Wounds actually removed as a percentage of the defending unit's total wound pool (wounds per model × number of models). Excess damage on a model that is already dead is lost, so this can be lower than Exp. damage.">
       <div class="val" id="stat-pct-unit">0%</div>
-      <div class="lbl">% of unit's wounds <span class="info-dot" title="Expected damage as a percentage of the defending unit's total wound pool (wounds per model × number of models). Capped at 100%.">?</span></div>
+      <div class="lbl">% of unit's wounds <span class="info-dot" title="Wounds actually removed as a percentage of the defending unit's total wound pool (wounds per model × number of models). Excess damage on a model that is already dead is lost, so this can be lower than Exp. damage.">?</span></div>
     </div>
     <div class="stat-tile accent2" title="Probability that this calculation fully destroys the unit (kills every model in it).">
       <div class="val" id="stat-kill-unit">0%</div>
@@ -1652,6 +1652,7 @@ function simulate(attackers, defender, trials) {
     sumUnsaved = 0,
     sumDamage = 0,
     sumDamageAfterFnp = 0,
+    sumEffectiveDamage = 0,
     sumDamageBeforeFnp = 0,
     sumAttacks = 0;
 
@@ -1662,6 +1663,7 @@ function simulate(attackers, defender, trials) {
     sumWounds: 0,
     sumUnsaved: 0,
     sumDamage: 0,
+    sumEffective: 0,
     sumDamageBeforeFnp: 0,
   }));
 
@@ -1861,6 +1863,8 @@ function simulate(attackers, defender, trials) {
 
           if (modelsRemaining > 0) {
             const take = Math.min(damage, currentModelWounds);
+            sumEffectiveDamage += take;
+            pa.sumEffective += take;
             currentModelWounds -= take;
             if (currentModelWounds <= 0) {
               modelsRemaining--;
@@ -1896,6 +1900,7 @@ function simulate(attackers, defender, trials) {
     meanUnsaved: sumUnsaved / trials,
     meanDamage: sumDamage / trials,
     meanDamageAfterFnp: sumDamageAfterFnp / trials,
+    meanEffectiveDamage: sumEffectiveDamage / trials,
     meanDamageBeforeFnp: sumDamageBeforeFnp / trials,
     meanModelsKilled: avg(modelsKilledSamples),
     perAttacker: perAttacker.map((pa) => ({
@@ -1905,6 +1910,7 @@ function simulate(attackers, defender, trials) {
       meanWounds: pa.sumWounds / trials,
       meanUnsaved: pa.sumUnsaved / trials,
       meanDamage: pa.sumDamage / trials,
+      meanEffectiveDamage: pa.sumEffective / trials,
       meanDamageBeforeFnp: pa.sumDamageBeforeFnp / trials,
     })),
     rules: {
@@ -3183,7 +3189,7 @@ if (typeof module !== "undefined") {
 
     const totalPoolWounds = def.wounds * def.models;
     const pctOfUnit =
-      totalPoolWounds > 0 ? Math.min(100, (result.meanDamage / totalPoolWounds) * 100) : 0;
+      totalPoolWounds > 0 ? Math.min(100, (result.meanEffectiveDamage / totalPoolWounds) * 100) : 0;
     document.getElementById("stat-pct-unit").textContent = pctOfUnit.toFixed(1) + "%";
 
     const killSamples = result.modelsKilledSamples || [];
@@ -3510,7 +3516,7 @@ if (typeof module !== "undefined") {
           byId[m.attackerId] = { name: m.unitName, points: m.unitPoints, dmg: 0 };
           rows.push(byId[m.attackerId]);
         }
-        byId[m.attackerId].dmg += p.meanDamage;
+        byId[m.attackerId].dmg += p.meanEffectiveDamage;
       });
       rows.forEach((r) => {
         labels.push(
@@ -3526,11 +3532,11 @@ if (typeof module !== "undefined") {
         labels.push(
           ids.length > 1 ? [gr.label, "Total", gr.points + " pts"] : ["Total", gr.points + " pts"]
         );
-        vals.push((Math.min(1, entry.result.meanDamage / pool) * lastDefenderPts) / gr.points);
+        vals.push((Math.min(1, entry.result.meanEffectiveDamage / pool) * lastDefenderPts) / gr.points);
         cols.push(colors[gi]);
       }
       const killed = entry.result.meanModelsKilled;
-      const destroyed = Math.min(1, entry.result.meanDamage / pool) * lastDefenderPts;
+      const destroyed = Math.min(1, entry.result.meanEffectiveDamage / pool) * lastDefenderPts;
       notes.push(
         gr.label +
           " (" +
@@ -3620,7 +3626,7 @@ if (typeof module !== "undefined") {
         const d = a.def();
         const r = runVariant(g, gsc, { def: d });
         const pool = d.wounds * d.models;
-        return { dmg: r.meanDamage, pct: Math.min(100, (r.meanDamage / pool) * 100) };
+        return { dmg: r.meanEffectiveDamage, pct: Math.min(100, (r.meanEffectiveDamage / pool) * 100) };
       });
     });
     makeChart("archetype", "chart-archetype", {
@@ -3955,7 +3961,8 @@ if (typeof module !== "undefined") {
     return {
       dmg: r.meanDamage,
       killed: r.meanModelsKilled,
-      pct: pool > 0 ? Math.min(100, (r.meanDamage / pool) * 100) : 0,
+      pct: pool > 0 ? Math.min(100, (r.meanEffectiveDamage / pool) * 100) : 0,
+      effDmg: r.meanEffectiveDamage,
       killUnit: ks.length ? (full / ks.length) * 100 : 0,
       points: gr.points,
       per100: gr.points > 0 ? (r.meanDamage / gr.points) * 100 : null,
@@ -4706,7 +4713,7 @@ if (typeof module !== "undefined") {
       const gr = groupResults[id];
       const e = gr.scenarioResults[currentScenarioId] || gr.scenarioResults[SCENARIOS[0].id];
       const pool = e.def.wounds * e.def.models;
-      return m.dmg > 0 && m.points ? (m.points * pool) / m.dmg : null;
+      return m.effDmg > 0 && m.points ? (m.points * pool) / m.effDmg : null;
     }
     return null;
   }
@@ -4782,8 +4789,8 @@ if (typeof module !== "undefined") {
             kills100: (res.meanModelsKilled / points) * 100,
 
             ptsPerKill:
-              res.meanDamage > 0.0001
-                ? (points * defProfile.wounds * defProfile.models) / res.meanDamage
+              res.meanEffectiveDamage > 0.0001
+                ? (points * defProfile.wounds * defProfile.models) / res.meanEffectiveDamage
                 : Infinity,
           };
           const v = r[rankBy],
