@@ -1509,6 +1509,7 @@ function parseDiceExpr(expr) {
       return total + plus - minus;
     };
   }
+
   const n2 = parseInt(s.replace(/[^\d]/g, ""), 10);
   return () => (isNaN(n2) ? 0 : n2);
 }
@@ -1576,10 +1577,7 @@ function evalRoll(roll, threshold, critThreshold) {
   const isCrit = roll >= critThreshold;
   let success = roll === 6 || (roll >= threshold && roll !== 1) || isCrit;
   if (roll === 1 && !isCrit) success = false;
-  return {
-    success: success,
-    isCrit: isCrit,
-  };
+  return { success, isCrit };
 }
 
 function rollEvalWithTracking(threshold, critThreshold, policy) {
@@ -1588,7 +1586,7 @@ function rollEvalWithTracking(threshold, critThreshold, policy) {
   let finalRoll = firstRoll;
   let finalEval = firstEval;
   const shouldReroll =
-    policy === "all" ||
+    (policy === "all" && !firstEval.isCrit) ||
     (policy === "failed" && !firstEval.success) ||
     (policy === "ones" && firstRoll === 1);
   let rerolled = false;
@@ -1601,7 +1599,7 @@ function rollEvalWithTracking(threshold, critThreshold, policy) {
     roll: finalRoll,
     success: finalEval.success,
     isCrit: finalEval.isCrit,
-    rerolled: rerolled,
+    rerolled,
     convertedToSuccess: rerolled && !firstEval.success && finalEval.success,
     convertedToCrit: rerolled && !firstEval.isCrit && finalEval.isCrit,
   };
@@ -1617,10 +1615,7 @@ function buildAttackerRuntime(weapon, overrides) {
   (weapon.keywords || []).forEach((k) => {
     if (k.code === "ANTI") {
       kw.anti = kw.anti || [];
-      kw.anti.push({
-        keyword: k.keyword,
-        threshold: k.threshold,
-      });
+      kw.anti.push({ keyword: k.keyword, threshold: k.threshold });
     } else if (k.code === "SUSTAINED_HITS") {
       kw.sustainedDiceExpr = k.dice;
     } else if (k.code === "MELTA") {
@@ -1642,14 +1637,14 @@ function buildAttackerRuntime(weapon, overrides) {
       strength: weapon.s,
       ap: weapon.ap || 0,
       damageExpr: weapon.d,
-      kw: kw,
+      kw,
     },
     overrides
   );
 }
 
 function simulate(attackers, defender, trials) {
-  trials = trials || 2e4;
+  trials = trials || 20000;
   const damageSamples = new Array(trials);
   const modelsKilledSamples = new Array(trials);
   let sumHits = 0,
@@ -1659,6 +1654,7 @@ function simulate(attackers, defender, trials) {
     sumDamageAfterFnp = 0,
     sumDamageBeforeFnp = 0,
     sumAttacks = 0;
+
   const perAttacker = attackers.map((a) => ({
     label: a.label || "Attacker",
     sumAttacks: 0,
@@ -1668,12 +1664,14 @@ function simulate(attackers, defender, trials) {
     sumDamage: 0,
     sumDamageBeforeFnp: 0,
   }));
+
   let sumCritHits = 0,
     sumCritWounds = 0,
     sumLethalHitsProcs = 0,
     sumSustainedExtraHits = 0,
     sumDevastatingWoundsProcs = 0,
     sumAntiProcs = 0;
+
   let sumHitRerolls = 0,
     sumHitRerollToSuccess = 0,
     sumHitRerollToCrit = 0,
@@ -1682,11 +1680,13 @@ function simulate(attackers, defender, trials) {
     sumWoundRerollToCrit = 0,
     sumSaveRerolls = 0,
     sumSaveRerollToSuccess = 0;
+
   for (let t = 0; t < trials; t++) {
     let modelsRemaining = defender.models;
     let currentModelWounds = defender.wounds;
     let modelsKilledThisTrial = 0;
     let trialDamage = 0;
+
     for (let atkIdx = 0; atkIdx < attackers.length; atkIdx++) {
       const atk = attackers[atkIdx];
       const pa = perAttacker[atkIdx];
@@ -1694,22 +1694,27 @@ function simulate(attackers, defender, trials) {
       const diceAttacks = parseDiceExpr(atk.attacksExpr);
       let numWeapons = atk.weaponsCount || 1;
       let totalAttacks = 0;
+
       const flatBonus = mods.attacksBonus || 0;
       for (let w = 0; w < numWeapons; w++) totalAttacks += Math.max(0, diceAttacks() + flatBonus);
       if (mods.extraAttacks) totalAttacks += numWeapons;
       if (atk.kw.rapidFireN && mods.halfRange) totalAttacks += atk.kw.rapidFireN * numWeapons;
+
       if (atk.kw.blastN)
         totalAttacks += atk.kw.blastN * Math.floor((defender.models || 1) / 5) * numWeapons;
       sumAttacks += totalAttacks;
       pa.sumAttacks += totalAttacks;
+
       const coverHitPenalty =
         defender.coverBonus && !atk.kw.ignoresCoverWeapon && !mods.ignoresCover ? 1 : 0;
       let hitThreshold = clampThreshold(
         (atk.skill || 4) - (mods.toHit || 0) + (defender.hitPenalty || 0) + coverHitPenalty
       );
       if (mods.fireOverwatch) hitThreshold = 6;
+
       const critHitThreshold = mods.fireOverwatch ? 7 : mods.critHitOn || 6;
       const hitRerollPolicy = atk.kw.TORRENT ? "none" : mods.rerollHit || "none";
+
       let strength = atk.strength + (mods.strengthBonus || 0);
       let ap = atk.ap - (mods.apBonus || 0);
       if (atk.kw.meltaN && mods.halfRange) strength += 0;
@@ -1720,6 +1725,7 @@ function simulate(attackers, defender, trials) {
       const critWoundThreshold = mods.critWoundOn || 6;
       const woundRerollPolicy =
         mods.twinLinked || atk.kw.TWIN_LINKED ? "failed" : mods.rerollWound || "none";
+
       for (let i = 0; i < totalAttacks; i++) {
         let isHit, isCritHit, hitRollNatural;
         if (atk.kw.TORRENT) {
@@ -1739,25 +1745,20 @@ function simulate(attackers, defender, trials) {
         }
         if (!isHit) continue;
         if (isCritHit) sumCritHits++;
+
         const lethalProc = isCritHit && mods.lethalHits;
         if (lethalProc) sumLethalHitsProcs++;
-        const woundAttempts = [
-          {
-            autoWound: lethalProc,
-          },
-        ];
+        const woundAttempts = [{ autoWound: lethalProc }];
         const sustainedDice = atk.kw.sustainedDiceExpr || (mods.sustainedHits ? "1" : null);
         if (isCritHit && sustainedDice && mods.sustainedHits) {
           const extraRoller = parseDiceExpr(sustainedDice);
           const extra = extraRoller();
           sumSustainedExtraHits += extra;
-          for (let e = 0; e < extra; e++)
-            woundAttempts.push({
-              autoWound: false,
-            });
+          for (let e = 0; e < extra; e++) woundAttempts.push({ autoWound: false });
         }
         sumHits += woundAttempts.length;
         pa.sumHits += woundAttempts.length;
+
         for (const wa of woundAttempts) {
           let woundSuccess, isCritWound;
           if (wa.autoWound) {
@@ -1796,6 +1797,7 @@ function simulate(attackers, defender, trials) {
           sumWounds++;
           pa.sumWounds++;
           if (isCritWound) sumCritWounds++;
+
           let damage;
           if (isCritWound && mods.devastatingWounds) {
             sumDevastatingWoundsProcs++;
@@ -1811,6 +1813,7 @@ function simulate(attackers, defender, trials) {
               (mods.worsenDefenderSave || 0) -
               (defender.saveBonus || 0);
             armorSaveNeeded = clampThreshold(armorSaveNeeded, 7);
+
             const invOpts = [
               defender.invuln,
               atk.isMelee ? defender.invulnMelee : defender.invulnRanged,
@@ -1836,9 +1839,12 @@ function simulate(attackers, defender, trials) {
             pa.sumUnsaved++;
             damage = rollDamage(atk, mods);
           }
+
           if (defender.damageReduction) damage = Math.max(1, damage - defender.damageReduction);
+
           sumDamageBeforeFnp += damage;
           pa.sumDamageBeforeFnp += damage;
+
           if (defender.fnp) {
             let through = 0;
             for (let p = 0; p < damage; p++) {
@@ -1847,10 +1853,12 @@ function simulate(attackers, defender, trials) {
             }
             damage = through;
           }
+
           sumDamage += damage;
           trialDamage += damage;
           pa.sumDamage += damage;
           sumDamageAfterFnp += damage;
+
           if (modelsRemaining > 0) {
             const take = Math.min(damage, currentModelWounds);
             currentModelWounds -= take;
@@ -1863,9 +1871,11 @@ function simulate(attackers, defender, trials) {
         }
       }
     }
+
     damageSamples[t] = trialDamage;
     modelsKilledSamples[t] = modelsKilledThisTrial;
   }
+
   function rollDamage(atk, mods) {
     let dmg =
       mods.rerollDamage && mods.rerollDamage !== "none"
@@ -1875,10 +1885,11 @@ function simulate(attackers, defender, trials) {
     dmg += mods.damageBonus || 0;
     return Math.max(0, dmg);
   }
+
   return {
-    trials: trials,
-    damageSamples: damageSamples,
-    modelsKilledSamples: modelsKilledSamples,
+    trials,
+    damageSamples,
+    modelsKilledSamples,
     meanAttacks: sumAttacks / trials,
     meanHits: sumHits / trials,
     meanWounds: sumWounds / trials,
@@ -1938,13 +1949,13 @@ function clampThreshold(v, max) {
 
 if (typeof module !== "undefined") {
   module.exports = {
-    parseDiceExpr: parseDiceExpr,
-    meanOfDiceExpr: meanOfDiceExpr,
-    woundThreshold: woundThreshold,
-    simulate: simulate,
-    buildAttackerRuntime: buildAttackerRuntime,
-    d6: d6,
-    rollDiceExprWithReroll: rollDiceExprWithReroll,
+    parseDiceExpr,
+    meanOfDiceExpr,
+    woundThreshold,
+    simulate,
+    buildAttackerRuntime,
+    d6,
+    rollDiceExprWithReroll,
   };
 }
 
@@ -1958,6 +1969,7 @@ if (typeof module !== "undefined") {
   ) {
     Chart.register(ChartDataLabels);
   }
+
   const DATA = window.MATHHAMMER_DATA;
   const unitsByFaction = {};
   DATA.factions.forEach((f) => (unitsByFaction[f] = []));
@@ -1967,6 +1979,7 @@ if (typeof module !== "undefined") {
   });
   const unitById = {};
   DATA.units.forEach((u) => (unitById[u.id] = u));
+
   let showLegends = false;
   function visibleUnits(faction) {
     const list = unitsByFaction[faction] || [];
@@ -1975,6 +1988,7 @@ if (typeof module !== "undefined") {
   function visibleFactions() {
     return DATA.factions.filter((f) => visibleUnits(f).length > 0);
   }
+
   const ANTI_KEYWORDS = [
     "INFANTRY",
     "VEHICLE",
@@ -1987,15 +2001,11 @@ if (typeof module !== "undefined") {
     "MOUNTED",
     "TITANIC",
   ];
+
   let attackers = [];
+
   const MAX_GROUPS = 2;
-  let groups = [
-    {
-      id: "A",
-      label: "Group A",
-      attackers: attackers,
-    },
-  ];
+  let groups = [{ id: "A", label: "Group A", attackers }];
   let activeGroupId = "A";
   let groupResults = null;
   let viewGroupId = "A";
@@ -2017,6 +2027,7 @@ if (typeof module !== "undefined") {
     fnp: 0,
     coverBonus: false,
     keywords: [],
+
     toughnessBonus: 0,
     saveBonus: 0,
     damageReduction: 0,
@@ -2026,41 +2037,25 @@ if (typeof module !== "undefined") {
     rerollSave: "none",
   };
   let charts = {};
+
   const SCENARIOS = [
-    {
-      id: "longNoCover",
-      label: "Long Range · No Cover",
-      halfRange: false,
-      cover: false,
-    },
-    {
-      id: "halfNoCover",
-      label: "Half Range · No Cover",
-      halfRange: true,
-      cover: false,
-    },
-    {
-      id: "longCover",
-      label: "Long Range · In Cover",
-      halfRange: false,
-      cover: true,
-    },
-    {
-      id: "halfCover",
-      label: "Half Range · In Cover",
-      halfRange: true,
-      cover: true,
-    },
+    { id: "longNoCover", label: "Long Range · No Cover", halfRange: false, cover: false },
+    { id: "halfNoCover", label: "Half Range · No Cover", halfRange: true, cover: false },
+    { id: "longCover", label: "Long Range · In Cover", halfRange: false, cover: true },
+    { id: "halfCover", label: "Half Range · In Cover", halfRange: true, cover: true },
   ];
   let scenarioResults = null;
   let scenarioMeleeOnly = false;
   let currentScenarioId = SCENARIOS[0].id;
+
   function scenarioById(id) {
     return SCENARIOS.find((s) => s.id === id) || SCENARIOS[0];
   }
+
   function uid(prefix) {
     return (prefix || "a") + nextId++;
   }
+
   function defaultMods() {
     return {
       toHit: 0,
@@ -2085,6 +2080,7 @@ if (typeof module !== "undefined") {
       fireOverwatch: false,
     };
   }
+
   function pointTiers(unit) {
     if (unit._tiers) return unit._tiers;
     const byModels = {};
@@ -2104,6 +2100,7 @@ if (typeof module !== "undefined") {
     unit._tiers = tiers;
     return tiers;
   }
+
   function unitPointsFor(unit, n) {
     if (!unit) return null;
     const tiers = pointTiers(unit);
@@ -2114,19 +2111,16 @@ if (typeof module !== "undefined") {
     const last = tiers[tiers.length - 1];
     return Math.round((last[1] / last[0]) * n);
   }
+
   function newWeaponRow(unit) {
     const weaponIdx = unit && unit.weapons.length ? 0 : null;
+
     const count = unit && unit.modelsMin ? unit.modelsMin : 1;
-    const row = {
-      id: uid("w"),
-      weaponIdx: weaponIdx,
-      count: count,
-      mods: defaultMods(),
-      antiList: [],
-    };
+    const row = { id: uid("w"), weaponIdx, count, mods: defaultMods(), antiList: [] };
     prefillInnate(row, unit && weaponIdx != null ? unit.weapons[weaponIdx] : null);
     return row;
   }
+
   function newAttacker(opts) {
     if (opts && opts.faction && opts.blankUnit) {
       return {
@@ -2142,11 +2136,12 @@ if (typeof module !== "undefined") {
     const unit = unitId ? unitById[unitId] : null;
     return {
       id: uid(),
-      unitId: unitId,
+      unitId,
       unitSize: unit && unit.modelsMin ? unit.modelsMin : 1,
       weaponRows: [newWeaponRow(unit)],
     };
   }
+
   const COLORS = {
     navy: "#22303c",
     blue: "#2e5c8a",
@@ -2157,6 +2152,7 @@ if (typeof module !== "undefined") {
     slate: "#4d6478",
     gray: "#6b7280",
   };
+
   function gradColors(values, hex, opts) {
     opts = opts || {};
     const nums = values.filter((v) => typeof v === "number" && isFinite(v));
@@ -2174,6 +2170,7 @@ if (typeof module !== "undefined") {
       return "rgb(" + c.join(",") + ")";
     });
   }
+
   function factionOptions(selected) {
     return visibleFactions()
       .map(
@@ -2181,6 +2178,7 @@ if (typeof module !== "undefined") {
       )
       .join("");
   }
+
   function defFactionOptions(selected) {
     return (
       `<option value="" ${selected ? "" : "selected"}>Select defender</option>` +
@@ -2191,6 +2189,7 @@ if (typeof module !== "undefined") {
     if (!faction) return `<option value="">— Select faction first —</option>`;
     return `<option value="">— Custom profile —</option>${unitOptions(faction, selectedId)}`;
   }
+
   function unitOptions(faction, selectedId, allowBlank) {
     const list = visibleUnits(faction);
     const blank = allowBlank && !selectedId ? '<option value="" selected>Select unit</option>' : "";
@@ -2204,6 +2203,7 @@ if (typeof module !== "undefined") {
         .join("")
     );
   }
+
   function weaponOptions(unit, selectedIdx) {
     if (!unit) return "";
     return unit.weapons
@@ -2213,29 +2213,26 @@ if (typeof module !== "undefined") {
       )
       .join("");
   }
+
   function weaponInnateBadges(weapon) {
     if (!weapon) return "";
     const codes = (weapon.keywords || []).map((k) => describeKeyword(k));
     if (!codes.length) return "";
     return `<div class="innate-badges">${codes.map((c) => `<span class="badge">${esc(c)}</span>`).join("")}</div>`;
   }
+
   function describeKeyword(k) {
     switch (k.code) {
       case "RAPID_FIRE":
         return "Rapid Fire " + k.n;
-
       case "SUSTAINED_HITS":
         return "Sustained Hits " + k.dice;
-
       case "MELTA":
         return "Melta " + k.n;
-
       case "ANTI":
         return "Anti-" + titleCase(k.keyword) + " " + k.threshold + "+";
-
       case "CLEAVE":
         return "Cleave " + k.n;
-
       default:
         return titleCase(k.code.replace(/_/g, " "));
     }
@@ -2243,12 +2240,14 @@ if (typeof module !== "undefined") {
   function titleCase(s) {
     return s.replace(/\w\S*/g, (t) => t[0] + t.slice(1).toLowerCase());
   }
+
   function weaponHasKw(weapon, code) {
     return (weapon.keywords || []).some((k) => k.code === code);
   }
   function weaponKw(weapon, code) {
     return (weapon.keywords || []).find((k) => k.code === code);
   }
+
   function renderGroupTabs() {
     const bar = document.getElementById("group-tabs");
     if (!bar) return;
@@ -2266,7 +2265,7 @@ if (typeof module !== "undefined") {
         ed.type = "button";
         ed.className = "group-tab-rename";
         ed.title = "Rename group";
-        ed.textContent = "✎ Rename";
+        ed.textContent = "\u270E Rename";
         ed.addEventListener("click", () => startRenameGroup(g, b, ed));
         bar.appendChild(ed);
       }
@@ -2292,11 +2291,12 @@ if (typeof module !== "undefined") {
       rm.type = "button";
       rm.className = "group-tab-remove";
       rm.id = "remove-group";
-      rm.textContent = "× Remove " + (groups[1] ? groups[1].label : "Group B");
+      rm.textContent = "\u00d7 Remove " + (groups[1] ? groups[1].label : "Group B");
       rm.addEventListener("click", removeAttackerGroup);
       bar.appendChild(rm);
     }
   }
+
   function startRenameGroup(g, tabBtn, editBtn) {
     const inp = document.createElement("input");
     inp.type = "text";
@@ -2329,6 +2329,7 @@ if (typeof module !== "undefined") {
     });
     inp.addEventListener("blur", () => commit(true));
   }
+
   function setActiveGroup(id) {
     if (id === activeGroupId) return;
     syncActiveGroup();
@@ -2338,6 +2339,7 @@ if (typeof module !== "undefined") {
     attackers = g.attackers;
     renderAttackers();
   }
+
   function copyGroupAToB() {
     syncActiveGroup();
     const a = groups.find((g) => g.id === "A");
@@ -2349,11 +2351,7 @@ if (typeof module !== "undefined") {
     });
     let b = groups.find((g) => g.id === "B");
     if (!b) {
-      b = {
-        id: "B",
-        label: "Group B",
-        attackers: [],
-      };
+      b = { id: "B", label: "Group B", attackers: [] };
       groups.push(b);
     }
     b.attackers = cloned;
@@ -2361,19 +2359,17 @@ if (typeof module !== "undefined") {
     attackers = b.attackers;
     renderAttackers();
   }
+
   function addAttackerGroup() {
     if (groups.length >= MAX_GROUPS) return;
     syncActiveGroup();
-    const g = {
-      id: "B",
-      label: "Group B",
-      attackers: [newAttacker()],
-    };
+    const g = { id: "B", label: "Group B", attackers: [newAttacker()] };
     groups.push(g);
     activeGroupId = "B";
     attackers = g.attackers;
     renderAttackers();
   }
+
   function removeAttackerGroup() {
     if (groups.length < 2) return;
     syncActiveGroup();
@@ -2390,6 +2386,7 @@ if (typeof module !== "undefined") {
     }
     renderAttackers();
   }
+
   function renderAttackers() {
     renderGroupTabs();
     const wrap = document.getElementById("attackers-list");
@@ -2403,17 +2400,40 @@ if (typeof module !== "undefined") {
     attackers.forEach((a) => wrap.appendChild(buildAttackerCard(a)));
     updateCalcBtnState();
   }
+
   function buildAttackerCard(a) {
     const card = document.createElement("div");
     card.className = "card attacker-card";
     card.dataset.id = a.id;
+
     const unit = a.unitId ? unitById[a.unitId] : null;
     const faction = unit ? unit.faction : a.faction || visibleFactions()[0];
-    card.innerHTML = `\n      <div class="card-head">\n        <button class="icon-btn remove-attacker" title="Remove">&times;</button>\n      </div>\n      <div class="picker-section-label">Select Attacker</div>\n      <div class="picker-row">\n        <select class="sel faction-sel">${factionOptions(faction)}</select>\n        <select class="sel unit-sel">${unitOptions(faction, a.unitId, !a.unitId)}</select>\n      </div>\n      <div class="unit-stat-line-wrap">${renderUnitCard(unit)}</div>\n      <div class="unit-size-row">\n        <label>Models in unit\n          <input type="number" class="num-input unit-size-input" min="1" max="60" value="${a.unitSize || (unit && unit.modelsMin) || 1}" />\n        </label>\n        <span class="unit-size-pts"></span>\n      </div>\n      <div class="weapon-rows"></div>\n      <button class="btn btn-secondary add-weapon-row">+ Add weapon</button>\n    `;
+
+    card.innerHTML = `
+      <div class="card-head">
+        <button class="icon-btn remove-attacker" title="Remove">&times;</button>
+      </div>
+      <div class="picker-section-label">Select Attacker</div>
+      <div class="picker-row">
+        <select class="sel faction-sel">${factionOptions(faction)}</select>
+        <select class="sel unit-sel">${unitOptions(faction, a.unitId, !a.unitId)}</select>
+      </div>
+      <div class="unit-stat-line-wrap">${renderUnitCard(unit)}</div>
+      <div class="unit-size-row">
+        <label>Models in unit
+          <input type="number" class="num-input unit-size-input" min="1" max="60" value="${a.unitSize || (unit && unit.modelsMin) || 1}" />
+        </label>
+        <span class="unit-size-pts"></span>
+      </div>
+      <div class="weapon-rows"></div>
+      <button class="btn btn-secondary add-weapon-row">+ Add weapon</button>
+    `;
+
     card.querySelector(".remove-attacker").addEventListener("click", () => {
       attackers = attackers.filter((x) => x.id !== a.id);
       renderAttackers();
     });
+
     const factionSel = card.querySelector(".faction-sel");
     const unitSel = card.querySelector(".unit-sel");
     const statWrap = card.querySelector(".unit-stat-line-wrap");
@@ -2421,6 +2441,7 @@ if (typeof module !== "undefined") {
     const addRowBtn = card.querySelector(".add-weapon-row");
     const sizeInput = card.querySelector(".unit-size-input");
     const sizePts = card.querySelector(".unit-size-pts");
+
     function refreshSizePts() {
       const u = a.unitId ? unitById[a.unitId] : null;
       const p = u ? unitPointsFor(u, a.unitSize) : null;
@@ -2438,6 +2459,7 @@ if (typeof module !== "undefined") {
       }
     }
     refreshSizePts();
+
     factionSel.addEventListener("change", (e) => {
       const f = e.target.value;
       a.faction = f;
@@ -2448,25 +2470,30 @@ if (typeof module !== "undefined") {
       unitSel.value = newUnitId || "";
       onUnitChanged();
     });
+
     unitSel.addEventListener("change", (e) => {
       a.unitId = e.target.value || null;
       onUnitChanged();
     });
+
     addRowBtn.addEventListener("click", () => {
       const u = a.unitId ? unitById[a.unitId] : null;
       a.weaponRows.push(newWeaponRow(u));
       renderWeaponRows();
     });
+
     function onUnitChanged() {
       const u = a.unitId ? unitById[a.unitId] : null;
       statWrap.innerHTML = renderUnitCard(u);
       a.unitSize = u && u.modelsMin ? u.modelsMin : 1;
       sizeInput.value = a.unitSize;
       refreshSizePts();
+
       a.weaponRows = [newWeaponRow(u)];
       renderWeaponRows();
       updateCalcBtnState();
     }
+
     function renderWeaponRows() {
       rowsWrap.innerHTML = "";
       const u = a.unitId ? unitById[a.unitId] : null;
@@ -2490,15 +2517,27 @@ if (typeof module !== "undefined") {
       });
       updateCalcBtnState();
     }
+
     renderWeaponRows();
     return card;
   }
+
   function buildWeaponRowEl(unit, row, onRemove, onCount) {
     const el = document.createElement("div");
     el.className = "weapon-row";
-    el.innerHTML = `\n      <div class="picker-row weapon-row-head">\n        <select class="sel weapon-sel"></select>\n        <input type="number" class="num-input weapons-count" min="1" value="${row.count}" title="Number of models firing/swinging this weapon" />\n        <button class="icon-btn remove-weapon-row" title="Remove weapon">&times;</button>\n      </div>\n      <div class="weapon-detail"></div>\n    `;
+
+    el.innerHTML = `
+      <div class="picker-row weapon-row-head">
+        <select class="sel weapon-sel"></select>
+        <input type="number" class="num-input weapons-count" min="1" value="${row.count}" title="Number of models firing/swinging this weapon" />
+        <button class="icon-btn remove-weapon-row" title="Remove weapon">&times;</button>
+      </div>
+      <div class="weapon-detail"></div>
+    `;
+
     const weaponSel = el.querySelector(".weapon-sel");
     weaponSel.innerHTML = weaponOptions(unit, row.weaponIdx);
+
     el.querySelector(".remove-weapon-row").addEventListener("click", onRemove);
     el.querySelector(".weapons-count").addEventListener("input", (e) => {
       row.count = Math.max(1, parseInt(e.target.value, 10) || 1);
@@ -2509,15 +2548,26 @@ if (typeof module !== "undefined") {
       prefillInnate(row, unit.weapons[row.weaponIdx]);
       refreshDetail();
     });
+
     function refreshDetail() {
       const w = row.weaponIdx != null ? unit.weapons[row.weaponIdx] : null;
       const detail = el.querySelector(".weapon-detail");
-      detail.innerHTML = `\n        ${w ? weaponStatLine(w) : ""}\n        ${w ? weaponInnateBadges(w) : ""}\n        <details class="mods-details">\n          <summary>Modifiers</summary>\n          ${renderModifierGroups(row, w)}\n        </details>\n      `;
+
+      detail.innerHTML = `
+        ${w ? weaponStatLine(w) : ""}
+        ${w ? weaponInnateBadges(w) : ""}
+        <details class="mods-details">
+          <summary>Modifiers</summary>
+          ${renderModifierGroups(row, w)}
+        </details>
+      `;
       wireModifierGroups(detail, row, refreshDetail);
     }
+
     refreshDetail();
     return el;
   }
+
   function invText(unit, model) {
     const parts = [];
     if (model && model.inv) parts.push(model.inv + "+");
@@ -2527,14 +2577,31 @@ if (typeof module !== "undefined") {
     if (unit && unit.fnp) t += " | FNP " + unit.fnp + "+";
     return t;
   }
+
   function unitStatLine(unit) {
     if (!unit) return "";
     const model = (unit.models && unit.models[0]) || {};
-    return `<div class="stat-line unit-stat-line">\n      <span>M: <b>${model.m != null ? esc(String(model.m)) : "-"}</b></span>\n      <span>T: <b>${esc(String(model.t != null ? model.t : "-"))}</b></span>\n      <span>Sv: <b>${model.sv ? model.sv + "+" : "-"}</b></span>\n      <span>Inv: <b>${invText(unit, model)}</b></span>\n      <span>W: <b>${esc(String(model.w != null ? model.w : "-"))}</b></span>\n      <span>Ld: <b>${model.ld ? model.ld + "+" : "-"}</b></span>\n      <span>OC: <b>${esc(String(model.oc != null ? model.oc : "-"))}</b></span>\n    </div>`;
+    return `<div class="stat-line unit-stat-line">
+      <span>M: <b>${model.m != null ? esc(String(model.m)) : "-"}</b></span>
+      <span>T: <b>${esc(String(model.t != null ? model.t : "-"))}</b></span>
+      <span>Sv: <b>${model.sv ? model.sv + "+" : "-"}</b></span>
+      <span>Inv: <b>${invText(unit, model)}</b></span>
+      <span>W: <b>${esc(String(model.w != null ? model.w : "-"))}</b></span>
+      <span>Ld: <b>${model.ld ? model.ld + "+" : "-"}</b></span>
+      <span>OC: <b>${esc(String(model.oc != null ? model.oc : "-"))}</b></span>
+    </div>`;
   }
+
   function weaponStatLine(w) {
-    return `<div class="stat-line">\n      <span>A: <b>${esc(w.a)}</b></span>\n      <span>${w.type === "Melee" ? "WS" : "BS"}: <b>${w.skill ? w.skill + "+" : "-"}</b></span>\n      <span>S: <b>${esc(String(w.s))}</b></span>\n      <span>AP: <b>${w.ap ? w.ap : "0"}</b></span>\n      <span>D: <b>${esc(w.d)}</b></span>\n    </div>`;
+    return `<div class="stat-line">
+      <span>A: <b>${esc(w.a)}</b></span>
+      <span>${w.type === "Melee" ? "WS" : "BS"}: <b>${w.skill ? w.skill + "+" : "-"}</b></span>
+      <span>S: <b>${esc(String(w.s))}</b></span>
+      <span>AP: <b>${w.ap ? w.ap : "0"}</b></span>
+      <span>D: <b>${esc(w.d)}</b></span>
+    </div>`;
   }
+
   function prefillInnate(row, weapon) {
     const m = row.mods;
     m.lethalHits = !!weapon && weaponHasKw(weapon, "LETHAL_HITS");
@@ -2547,104 +2614,120 @@ if (typeof module !== "undefined") {
     row.antiList = weapon
       ? (weapon.keywords || [])
           .filter((k) => k.code === "ANTI")
-          .map((k) => ({
-            keyword: k.keyword,
-            threshold: k.threshold,
-            innate: true,
-          }))
+          .map((k) => ({ keyword: k.keyword, threshold: k.threshold, innate: true }))
       : [];
   }
+
   function renderModifierGroups(row, weapon) {
     const m = row.mods;
     const chk = (key, label) =>
       `<label class="chk-row"><input type="checkbox" data-mod="${key}" ${m[key] ? "checked" : ""}/> ${label}</label>`;
-    const radioGroup = (key, label, options) =>
-      `\n      <div class="mini-select-row">\n        <span>${label}</span>\n        <select data-mod="${key}">\n          ${options.map((o) => `<option value="${o.v}" ${m[key] === o.v ? "selected" : ""}>${o.l}</option>`).join("")}\n        </select>\n      </div>`;
-    const stepper = (key, label, min, max, step) =>
-      `\n      <div class="mini-select-row">\n        <span>${label}</span>\n        <input type="number" class="num-input small" data-modnum="${key}" min="${min}" max="${max}" step="${step || 1}" value="${m[key]}" />\n      </div>`;
-    return `\n      <div class="mod-group">\n        <div class="mod-group-title">DATASHEET MODIFIERS</div>\n        <div class="mod-grid">\n          ${stepper("toHit", "To Hit (+/-)", -3, 3)}\n          ${stepper("strengthBonus", "Strength (+/-)", -3, 6)}\n          ${stepper("attacksBonus", "Extra attacks per model (+N)", 0, 10)}\n          ${stepper("damageBonus", "Damage (+/-)", -3, 6)}\n          ${stepper("worsenDefenderSave", "Worsen Defender's Save (+N)", 0, 3)}\n        </div>\n      </div>\n      <div class="mod-group">\n        <div class="mod-group-title">ROLL MODIFIERS</div>\n        <div class="mod-grid">\n          ${stepper("toWound", "To Wound (+/-)", -3, 3)}\n          ${stepper("apBonus", "Armour Penetration (+N, improves save)", 0, 3)}\n          ${radioGroup(
-      "rerollHit",
-      "Re-roll Hit",
-      [
-        {
-          v: "none",
-          l: "None",
-        },
-        {
-          v: "ones",
-          l: "Rolls of 1",
-        },
-        {
-          v: "failed",
-          l: "All failed",
-        },
-        {
-          v: "all",
-          l: "All",
-        },
-      ]
-    )}\n          ${radioGroup("rerollWound", "Re-roll Wound", [
-      {
-        v: "none",
-        l: "None",
-      },
-      {
-        v: "ones",
-        l: "Rolls of 1",
-      },
-      {
-        v: "failed",
-        l: "All failed",
-      },
-      {
-        v: "all",
-        l: "All",
-      },
-    ])}\n          ${radioGroup("rerollDamage", "Re-roll Damage", [
-      {
-        v: "none",
-        l: "None",
-      },
-      {
-        v: "ones",
-        l: "Rolls of 1",
-      },
-      {
-        v: "all",
-        l: "All",
-      },
-    ])}\n        </div>\n      </div>\n      <div class="mod-group">\n        <div class="mod-group-title">SPECIAL RULES</div>\n        <div class="mod-grid">\n          ${chk("lethalHits", "Lethal Hits")}\n          ${chk("sustainedHits", "Sustained Hits" + (weapon && weaponKw(weapon, "SUSTAINED_HITS") ? " (" + weaponKw(weapon, "SUSTAINED_HITS").dice + ")" : ""))}\n          ${chk("devastatingWounds", "Devastating Wounds")}\n          ${chk("twinLinked", "Twin-linked (re-roll Wound)")}\n          ${chk("ignoresCover", "Ignores Cover")}\n          ${chk("extraAttacks", "Extra Attacks (+1 attack/weapon)")}\n          ${radioGroup(
-      "critHitOn",
-      "Critical Hit on",
-      [
-        {
-          v: 0,
-          l: "6 (default)",
-        },
-        {
-          v: 5,
-          l: "5+",
-        },
-        {
-          v: 4,
-          l: "4+",
-        },
-      ]
-    )}\n          ${radioGroup("critWoundOn", "Critical Wound on", [
-      {
-        v: 0,
-        l: "6 (default)",
-      },
-      {
-        v: 5,
-        l: "5+",
-      },
-      {
-        v: 4,
-        l: "4+",
-      },
-    ])}\n        </div>\n        <div class="anti-editor">\n          <div class="mod-group-title" style="margin-top:8px">ANTI-X</div>\n          <div class="anti-list">\n            ${row.antiList.map((x, i) => `<span class="badge anti-badge">Anti-${titleCase(x.keyword)} ${x.threshold}+ <button data-rmanti="${i}">&times;</button></span>`).join("")}\n          </div>\n          <div class="picker-row">\n            <select class="sel anti-kw-sel">${ANTI_KEYWORDS.map((k) => `<option value="${k}">${titleCase(k)}</option>`).join("")}</select>\n            <select class="sel anti-th-sel">\n              <option value="2">2+</option><option value="3">3+</option><option value="4" selected>4+</option><option value="5">5+</option>\n            </select>\n            <button class="btn btn-secondary add-anti">+ Add</button>\n          </div>\n        </div>\n      </div>\n      <div class="mod-group">\n        <div class="mod-group-title">STRATAGEM</div>\n        <div class="mod-grid">\n          ${chk("fireOverwatch", "Fire Overwatch (hits only on unmodified 6, no critical hits)")}\n        </div>\n      </div>\n    `;
+    const radioGroup = (key, label, options, hint) => `
+      <div class="mini-select-row">
+        <span>${label}${hint ? ` <span class="info-dot" title="${hint}">?</span>` : ""}</span>
+        <select data-mod="${key}">
+          ${options.map((o) => `<option value="${o.v}" ${m[key] === o.v ? "selected" : ""}>${o.l}</option>`).join("")}
+        </select>
+      </div>`;
+    const stepper = (key, label, min, max, step) => `
+      <div class="mini-select-row">
+        <span>${label}</span>
+        <input type="number" class="num-input small" data-modnum="${key}" min="${min}" max="${max}" step="${step || 1}" value="${m[key]}" />
+      </div>`;
+
+    return `
+      <div class="mod-group">
+        <div class="mod-group-title">DATASHEET MODIFIERS</div>
+        <div class="mod-grid">
+          ${stepper("toHit", "To Hit (+/-)", -3, 3)}
+          ${stepper("strengthBonus", "Strength (+/-)", -3, 6)}
+          ${stepper("attacksBonus", "Extra attacks per model (+N)", 0, 10)}
+          ${stepper("damageBonus", "Damage (+/-)", -3, 6)}
+          ${stepper("worsenDefenderSave", "Worsen Defender's Save (+N)", 0, 3)}
+        </div>
+      </div>
+      <div class="mod-group">
+        <div class="mod-group-title">ROLL MODIFIERS</div>
+        <div class="mod-grid">
+          ${stepper("toWound", "To Wound (+/-)", -3, 3)}
+          ${stepper("apBonus", "Armour Penetration (+N, improves save)", 0, 3)}
+          ${radioGroup(
+            "rerollHit",
+            "Re-roll Hit",
+            [
+              { v: "none", l: "None" },
+              { v: "ones", l: "Rolls of 1" },
+              { v: "failed", l: "All failed" },
+              { v: "all", l: "All except crits" },
+            ],
+            "Re-rolls every die that is not a critical hit, so failures and ordinary hits are both re-rolled. Critical hits are always kept, whatever the Critical Hit threshold is set to.\n\nWorth it when a critical hit is worth more than an ordinary hit: Lethal Hits (the critical hit skips the wound roll) or Sustained Hits. Otherwise you can turn a good hit into a miss, and All failed is the safer choice."
+          )}
+          ${radioGroup(
+            "rerollWound",
+            "Re-roll Wound",
+            [
+              { v: "none", l: "None" },
+              { v: "ones", l: "Rolls of 1" },
+              { v: "failed", l: "All failed" },
+              { v: "all", l: "All except crits" },
+            ],
+            "Re-rolls every die that is not a critical wound, so failures and ordinary wounds are both re-rolled. Critical wounds are always kept, whatever the Critical Wound threshold is set to.\n\nWorth it mainly with Devastating Wounds (the critical wound skips the save). Otherwise you can turn a good wound into a miss, and All failed is the safer choice."
+          )}
+          ${radioGroup("rerollDamage", "Re-roll Damage", [
+            { v: "none", l: "None" },
+            { v: "ones", l: "Rolls of 1" },
+            { v: "all", l: "All" },
+          ])}
+        </div>
+      </div>
+      <div class="mod-group">
+        <div class="mod-group-title">SPECIAL RULES</div>
+        <div class="mod-grid">
+          ${chk("lethalHits", "Lethal Hits")}
+          ${chk("sustainedHits", "Sustained Hits" + (weapon && weaponKw(weapon, "SUSTAINED_HITS") ? " (" + weaponKw(weapon, "SUSTAINED_HITS").dice + ")" : ""))}
+          ${chk("devastatingWounds", "Devastating Wounds")}
+          ${chk("twinLinked", "Twin-linked (re-roll Wound)")}
+          ${chk("ignoresCover", "Ignores Cover")}
+          ${chk("extraAttacks", "Extra Attacks (+1 attack/weapon)")}
+          ${radioGroup("critHitOn", "Critical Hit on", [
+            { v: 0, l: "6 (default)" },
+            { v: 5, l: "5+" },
+            { v: 4, l: "4+" },
+          ])}
+          ${radioGroup("critWoundOn", "Critical Wound on", [
+            { v: 0, l: "6 (default)" },
+            { v: 5, l: "5+" },
+            { v: 4, l: "4+" },
+          ])}
+        </div>
+        <div class="anti-editor">
+          <div class="mod-group-title" style="margin-top:8px">ANTI-X</div>
+          <div class="anti-list">
+            ${row.antiList
+              .map(
+                (x, i) =>
+                  `<span class="badge anti-badge">Anti-${titleCase(x.keyword)} ${x.threshold}+ <button data-rmanti="${i}">&times;</button></span>`
+              )
+              .join("")}
+          </div>
+          <div class="picker-row">
+            <select class="sel anti-kw-sel">${ANTI_KEYWORDS.map((k) => `<option value="${k}">${titleCase(k)}</option>`).join("")}</select>
+            <select class="sel anti-th-sel">
+              <option value="2">2+</option><option value="3">3+</option><option value="4" selected>4+</option><option value="5">5+</option>
+            </select>
+            <button class="btn btn-secondary add-anti">+ Add</button>
+          </div>
+        </div>
+      </div>
+      <div class="mod-group">
+        <div class="mod-group-title">STRATAGEM</div>
+        <div class="mod-grid">
+          ${chk("fireOverwatch", "Fire Overwatch (hits only on unmodified 6, no critical hits)")}
+        </div>
+      </div>
+    `;
   }
+
   function wireModifierGroups(scope, row, onAntiChange) {
     scope.querySelectorAll("[data-mod]").forEach((el) => {
       el.addEventListener("change", () => {
@@ -2667,11 +2750,7 @@ if (typeof module !== "undefined") {
       addAnti.addEventListener("click", () => {
         const kw = scope.querySelector(".anti-kw-sel").value;
         const th = parseInt(scope.querySelector(".anti-th-sel").value, 10);
-        row.antiList.push({
-          keyword: kw,
-          threshold: th,
-          innate: false,
-        });
+        row.antiList.push({ keyword: kw, threshold: th, innate: false });
         onAntiChange();
       });
     }
@@ -2683,13 +2762,44 @@ if (typeof module !== "undefined") {
       });
     });
   }
+
   function renderDefender() {
     const wrap = document.getElementById("defender-panel");
     const unit = defender.unitId ? unitById[defender.unitId] : null;
     const faction = defender.faction || "";
-    wrap.innerHTML = `\n      <div class="picker-section-label">Select Defender</div>\n      <div class="picker-row">\n        <select class="sel def-faction-sel">${defFactionOptions(faction)}</select>\n        <select class="sel def-unit-sel" ${faction ? "" : "disabled"}>${defUnitOptions(faction, defender.unitId)}</select>\n      </div>\n      <div class="unit-stat-line-wrap">${renderUnitCard(unit)}</div>\n      <div class="def-details" ${unit ? "" : 'style="display:none"'}>\n      <div class="def-grid">\n        <label>Toughness <input type="number" class="num-input" data-def="toughness" value="${defender.toughness}" min="1" max="20"/></label>\n        <label>Save (N+) <input type="number" class="num-input" data-def="save" value="${defender.save}" min="2" max="7"/></label>\n        <label>Invuln (0=none) <input type="number" class="num-input" data-def="invuln" value="${defender.invuln}" min="0" max="6"/></label>\n        <label>Invuln vs ranged only <input type="number" class="num-input" data-def="invulnRanged" value="${defender.invulnRanged}" min="0" max="6" title="Invulnerable save that only works against ranged attacks (0 = none)"/></label>\n        <label>Invuln vs melee only <input type="number" class="num-input" data-def="invulnMelee" value="${defender.invulnMelee}" min="0" max="6" title="Invulnerable save that only works against melee attacks (0 = none)"/></label>\n        <label>Wounds/model <input type="number" class="num-input" data-def="wounds" value="${defender.wounds}" min="1" max="30"/></label>\n        <label>Number of models <input type="number" class="num-input" data-def="models" value="${defender.models}" min="1" max="50"/></label>\n        <label>Feel No Pain (0=none) <input type="number" class="num-input" data-def="fnp" value="${defender.fnp}" min="0" max="6"/></label>\n      </div>\n      <div class="mod-group-title" style="margin-top:10px">KEYWORDS (for Anti-X)</div>\n      <div class="kw-chip-row">\n        ${ANTI_KEYWORDS.map((k) => `<label class="chip"><input type="checkbox" class="def-kw" value="${k}" ${defender.keywords.includes(k) ? "checked" : ""}/> ${titleCase(k)}</label>`).join("")}\n      </div>\n      ${renderDefenderModifierGroups()}\n      </div>\n    `;
+
+    wrap.innerHTML = `
+      <div class="picker-section-label">Select Defender</div>
+      <div class="picker-row">
+        <select class="sel def-faction-sel">${defFactionOptions(faction)}</select>
+        <select class="sel def-unit-sel" ${faction ? "" : "disabled"}>${defUnitOptions(faction, defender.unitId)}</select>
+      </div>
+      <div class="unit-stat-line-wrap">${renderUnitCard(unit)}</div>
+      <div class="def-details" ${unit ? "" : 'style="display:none"'}>
+      <div class="def-grid">
+        <label>Toughness <input type="number" class="num-input" data-def="toughness" value="${defender.toughness}" min="1" max="20"/></label>
+        <label>Save (N+) <input type="number" class="num-input" data-def="save" value="${defender.save}" min="2" max="7"/></label>
+        <label>Invuln (0=none) <input type="number" class="num-input" data-def="invuln" value="${defender.invuln}" min="0" max="6"/></label>
+        <label>Invuln vs ranged only <input type="number" class="num-input" data-def="invulnRanged" value="${defender.invulnRanged}" min="0" max="6" title="Invulnerable save that only works against ranged attacks (0 = none)"/></label>
+        <label>Invuln vs melee only <input type="number" class="num-input" data-def="invulnMelee" value="${defender.invulnMelee}" min="0" max="6" title="Invulnerable save that only works against melee attacks (0 = none)"/></label>
+        <label>Wounds/model <input type="number" class="num-input" data-def="wounds" value="${defender.wounds}" min="1" max="30"/></label>
+        <label>Number of models <input type="number" class="num-input" data-def="models" value="${defender.models}" min="1" max="50"/></label>
+        <label>Feel No Pain (0=none) <input type="number" class="num-input" data-def="fnp" value="${defender.fnp}" min="0" max="6"/></label>
+      </div>
+      <div class="mod-group-title" style="margin-top:10px">KEYWORDS (for Anti-X)</div>
+      <div class="kw-chip-row">
+        ${ANTI_KEYWORDS.map(
+          (k) =>
+            `<label class="chip"><input type="checkbox" class="def-kw" value="${k}" ${defender.keywords.includes(k) ? "checked" : ""}/> ${titleCase(k)}</label>`
+        ).join("")}
+      </div>
+      ${renderDefenderModifierGroups()}
+      </div>
+    `;
+
     const factionSel = wrap.querySelector(".def-faction-sel");
     const unitSel = wrap.querySelector(".def-unit-sel");
+
     factionSel.addEventListener("change", (e) => {
       defender.faction = e.target.value;
       defender.unitId = null;
@@ -2721,17 +2831,21 @@ if (typeof module !== "undefined") {
     renderEfficiencyDefenderPanel();
     updateCalcBtnState();
   }
+
   function renderEfficiencyDefenderPanel() {
     const factionSel = document.getElementById("eff-def-faction-sel");
     const unitSel = document.getElementById("eff-def-unit-sel");
     const cardWrap = document.getElementById("eff-def-card");
     if (!factionSel || !unitSel || !cardWrap) return;
+
     const unit = defender.unitId ? unitById[defender.unitId] : null;
     const faction = defender.faction || "";
+
     factionSel.innerHTML = defFactionOptions(faction);
     unitSel.innerHTML = defUnitOptions(faction, defender.unitId);
     unitSel.disabled = !faction;
     cardWrap.innerHTML = renderUnitCard(unit);
+
     factionSel.addEventListener("change", (e) => {
       defender.faction = e.target.value;
       defender.unitId = null;
@@ -2746,6 +2860,7 @@ if (typeof module !== "undefined") {
       renderDefender();
     });
   }
+
   function switchAttackerAndDefender() {
     if (!defender.unitId) return;
     const atkWithUnit = attackers.find((a) => a.unitId);
@@ -2753,11 +2868,13 @@ if (typeof module !== "undefined") {
     const oldAttackerUnit = unitById[atkWithUnit.unitId];
     const oldDefenderUnit = unitById[defender.unitId];
     if (!oldAttackerUnit || !oldDefenderUnit) return;
+
     const oldDefenderModels = defender.models || oldDefenderUnit.modelsMin || 1;
     defender.unitId = oldAttackerUnit.id;
     defender.faction = oldAttackerUnit.faction;
     applyUnitToDefender(oldAttackerUnit);
     defender.models = atkWithUnit.unitSize || oldAttackerUnit.modelsMin || 1;
+
     attackers = [
       {
         id: uid(),
@@ -2769,18 +2886,22 @@ if (typeof module !== "undefined") {
     renderAttackers();
     renderDefender();
   }
+
   function hasValidAttacker() {
     syncActiveGroup();
     return groups.some((g) =>
       g.attackers.some((a) => a.unitId && a.weaponRows.some((r) => r.weaponIdx != null))
     );
   }
+
   const CALC_BTN_IDS = ["calc-btn", "calc-btn-2", "calc-btn-3"];
   const CALC_HINT_IDS = ["calc-hint", "calc-hint-2", "calc-hint-3"];
+
   function updateCalcBtnState() {
     const validAttacker = hasValidAttacker();
     const validDefender = !!defender.unitId;
     const enabled = validAttacker && validDefender;
+
     let hintText = "";
     if (!validAttacker && !validDefender) {
       hintText = "Pick an attacker (unit + weapon) and a defender unit below to enable Calculate.";
@@ -2789,6 +2910,7 @@ if (typeof module !== "undefined") {
     } else if (!validDefender) {
       hintText = "Pick a defender unit below to enable Calculate.";
     }
+
     CALC_BTN_IDS.forEach((id) => {
       const btn = document.getElementById(id);
       if (btn) btn.disabled = !enabled;
@@ -2801,6 +2923,7 @@ if (typeof module !== "undefined") {
       if (hint) hint.textContent = hintText;
     });
   }
+
   function updateEffTitle() {
     const titleEl = document.getElementById("eff-title");
     if (!titleEl) return;
@@ -2809,37 +2932,50 @@ if (typeof module !== "undefined") {
       ? "Efficiency Finder vs " + unit.faction + " – " + unitDisplayName(unit)
       : "Efficiency Finder vs custom defender profile";
   }
+
   function renderDefenderModifierGroups() {
     const d = defender;
     const chk = (key, label) =>
       `<label class="chk-row"><input type="checkbox" data-defmod="${key}" ${d[key] ? "checked" : ""}/> ${label}</label>`;
-    const stepper = (key, label, min, max, step) =>
-      `\n      <div class="mini-select-row">\n        <span>${label}</span>\n        <input type="number" class="num-input small" data-defmodnum="${key}" min="${min}" max="${max}" step="${step || 1}" value="${d[key]}" />\n      </div>`;
-    const radioGroup = (key, label, options) =>
-      `\n      <div class="mini-select-row">\n        <span>${label}</span>\n        <select data-defmod="${key}">\n          ${options.map((o) => `<option value="${o.v}" ${d[key] === o.v ? "selected" : ""}>${o.l}</option>`).join("")}\n        </select>\n      </div>`;
-    return `\n      <div class="mod-group">\n        <div class="mod-group-title">DATASHEET MODIFIERS</div>\n        <div class="mod-grid">\n          ${stepper("toughnessBonus", "Toughness (+/-)", -3, 3)}\n          ${stepper("saveBonus", "To Saves (+N)", -3, 3)}\n          ${stepper("damageReduction", "Damage taken (-N)", 0, 3)}\n        </div>\n      </div>\n      <div class="mod-group">\n        <div class="mod-group-title">ROLL MODIFIERS</div>\n        <div class="mod-grid">\n          ${stepper("hitPenalty", "Worsen attacker's To Hit (+N)", 0, 3)}\n          ${stepper("woundPenalty", "Worsen attacker's To Wound (+N)", 0, 3)}\n          ${stepper("apReduction", "Reduce incoming AP (+N)", 0, 3)}\n          ${radioGroup(
-      "rerollSave",
-      "Re-roll Save",
-      [
-        {
-          v: "none",
-          l: "None",
-        },
-        {
-          v: "ones",
-          l: "Rolls of 1",
-        },
-        {
-          v: "failed",
-          l: "All failed",
-        },
-        {
-          v: "all",
-          l: "All",
-        },
-      ]
-    )}\n        </div>\n      </div>\n    `;
+    const stepper = (key, label, min, max, step) => `
+      <div class="mini-select-row">
+        <span>${label}</span>
+        <input type="number" class="num-input small" data-defmodnum="${key}" min="${min}" max="${max}" step="${step || 1}" value="${d[key]}" />
+      </div>`;
+    const radioGroup = (key, label, options) => `
+      <div class="mini-select-row">
+        <span>${label}</span>
+        <select data-defmod="${key}">
+          ${options.map((o) => `<option value="${o.v}" ${d[key] === o.v ? "selected" : ""}>${o.l}</option>`).join("")}
+        </select>
+      </div>`;
+
+    return `
+      <div class="mod-group">
+        <div class="mod-group-title">DATASHEET MODIFIERS</div>
+        <div class="mod-grid">
+          ${stepper("toughnessBonus", "Toughness (+/-)", -3, 3)}
+          ${stepper("saveBonus", "To Saves (+N)", -3, 3)}
+          ${stepper("damageReduction", "Damage taken (-N)", 0, 3)}
+        </div>
+      </div>
+      <div class="mod-group">
+        <div class="mod-group-title">ROLL MODIFIERS</div>
+        <div class="mod-grid">
+          ${stepper("hitPenalty", "Worsen attacker's To Hit (+N)", 0, 3)}
+          ${stepper("woundPenalty", "Worsen attacker's To Wound (+N)", 0, 3)}
+          ${stepper("apReduction", "Reduce incoming AP (+N)", 0, 3)}
+          ${radioGroup("rerollSave", "Re-roll Save", [
+            { v: "none", l: "None" },
+            { v: "ones", l: "Rolls of 1" },
+            { v: "failed", l: "All failed" },
+            { v: "all", l: "All" },
+          ])}
+        </div>
+      </div>
+    `;
   }
+
   function wireDefenderModifierGroups(wrap) {
     wrap.querySelectorAll("[data-defmod]").forEach((el) => {
       el.addEventListener("change", () => {
@@ -2854,6 +2990,7 @@ if (typeof module !== "undefined") {
       });
     });
   }
+
   function applyUnitToDefender(unit) {
     const model = unit.models[0] || {};
     defender.toughness = model.t || defender.toughness;
@@ -2866,6 +3003,7 @@ if (typeof module !== "undefined") {
     defender.models = unit.modelsMin || defender.models;
     defender.keywords = (unit.keywords || []).filter((k) => ANTI_KEYWORDS.includes(k));
   }
+
   function buildEngineAttacker(unit, weapon, row) {
     const kw = {};
     (weapon.keywords || []).forEach((k) => {
@@ -2876,14 +3014,13 @@ if (typeof module !== "undefined") {
       else if (k.code === "BLAST") kw.blastN = blastNFromWeapon(weapon);
       else if (k.code === "IGNORES_COVER") kw.ignoresCoverWeapon = true;
     });
-    kw.anti = (row.antiList || []).map((x) => ({
-      keyword: x.keyword,
-      threshold: x.threshold,
-    }));
+    kw.anti = (row.antiList || []).map((x) => ({ keyword: x.keyword, threshold: x.threshold }));
+
     const mods = Object.assign({}, row.mods, {
       critHitOn: row.mods.critHitOn || 0,
       critWoundOn: row.mods.critWoundOn || 0,
     });
+
     return {
       isMelee: weapon.type === "Melee",
       weaponsCount: row.count || 1,
@@ -2892,11 +3029,12 @@ if (typeof module !== "undefined") {
       strength: typeof weapon.s === "number" ? weapon.s : 4,
       ap: weapon.ap || 0,
       damageExpr: weapon.d,
-      kw: kw,
-      mods: mods,
+      kw,
+      mods,
       label: unit.name + " – " + weapon.name,
     };
   }
+
   function buildEngineInputs(list) {
     const engineAttackers = [];
     const meta = [];
@@ -2916,11 +3054,9 @@ if (typeof module !== "undefined") {
         });
       });
     });
-    return {
-      engineAttackers: engineAttackers,
-      meta: meta,
-    };
+    return { engineAttackers, meta };
   }
+
   function buildDefenderProfile() {
     return {
       toughness: defender.toughness,
@@ -2942,27 +3078,18 @@ if (typeof module !== "undefined") {
       rerollSave: defender.rerollSave,
     };
   }
+
   function computeGroup(g, engineAttackers, meta, baseDef) {
     const meleeOnly = meta.length > 0 && meta.every((m) => m.isMelee);
     const toRun = meleeOnly ? [SCENARIOS[0]] : SCENARIOS;
     const results = {};
     toRun.forEach((sc) => {
       const atkForScenario = engineAttackers.map((a) =>
-        Object.assign({}, a, {
-          mods: Object.assign({}, a.mods, {
-            halfRange: sc.halfRange,
-          }),
-        })
+        Object.assign({}, a, { mods: Object.assign({}, a.mods, { halfRange: sc.halfRange }) })
       );
-      const defForScenario = Object.assign({}, baseDef, {
-        coverBonus: sc.cover,
-      });
-      const result = simulate(atkForScenario, defForScenario, 2e4);
-      results[sc.id] = {
-        result: result,
-        def: defForScenario,
-        meta: meta,
-      };
+      const defForScenario = Object.assign({}, baseDef, { coverBonus: sc.cover });
+      const result = simulate(atkForScenario, defForScenario, 20000);
+      results[sc.id] = { result, def: defForScenario, meta };
     });
     const seen = {};
     let points = 0;
@@ -2975,21 +3102,24 @@ if (typeof module !== "undefined") {
     return {
       label: g.label,
       scenarioResults: results,
-      meleeOnly: meleeOnly,
-      points: points,
+      meleeOnly,
+      points,
       engine: engineAttackers,
-      meta: meta,
-      baseDef: baseDef,
+      meta,
+      baseDef,
     };
   }
+
   function showGroupView(id) {
     viewGroupId = id;
     scenarioResults = groupResults[id].scenarioResults;
     scenarioMeleeOnly = groupResults[id].meleeOnly;
   }
+
   let lastDefenderName = "";
   let lastDefenderPts = null;
   let extrasCache = {};
+
   function runSimulation() {
     syncActiveGroup();
     extrasCache = {};
@@ -3005,7 +3135,7 @@ if (typeof module !== "undefined") {
     const baseDef = buildDefenderProfile();
     const bundles = {};
     groups.forEach((g) => {
-      const { engineAttackers: engineAttackers, meta: meta } = buildEngineInputs(g.attackers);
+      const { engineAttackers, meta } = buildEngineInputs(g.attackers);
       if (engineAttackers.length) bundles[g.id] = computeGroup(g, engineAttackers, meta, baseDef);
     });
     if (!Object.keys(bundles).length) {
@@ -3017,20 +3147,21 @@ if (typeof module !== "undefined") {
     showGroupView(viewGroupId);
     renderResults(currentScenarioId);
     try {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {}
   }
+
   function renderResults(scenarioId) {
     currentScenarioId = scenarioId;
     const entry = scenarioResults[scenarioId] || scenarioResults[SCENARIOS[0].id];
-    const { result: result, def: def, meta: meta } = entry;
+    const { result, def, meta } = entry;
+
     const panel = document.getElementById("results-panel");
     panel.classList.remove("hidden");
+
     const calcBarTop = document.getElementById("calc-bar-top");
     if (calcBarTop) calcBarTop.classList.remove("hidden");
+
     updateScenarioButtons();
     renderGroupViewBar();
     renderGroupComparison();
@@ -3042,20 +3173,24 @@ if (typeof module !== "undefined") {
       : !scenarioMeleeOnly;
     if (scenarioBar) scenarioBar.style.display = anyRanged ? "" : "none";
     if (meleeNote) meleeNote.classList.toggle("hidden", !scenarioMeleeOnly);
+
     document.getElementById("stat-attacks").textContent = result.meanAttacks.toFixed(2);
     document.getElementById("stat-hits").textContent = result.meanHits.toFixed(2);
     document.getElementById("stat-wounds").textContent = result.meanWounds.toFixed(2);
     document.getElementById("stat-unsaved").textContent = result.meanUnsaved.toFixed(2);
     document.getElementById("stat-damage").textContent = result.meanDamage.toFixed(2);
     document.getElementById("stat-models-killed").textContent = result.meanModelsKilled.toFixed(2);
+
     const totalPoolWounds = def.wounds * def.models;
     const pctOfUnit =
       totalPoolWounds > 0 ? Math.min(100, (result.meanDamage / totalPoolWounds) * 100) : 0;
     document.getElementById("stat-pct-unit").textContent = pctOfUnit.toFixed(1) + "%";
+
     const killSamples = result.modelsKilledSamples || [];
     const fullKills = killSamples.filter((k) => k >= def.models).length;
     const pctKillUnit = killSamples.length ? (fullKills / killSamples.length) * 100 : 0;
     document.getElementById("stat-kill-unit").textContent = pctKillUnit.toFixed(1) + "%";
+
     renderDamageHistogram(result.damageSamples);
     renderDamageCumulative(result.damageSamples);
     renderStageFunnel(result, def);
@@ -3072,42 +3207,36 @@ if (typeof module !== "undefined") {
     renderCoverComparisonChart();
     renderExtras();
   }
-  const EXTRA_TRIALS = 4e3;
-  const SENS_TRIALS = 8e3;
+
+  const EXTRA_TRIALS = 4000;
+  const SENS_TRIALS = 8000;
+
   function viewScenario(gr) {
     return gr.meleeOnly ? SCENARIOS[0] : scenarioById(currentScenarioId);
   }
+
   function runVariant(gr, sc, opts) {
     opts = opts || {};
-    let items = gr.engine.map((a, i) => ({
-      a: a,
-      i: i,
-      melee: gr.meta[i].isMelee,
-    }));
+    let items = gr.engine.map((a, i) => ({ a, i, melee: gr.meta[i].isMelee }));
     if (opts.filter) items = items.filter(opts.filter);
     if (!items.length) return null;
     const list = items.map((x) => {
       const mods = Object.assign(
         {},
         x.a.mods,
-        {
-          halfRange: sc.halfRange,
-        },
+        { halfRange: sc.halfRange },
         opts.mods ? opts.mods(x.a.mods) : {}
       );
-      const copy = Object.assign({}, x.a, {
-        mods: mods,
-      });
+      const copy = Object.assign({}, x.a, { mods });
       if (opts.count)
         copy.weaponsCount = Math.max(1, Math.round((x.a.weaponsCount || 1) * opts.count));
       if (opts.kw) copy.kw = opts.kw(x.a.kw);
       return copy;
     });
-    const def = Object.assign({}, opts.def || gr.baseDef, {
-      coverBonus: sc.cover,
-    });
+    const def = Object.assign({}, opts.def || gr.baseDef, { coverBonus: sc.cover });
     return simulate(list, def, opts.trials || EXTRA_TRIALS);
   }
+
   function plainDefender(t, sv, w, models, inv) {
     return {
       toughness: t,
@@ -3127,110 +3256,41 @@ if (typeof module !== "undefined") {
       rerollSave: "none",
     };
   }
+
   const ARCHETYPES = [
+    { label: ["Horde", "T3 5+ \u00b7 20\u00d7W1"], def: () => plainDefender(3, 5, 1, 20) },
     {
-      label: ["Horde", "T3 5+ · 20×W1"],
-      def: () => plainDefender(3, 5, 1, 20),
-    },
-    {
-      label: ["Medium infantry", "T4 3+ · 10×W2"],
+      label: ["Medium infantry", "T4 3+ \u00b7 10\u00d7W2"],
       def: () => plainDefender(4, 3, 2, 10),
     },
+    { label: ["Elite infantry", "T5 3+ \u00b7 10\u00d7W2"], def: () => plainDefender(5, 3, 2, 10) },
     {
-      label: ["Elite infantry", "T5 3+ · 10×W2"],
-      def: () => plainDefender(5, 3, 2, 10),
-    },
-    {
-      label: ["Terminators", "T5 2+/4++ · 5×W3"],
+      label: ["Terminators", "T5 2+/4++ \u00b7 5\u00d7W3"],
       def: () => plainDefender(5, 2, 3, 5, 4),
     },
-    {
-      label: ["Monster", "T9 3+ · 1×W12"],
-      def: () => plainDefender(9, 3, 12, 1),
-    },
-    {
-      label: ["Vehicle", "T10 2+ · 1×W16"],
-      def: () => plainDefender(10, 2, 16, 1),
-    },
+    { label: ["Monster", "T9 3+ \u00b7 1\u00d7W12"], def: () => plainDefender(9, 3, 12, 1) },
+    { label: ["Vehicle", "T10 2+ \u00b7 1\u00d7W16"], def: () => plainDefender(10, 2, 16, 1) },
   ];
+
   const SENS_VARIANTS = [
-    {
-      label: "+1 to hit",
-      mods: (m) => ({
-        toHit: (m.toHit || 0) + 1,
-      }),
-    },
-    {
-      label: "+1 to wound",
-      mods: (m) => ({
-        toWound: (m.toWound || 0) + 1,
-      }),
-    },
-    {
-      label: "Re-roll hit 1s",
-      mods: () => ({
-        rerollHit: "ones",
-      }),
-    },
-    {
-      label: "Re-roll failed hits",
-      mods: () => ({
-        rerollHit: "failed",
-      }),
-    },
-    {
-      label: "Re-roll failed wounds",
-      mods: () => ({
-        rerollWound: "failed",
-      }),
-    },
-    {
-      label: "+1 Strength",
-      mods: (m) => ({
-        strengthBonus: (m.strengthBonus || 0) + 1,
-      }),
-    },
-    {
-      label: "+1 AP",
-      mods: (m) => ({
-        apBonus: (m.apBonus || 0) + 1,
-      }),
-    },
-    {
-      label: "+1 Damage",
-      mods: (m) => ({
-        damageBonus: (m.damageBonus || 0) + 1,
-      }),
-    },
-    {
-      label: "+1 Attack per model",
-      mods: (m) => ({
-        attacksBonus: (m.attacksBonus || 0) + 1,
-      }),
-    },
-    {
-      label: "Lethal Hits",
-      mods: () => ({
-        lethalHits: true,
-      }),
-    },
+    { label: "+1 to hit", mods: (m) => ({ toHit: (m.toHit || 0) + 1 }) },
+    { label: "+1 to wound", mods: (m) => ({ toWound: (m.toWound || 0) + 1 }) },
+    { label: "Re-roll hit 1s", mods: () => ({ rerollHit: "ones" }) },
+    { label: "Re-roll failed hits", mods: () => ({ rerollHit: "failed" }) },
+    { label: "Re-roll failed wounds", mods: () => ({ rerollWound: "failed" }) },
+    { label: "+1 Strength", mods: (m) => ({ strengthBonus: (m.strengthBonus || 0) + 1 }) },
+    { label: "+1 AP", mods: (m) => ({ apBonus: (m.apBonus || 0) + 1 }) },
+    { label: "+1 Damage", mods: (m) => ({ damageBonus: (m.damageBonus || 0) + 1 }) },
+    { label: "+1 Attack per model", mods: (m) => ({ attacksBonus: (m.attacksBonus || 0) + 1 }) },
+    { label: "Lethal Hits", mods: () => ({ lethalHits: true }) },
     {
       label: "Sustained Hits 1",
-      mods: () => ({
-        sustainedHits: true,
-      }),
-      kw: (kw) =>
-        Object.assign({}, kw, {
-          sustainedDiceExpr: kw.sustainedDiceExpr || "1",
-        }),
+      mods: () => ({ sustainedHits: true }),
+      kw: (kw) => Object.assign({}, kw, { sustainedDiceExpr: kw.sustainedDiceExpr || "1" }),
     },
-    {
-      label: "Devastating Wounds",
-      mods: () => ({
-        devastatingWounds: true,
-      }),
-    },
+    { label: "Devastating Wounds", mods: () => ({ devastatingWounds: true }) },
   ];
+
   function LABEL_BOX(color, align, fmt) {
     return {
       display: true,
@@ -3242,19 +3302,12 @@ if (typeof module !== "undefined") {
       borderColor: color,
       borderWidth: 1,
       borderRadius: 4,
-      padding: {
-        top: 2,
-        bottom: 2,
-        left: 5,
-        right: 5,
-      },
-      font: {
-        size: 11,
-        weight: "700",
-      },
+      padding: { top: 2, bottom: 2, left: 5, right: 5 },
+      font: { size: 11, weight: "700" },
       formatter: (v) => (typeof v === "number" ? fmt(v) : ""),
     };
   }
+
   function percentile(sorted, p) {
     if (!sorted.length) return 0;
     const idx = Math.min(
@@ -3263,36 +3316,34 @@ if (typeof module !== "undefined") {
     );
     return sorted[idx];
   }
+
   function setBoxVisible(id, on) {
     const el = document.getElementById(id);
     if (el) el.style.display = on ? "" : "none";
   }
+
   function makeChart(key, canvasId, cfg) {
     const el = document.getElementById(canvasId);
     if (!el) return;
     if (charts[key]) charts[key].destroy();
+
     const o = cfg.options || (cfg.options = {});
     o.plugins = o.plugins || {};
-    o.plugins.tooltip = Object.assign(
-      {
-        backgroundColor: COLORS.navy,
-      },
-      o.plugins.tooltip,
-      {
-        callbacks: {
-          label: (c) => {
-            const v = c.raw;
-            const f = (x) =>
-              typeof x === "number" ? (Math.abs(x) >= 100 ? x.toFixed(0) : x.toFixed(2)) : x;
-            const txt = Array.isArray(v) ? f(v[0]) + " – " + f(v[1]) : f(v);
-            const suffix = c.dataset.yAxisID === "y1" ? "%" : "";
-            return (c.dataset.label ? c.dataset.label + ": " : "") + txt + suffix;
-          },
+    o.plugins.tooltip = Object.assign({ backgroundColor: COLORS.navy }, o.plugins.tooltip, {
+      callbacks: {
+        label: (c) => {
+          const v = c.raw;
+          const f = (x) =>
+            typeof x === "number" ? (Math.abs(x) >= 100 ? x.toFixed(0) : x.toFixed(2)) : x;
+          const txt = Array.isArray(v) ? f(v[0]) + " \u2013 " + f(v[1]) : f(v);
+          const suffix = c.dataset.yAxisID === "y1" ? "%" : "";
+          return (c.dataset.label ? c.dataset.label + ": " : "") + txt + suffix;
         },
-      }
-    );
+      },
+    });
     charts[key] = new Chart(el.getContext("2d"), cfg);
   }
+
   function renderExtras() {
     if (!groupResults || !groupResults[viewGroupId]) return;
     const gr = groupResults[viewGroupId];
@@ -3310,6 +3361,7 @@ if (typeof module !== "undefined") {
     renderPhaseChart(gr, sc, cache);
     renderVulnerabilityTable(gr, sc, cache);
   }
+
   function renderVarianceChart() {
     const ids = Object.keys(groupResults);
     const scs = SCENARIOS.filter((s) => ids.some((id) => groupResults[id].scenarioResults[s.id]));
@@ -3328,21 +3380,19 @@ if (typeof module !== "undefined") {
         };
       });
     });
-    const labels = scs.map((s) => s.label.split(" · "));
+    const labels = scs.map((s) => s.label.split(" \u00b7 "));
     const colors = [COLORS.blue, COLORS.red];
     const datasets = [];
     ids.forEach((id, gi) => {
       datasets.push({
         type: "bar",
-        label: (ids.length > 1 ? groupResults[id].label + " " : "") + "(P10–P90)",
+        label: (ids.length > 1 ? groupResults[id].label + " " : "") + "(P10\u2013P90)",
         data: stats[id].map((x) => [x.p10, x.p90]),
         backgroundColor: colors[gi] + "88",
         borderColor: colors[gi],
         borderWidth: 1,
         borderRadius: 2,
-        datalabels: {
-          display: false,
-        },
+        datalabels: { display: false },
       });
       datasets.push({
         type: "line",
@@ -3360,16 +3410,11 @@ if (typeof module !== "undefined") {
     });
     makeChart("variance", "chart-variance", {
       type: "bar",
-      data: {
-        labels: labels,
-        datasets: datasets,
-      },
-      options: withDatalabels(chartBaseOptions("", "Damage"), {
-        display: false,
-      }),
+      data: { labels, datasets },
+      options: withDatalabels(chartBaseOptions("", "Damage"), { display: false }),
     });
     let html =
-      '<p class="chart-explain"><b>P10</b> = 10% of simulated runs deal this much damage or less (a bad roll). <b>P90</b> = only 10% of runs deal more (a great roll). <b>Median</b> (diamond) = the typical result. Each bar spans P10 to P90, i.e. the middle 80% of outcomes — a short bar means a reliable result.</p>' +
+      '<p class="chart-explain"><b>P10</b> = 10% of simulated runs deal this much damage or less (a bad roll). <b>P90</b> = only 10% of runs deal more (a great roll). <b>Median</b> (diamond) = the typical result. Each bar spans P10 to P90, i.e. the middle 80% of outcomes \u2014 a short bar means a reliable result.</p>' +
       '<table class="group-compare-table"><thead><tr><th>' +
       (ids.length > 1 ? "Group / scenario" : "Scenario") +
       "</th><th>P10</th><th>Median</th><th>Mean</th><th>P90</th></tr></thead><tbody>";
@@ -3378,7 +3423,7 @@ if (typeof module !== "undefined") {
         const x = stats[id][i];
         html +=
           "<tr><td>" +
-          (ids.length > 1 ? esc(groupResults[id].label) + " · " : "") +
+          (ids.length > 1 ? esc(groupResults[id].label) + " \u00b7 " : "") +
           esc(s.label) +
           "</td><td>" +
           x.p10.toFixed(1) +
@@ -3393,6 +3438,7 @@ if (typeof module !== "undefined") {
     );
     document.getElementById("variance-table").innerHTML = html + "</tbody></table>";
   }
+
   function renderWaterfallChart(r) {
     const A = r.meanAttacks,
       H = r.meanHits,
@@ -3416,26 +3462,12 @@ if (typeof module !== "undefined") {
     makeChart("waterfall", "chart-waterfall", {
       type: "bar",
       data: {
-        labels: labels,
-        datasets: [
-          {
-            label: "Expected count",
-            data: data,
-            backgroundColor: colors,
-            borderRadius: 2,
-          },
-        ],
+        labels,
+        datasets: [{ label: "Expected count", data, backgroundColor: colors, borderRadius: 2 }],
       },
       options: withDatalabels(
         Object.assign(chartBaseOptions("", "Expected count"), {
-          plugins: {
-            legend: {
-              display: false,
-            },
-            tooltip: {
-              backgroundColor: COLORS.navy,
-            },
-          },
+          plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } },
         }),
         {
           display: true,
@@ -3443,15 +3475,13 @@ if (typeof module !== "undefined") {
           anchor: "end",
           align: "top",
           offset: 4,
-          font: {
-            size: 11,
-            weight: "700",
-          },
+          font: { size: 11, weight: "700" },
           formatter: (v, ctx) => texts[ctx.dataIndex],
         }
       ),
     });
   }
+
   function renderCostChart() {
     const note = document.getElementById("cost-note");
     const ids = Object.keys(groupResults);
@@ -3477,11 +3507,7 @@ if (typeof module !== "undefined") {
         const m = entry.meta[i];
         if (!m || !m.unitPoints) return;
         if (!byId[m.attackerId]) {
-          byId[m.attackerId] = {
-            name: m.unitName,
-            points: m.unitPoints,
-            dmg: 0,
-          };
+          byId[m.attackerId] = { name: m.unitName, points: m.unitPoints, dmg: 0 };
           rows.push(byId[m.attackerId]);
         }
         byId[m.attackerId].dmg += p.meanDamage;
@@ -3526,7 +3552,7 @@ if (typeof module !== "undefined") {
     makeChart("cost", "chart-cost", {
       type: "bar",
       data: {
-        labels: labels,
+        labels,
         datasets: [
           {
             label: "Defender pts destroyed per attacker pt",
@@ -3538,19 +3564,13 @@ if (typeof module !== "undefined") {
       },
       options: withDatalabels(
         Object.assign(chartBaseOptions("", "Points destroyed / points spent"), {
-          plugins: {
-            legend: {
-              display: false,
-            },
-            tooltip: {
-              backgroundColor: COLORS.navy,
-            },
-          },
+          plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } },
         }),
         topLabel(2, "", 0)
       ),
     });
   }
+
   function renderGroupWeaponChart(sc) {
     const ids = Object.keys(groupResults);
     if (ids.length < 2) {
@@ -3588,6 +3608,7 @@ if (typeof module !== "undefined") {
       }),
     });
   }
+
   function renderArchetypeChart(sc) {
     const ids = Object.keys(groupResults);
     const colors = [COLORS.blue, COLORS.red];
@@ -3597,14 +3618,9 @@ if (typeof module !== "undefined") {
       const gsc = g.meleeOnly ? SCENARIOS[0] : sc;
       res[id] = ARCHETYPES.map((a) => {
         const d = a.def();
-        const r = runVariant(g, gsc, {
-          def: d,
-        });
+        const r = runVariant(g, gsc, { def: d });
         const pool = d.wounds * d.models;
-        return {
-          dmg: r.meanDamage,
-          pct: Math.min(100, (r.meanDamage / pool) * 100),
-        };
+        return { dmg: r.meanDamage, pct: Math.min(100, (r.meanDamage / pool) * 100) };
       });
     });
     makeChart("archetype", "chart-archetype", {
@@ -3623,23 +3639,12 @@ if (typeof module !== "undefined") {
         topLabel(0, "%", 0.5),
         {
           plugins: {
-            legend: {
-              display: ids.length > 1,
-              labels: {
-                color: COLORS.navy,
-              },
-            },
-            tooltip: {
-              backgroundColor: COLORS.navy,
-            },
+            legend: { display: ids.length > 1, labels: { color: COLORS.navy } },
+            tooltip: { backgroundColor: COLORS.navy },
           },
           scales: Object.assign({}, chartBaseOptions("", "% of target's wounds destroyed").scales, {
             y: Object.assign({}, chartBaseOptions("", "").scales.y, {
-              title: {
-                display: true,
-                text: "% of target's wounds destroyed",
-                color: COLORS.slate,
-              },
+              title: { display: true, text: "% of target's wounds destroyed", color: COLORS.slate },
               max: 115,
               grace: 0,
             }),
@@ -3662,7 +3667,7 @@ if (typeof module !== "undefined") {
       if (ids.length > 1 && Math.abs(vals[0] - vals[1]) > 1e-9) best = vals[0] > vals[1] ? 0 : 1;
       html +=
         "<tr><td>" +
-        esc(a.label.join(" — ")) +
+        esc(a.label.join(" \u2014 ")) +
         "</td>" +
         ids
           .map(
@@ -3680,21 +3685,16 @@ if (typeof module !== "undefined") {
     });
     document.getElementById("archetype-table").innerHTML = html + "</tbody></table>";
   }
+
   function renderScalingChart(gr, sc, cache) {
     if (!cache.scaling) {
       cache.scaling = [0.5, 1, 1.5, 2, 3].map((f) => {
-        const r = runVariant(gr, sc, {
-          count: f,
-        });
+        const r = runVariant(gr, sc, { count: f });
         const mk = r.modelsKilledSamples || [];
         const models = (gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id]).def
           .models;
         const kills = mk.filter((k) => k >= models).length;
-        return {
-          f: f,
-          dmg: r.meanDamage,
-          kill: mk.length ? (kills / mk.length) * 100 : 0,
-        };
+        return { f, dmg: r.meanDamage, kill: mk.length ? (kills / mk.length) * 100 : 0 };
       });
     }
     const d = cache.scaling;
@@ -3707,12 +3707,7 @@ if (typeof module !== "undefined") {
       topLabel(1, "", 0.01)
     );
     opts.plugins = Object.assign({}, opts.plugins, {
-      legend: {
-        labels: {
-          color: COLORS.navy,
-          filter: (item) => item.text !== "kill-label",
-        },
-      },
+      legend: { labels: { color: COLORS.navy, filter: (item) => item.text !== "kill-label" } },
       tooltip: {
         backgroundColor: COLORS.navy,
         filter: (item) => item.dataset.label !== "kill-label",
@@ -3722,23 +3717,14 @@ if (typeof module !== "undefined") {
       position: "right",
       min: 0,
       max: 112,
-      title: {
-        display: true,
-        text: "Chance to kill unit (%)",
-        color: COLORS.slate,
-      },
-      ticks: {
-        color: COLORS.slate,
-        callback: (v) => (v <= 100 ? v : ""),
-      },
-      grid: {
-        drawOnChartArea: false,
-      },
+      title: { display: true, text: "Chance to kill unit (%)", color: COLORS.slate },
+      ticks: { color: COLORS.slate, callback: (v) => (v <= 100 ? v : "") },
+      grid: { drawOnChartArea: false },
     };
     makeChart("scaling", "chart-scaling", {
       type: "bar",
       data: {
-        labels: d.map((x) => "×" + x.f + (x.f === 1 ? " (current)" : "")),
+        labels: d.map((x) => "\u00d7" + x.f + (x.f === 1 ? " (current)" : "")),
         datasets: [
           {
             type: "bar",
@@ -3756,10 +3742,7 @@ if (typeof module !== "undefined") {
               anchor: "end",
               align: "start",
               offset: 6,
-              font: {
-                size: 11,
-                weight: "700",
-              },
+              font: { size: 11, weight: "700" },
               formatter: (v) => v.toFixed(1),
             },
           },
@@ -3771,10 +3754,9 @@ if (typeof module !== "undefined") {
             backgroundColor: COLORS.red,
             yAxisID: "y1",
             tension: 0.25,
-            datalabels: {
-              display: false,
-            },
+            datalabels: { display: false },
           },
+
           {
             type: "line",
             label: "kill-label",
@@ -3790,14 +3772,11 @@ if (typeof module !== "undefined") {
               anchor: "end",
               align: "top",
               offset: 4,
-              font: {
-                size: 12,
-                weight: "800",
-              },
+              font: { size: 12, weight: "800" },
               formatter: (v, ctx) => {
                 const x = d[ctx.dataIndex];
                 return (
-                  (x.dmg < maxDmg * 0.12 ? x.dmg.toFixed(1) + " dmg · " : "") +
+                  (x.dmg < maxDmg * 0.12 ? x.dmg.toFixed(1) + " dmg \u00b7 " : "") +
                   x.kill.toFixed(0) +
                   "%"
                 );
@@ -3809,17 +3788,12 @@ if (typeof module !== "undefined") {
       options: opts,
     });
   }
+
   function renderSensitivityChart(gr, sc, entry, cache) {
     if (!cache.sens) {
-      const base = runVariant(gr, sc, {
-        trials: SENS_TRIALS,
-      }).meanDamage;
+      const base = runVariant(gr, sc, { trials: SENS_TRIALS }).meanDamage;
       const rows = SENS_VARIANTS.map((v) => {
-        const r = runVariant(gr, sc, {
-          mods: v.mods,
-          kw: v.kw,
-          trials: SENS_TRIALS,
-        });
+        const r = runVariant(gr, sc, { mods: v.mods, kw: v.kw, trials: SENS_TRIALS });
         return {
           label: v.label,
           pct: base > 0 ? (r.meanDamage / base - 1) * 100 : 0,
@@ -3827,10 +3801,7 @@ if (typeof module !== "undefined") {
         };
       });
       rows.sort((a, b) => b.pct - a.pct);
-      cache.sens = {
-        base: base,
-        rows: rows,
-      };
+      cache.sens = { base, rows };
     }
     const rows = cache.sens.rows;
     const wrap = document.getElementById("sensitivity-wrap");
@@ -3851,18 +3822,12 @@ if (typeof module !== "undefined") {
               const pos = gradColors(
                 rows.map((r) => Math.abs(r.pct)),
                 COLORS.green,
-                {
-                  min: 0,
-                  max: mx,
-                }
+                { min: 0, max: mx }
               );
               const neg = gradColors(
                 rows.map((r) => Math.abs(r.pct)),
                 COLORS.red,
-                {
-                  min: 0,
-                  max: mx,
-                }
+                { min: 0, max: mx }
               );
               return rows.map((r, i) => (r.pct >= 0 ? pos[i] : neg[i]));
             })(),
@@ -3872,62 +3837,31 @@ if (typeof module !== "undefined") {
       },
       options: withDatalabels(
         Object.assign(chartBaseOptions("Change in expected damage vs current (%)", ""), {
-          plugins: {
-            legend: {
-              display: false,
-            },
-            tooltip: {
-              backgroundColor: COLORS.navy,
-            },
-          },
+          plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } },
         }),
         endLabel(1, "%", null),
-        {
-          indexAxis: "y",
-        }
+        { indexAxis: "y" }
       ),
     });
   }
+
   function renderPhaseChart(gr, sc, cache) {
     if (!cache.phase) {
       const variants = [
         {
           label: "Shooting",
-          o: {
-            filter: (x) => !x.melee,
-            mods: () => ({
-              fireOverwatch: false,
-            }),
-          },
+          o: { filter: (x) => !x.melee, mods: () => ({ fireOverwatch: false }) },
         },
         {
           label: "Overwatch (ranged weapons)",
-          o: {
-            filter: (x) => !x.melee,
-            mods: () => ({
-              fireOverwatch: true,
-            }),
-          },
+          o: { filter: (x) => !x.melee, mods: () => ({ fireOverwatch: true }) },
         },
-        {
-          label: "Melee",
-          o: {
-            filter: (x) => x.melee,
-            mods: () => ({
-              fireOverwatch: false,
-            }),
-          },
-        },
+        { label: "Melee", o: { filter: (x) => x.melee, mods: () => ({ fireOverwatch: false }) } },
       ];
       cache.phase = variants
         .map((v) => {
           const r = runVariant(gr, sc, v.o);
-          return r
-            ? {
-                label: v.label,
-                dmg: r.meanDamage,
-              }
-            : null;
+          return r ? { label: v.label, dmg: r.meanDamage } : null;
         })
         .filter(Boolean);
     }
@@ -3959,19 +3893,13 @@ if (typeof module !== "undefined") {
       },
       options: withDatalabels(
         Object.assign(chartBaseOptions("", "Expected damage"), {
-          plugins: {
-            legend: {
-              display: false,
-            },
-            tooltip: {
-              backgroundColor: COLORS.navy,
-            },
-          },
+          plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } },
         }),
         topLabel(2, "", 0.01)
       ),
     });
   }
+
   function renderVulnerabilityTable(gr, sc, cache) {
     const Ts = [3, 4, 5, 6, 8, 10, 12];
     const Svs = [2, 3, 4, 5, 6, 7];
@@ -3979,10 +3907,7 @@ if (typeof module !== "undefined") {
       cache.vuln = Ts.map((t) =>
         Svs.map(
           (sv) =>
-            runVariant(gr, sc, {
-              def: plainDefender(t, sv, 1e3, 1),
-              trials: 2500,
-            }).meanDamage
+            runVariant(gr, sc, { def: plainDefender(t, sv, 1000, 1), trials: 2500 }).meanDamage
         )
       );
     }
@@ -4018,6 +3943,7 @@ if (typeof module !== "undefined") {
     });
     document.getElementById("vuln-body").innerHTML = html + "</tbody></table>";
   }
+
   function groupMetrics(id) {
     const gr = groupResults[id];
     const entry = gr.scenarioResults[currentScenarioId] || gr.scenarioResults[SCENARIOS[0].id];
@@ -4035,6 +3961,7 @@ if (typeof module !== "undefined") {
       per100: gr.points > 0 ? (r.meanDamage / gr.points) * 100 : null,
     };
   }
+
   function groupAttackerNames(id) {
     const gr = groupResults[id];
     const first = Object.values(gr.scenarioResults)[0];
@@ -4044,6 +3971,7 @@ if (typeof module !== "undefined") {
     });
     return seen.join(", ");
   }
+
   function renderMatchupLabels() {
     const panel = document.getElementById("results-panel");
     if (!panel || !groupResults) return;
@@ -4078,10 +4006,11 @@ if (typeof module !== "undefined") {
         (isCompare ? ids.map(atkText).join("  |  ") : viewText) +
         " vs " +
         lastDefenderName +
-        " · " +
+        " \u00b7 " +
         scText;
     });
   }
+
   function renderGroupViewBar() {
     const bar = document.getElementById("group-view-bar");
     if (!bar) return;
@@ -4106,6 +4035,7 @@ if (typeof module !== "undefined") {
       bar.appendChild(b);
     });
   }
+
   function renderGroupComparison() {
     const box = document.getElementById("group-compare-box");
     if (!box) return;
@@ -4122,28 +4052,14 @@ if (typeof module !== "undefined") {
     const sc = scenarioById(currentScenarioId);
     const anyRanged = Object.values(groupResults).some((r) => !r.meleeOnly);
     document.getElementById("group-compare-title").textContent =
-      "Attacker group comparison" + (anyRanged ? " — " + sc.label : " — melee");
+      "Attacker group comparison" + (anyRanged ? " \u2014 " + sc.label : " \u2014 melee");
+
     const m = {};
     ids.forEach((id) => (m[id] = groupMetrics(id)));
     const rows = [
-      {
-        key: "dmg",
-        label: "Expected damage",
-        fmt: (v) => v.toFixed(2),
-        higher: true,
-      },
-      {
-        key: "killed",
-        label: "Models killed",
-        fmt: (v) => v.toFixed(2),
-        higher: true,
-      },
-      {
-        key: "pct",
-        label: "% of unit's wounds",
-        fmt: (v) => v.toFixed(1) + "%",
-        higher: true,
-      },
+      { key: "dmg", label: "Expected damage", fmt: (v) => v.toFixed(2), higher: true },
+      { key: "killed", label: "Models killed", fmt: (v) => v.toFixed(2), higher: true },
+      { key: "pct", label: "% of unit's wounds", fmt: (v) => v.toFixed(1) + "%", higher: true },
       {
         key: "killUnit",
         label: "Chance to kill unit",
@@ -4190,6 +4106,7 @@ if (typeof module !== "undefined") {
     });
     html += "</tbody></table>";
     document.getElementById("group-compare-table").innerHTML = html;
+
     const [a, b] = ids;
     const verdict = document.getElementById("group-compare-verdict");
     const hi = m[a].dmg >= m[b].dmg ? a : b;
@@ -4215,13 +4132,14 @@ if (typeof module !== "undefined") {
         " dmg / 100 pts).";
     }
     verdict.textContent = text;
-    const labels = SCENARIOS.map((s) => s.label.split(" · "));
+
+    const labels = SCENARIOS.map((s) => s.label.split(" \u00b7 "));
     const ctx = document.getElementById("chart-group-compare").getContext("2d");
     if (charts.groupCompare) charts.groupCompare.destroy();
     charts.groupCompare = new Chart(ctx, {
       type: "bar",
       data: {
-        labels: labels,
+        labels,
         datasets: ids.map((id, i) => ({
           label: groupResults[id].label,
           data: SCENARIOS.map((s) => {
@@ -4237,22 +4155,26 @@ if (typeof module !== "undefined") {
       options: withDatalabels(chartBaseOptions("", "Expected damage"), topLabel(2, "", 0.01)),
     });
   }
+
   function updateScenarioButtons() {
     document.querySelectorAll(".scenario-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.scenario === currentScenarioId);
     });
   }
+
   function renderWeaponBreakdown(perAttacker) {
     const labels = perAttacker.map((p) => splitWeaponLabel(p.label));
     const canvas = document.getElementById("chart-weapon-breakdown");
     const wrap = canvas.parentElement;
+
     wrap.style.height = Math.max(240, labels.length * 58) + "px";
+
     const ctx = canvas.getContext("2d");
     if (charts.weaponBreakdown) charts.weaponBreakdown.destroy();
     charts.weaponBreakdown = new Chart(ctx, {
       type: "bar",
       data: {
-        labels: labels,
+        labels,
         datasets: [
           {
             label: "Hits",
@@ -4279,6 +4201,7 @@ if (typeof module !== "undefined") {
       }),
     });
   }
+
   function renderRulesBreakdown(rules) {
     const wrap = document.getElementById("rules-breakdown-body");
     const rows = [
@@ -4289,24 +4212,32 @@ if (typeof module !== "undefined") {
       ["Devastating Wounds — procs (bypassed save)", rules.meanDevastatingWoundsProcs],
       ["Anti-X — procs (auto crit wound)", rules.meanAntiProcs],
     ];
-    const anyActive = rows.some(([, v]) => v > 1e-4);
+    const anyActive = rows.some(([, v]) => v > 0.0001);
     if (!anyActive) {
       wrap.innerHTML =
         '<div class="rule-empty-note">No special rules (Lethal Hits, Sustained Hits, Devastating Wounds, Anti-X) triggered — none are active on the selected weapons.</div>';
       return;
     }
-    wrap.innerHTML = `<table class="rule-table">\n      ${rows.map(([label, v]) => `<tr><td class="rule-label">${esc(label)}</td><td class="rule-val">${v.toFixed(2)}</td></tr>`).join("")}\n    </table>`;
+    wrap.innerHTML = `<table class="rule-table">
+      ${rows
+        .map(
+          ([label, v]) =>
+            `<tr><td class="rule-label">${esc(label)}</td><td class="rule-val">${v.toFixed(2)}</td></tr>`
+        )
+        .join("")}
+    </table>`;
   }
+
   function renderRerollBreakdown(rerolls) {
     const wrap = document.getElementById("reroll-breakdown-body");
     const totalPerformed = rerolls.hit.performed + rerolls.wound.performed + rerolls.save.performed;
-    if (totalPerformed <= 1e-4) {
+    if (totalPerformed <= 0.0001) {
       wrap.innerHTML =
         '<div class="rule-empty-note">No re-rolls were enabled for this calculation.</div>';
       return;
     }
     const sections = [];
-    if (rerolls.hit.performed > 1e-4) {
+    if (rerolls.hit.performed > 0.0001) {
       sections.push(
         `<tr><td class="rule-label">Hit re-rolls performed</td><td class="rule-val">${rerolls.hit.performed.toFixed(2)}</td></tr>`
       );
@@ -4317,7 +4248,7 @@ if (typeof module !== "undefined") {
         `<tr><td class="rule-label rule-sub">→ converted to a critical hit</td><td class="rule-val">${rerolls.hit.toCrit.toFixed(2)}</td></tr>`
       );
     }
-    if (rerolls.wound.performed > 1e-4) {
+    if (rerolls.wound.performed > 0.0001) {
       sections.push(
         `<tr><td class="rule-label">Wound re-rolls performed</td><td class="rule-val">${rerolls.wound.performed.toFixed(2)}</td></tr>`
       );
@@ -4328,7 +4259,7 @@ if (typeof module !== "undefined") {
         `<tr><td class="rule-label rule-sub">→ converted to a critical wound</td><td class="rule-val">${rerolls.wound.toCrit.toFixed(2)}</td></tr>`
       );
     }
-    if (rerolls.save.performed > 1e-4) {
+    if (rerolls.save.performed > 0.0001) {
       sections.push(
         `<tr><td class="rule-label">Save re-rolls performed (defender)</td><td class="rule-val">${rerolls.save.performed.toFixed(2)}</td></tr>`
       );
@@ -4338,6 +4269,7 @@ if (typeof module !== "undefined") {
     }
     wrap.innerHTML = `<table class="rule-table">${sections.join("")}</table>`;
   }
+
   function renderDamageHistogram(samples) {
     const max = Math.max(...samples, 1);
     const buckets = Math.min(max + 1, 31);
@@ -4353,12 +4285,13 @@ if (typeof module !== "undefined") {
       counts[idx] = (counts[idx] || 0) + 1;
     });
     const pct = counts.map((c) => (c / samples.length) * 100);
+
     const ctx = document.getElementById("chart-histogram").getContext("2d");
     if (charts.histogram) charts.histogram.destroy();
     charts.histogram = new Chart(ctx, {
       type: "bar",
       data: {
-        labels: labels,
+        labels,
         datasets: [
           {
             label: "Probability (%)",
@@ -4374,6 +4307,7 @@ if (typeof module !== "undefined") {
       ),
     });
   }
+
   function renderDamageCumulative(samples) {
     const max = Math.max(...samples, 1);
     const buckets = Math.min(max + 1, 26);
@@ -4401,11 +4335,11 @@ if (typeof module !== "undefined") {
     charts.damageCumulative = new Chart(ctx, {
       type: "line",
       data: {
-        labels: labels,
+        labels,
         datasets: [
           {
             label: "Probability of dealing at least N damage (%)",
-            data: data,
+            data,
             borderColor: COLORS.red,
             backgroundColor: COLORS.red + "33",
             fill: true,
@@ -4420,6 +4354,7 @@ if (typeof module !== "undefined") {
       ),
     });
   }
+
   function renderStageFunnel(result, def) {
     const hasFnp = !!(def && def.fnp);
     const labels = ["Attacks", "Hits", "Wounds", "Unsaved", hasFnp ? "Damage (pre-FNP)" : "Damage"];
@@ -4441,11 +4376,11 @@ if (typeof module !== "undefined") {
     charts.funnel = new Chart(ctx, {
       type: "bar",
       data: {
-        labels: labels,
+        labels,
         datasets: [
           {
             label: "Expected count",
-            data: data,
+            data,
             backgroundColor: colors,
             borderRadius: 2,
           },
@@ -4453,14 +4388,11 @@ if (typeof module !== "undefined") {
       },
       options: withDatalabels(chartBaseOptions("", "Expected count"), endLabel(2), {
         indexAxis: "y",
-        plugins: {
-          legend: {
-            display: false,
-          },
-        },
+        plugins: { legend: { display: false } },
       }),
     });
   }
+
   function renderCoverComparisonChart() {
     const box = document.getElementById("cover-comparison-box");
     if (!scenarioResults || scenarioMeleeOnly) {
@@ -4493,8 +4425,10 @@ if (typeof module !== "undefined") {
       options: withDatalabels(chartBaseOptions("", "Expected damage"), topLabel(2, "", 0.01)),
     });
   }
+
   function renderKillProbability(modelsKilledSamples, maxModels, damageSamples, pool) {
     const title = document.getElementById("kills-title");
+
     if (maxModels <= 1 && damageSamples && pool > 0) {
       if (title) title.textContent = "Probability of removing at least X% of the target's wounds";
       const labels = [],
@@ -4511,23 +4445,19 @@ if (typeof module !== "undefined") {
       opts.scales.y.max = 115;
       opts.scales.y.grace = 0;
       opts.plugins = Object.assign({}, opts.plugins, {
-        legend: {
-          display: false,
-        },
-        tooltip: {
-          backgroundColor: COLORS.navy,
-        },
+        legend: { display: false },
+        tooltip: { backgroundColor: COLORS.navy },
       });
       const c0 = document.getElementById("chart-kills").getContext("2d");
       if (charts.kills) charts.kills.destroy();
       charts.kills = new Chart(c0, {
         type: "bar",
         data: {
-          labels: labels,
+          labels,
           datasets: [
             {
               label: "Probability of removing at least X% of wounds (%)",
-              data: data,
+              data,
               backgroundColor: data.map((v, i) =>
                 i === data.length - 1 ? COLORS.red : COLORS.blue
               ),
@@ -4545,6 +4475,7 @@ if (typeof module !== "undefined") {
       const killed = Math.min(maxModels, k);
       counts[killed]++;
     });
+
     const atLeast = [];
     let running = 0;
     for (let k = maxModels; k >= 0; k--) {
@@ -4562,11 +4493,11 @@ if (typeof module !== "undefined") {
     charts.kills = new Chart(ctx, {
       type: "line",
       data: {
-        labels: labels,
+        labels,
         datasets: [
           {
             label: "Probability of killing at least N models (%)",
-            data: data,
+            data,
             borderColor: COLORS.green,
             backgroundColor: COLORS.green + "33",
             fill: true,
@@ -4581,26 +4512,21 @@ if (typeof module !== "undefined") {
       ),
     });
   }
+
   function renderDamagePerPoint(perAttacker, meta) {
     const wrap = document.getElementById("dmg-per-point-wrap");
     const note = document.getElementById("dmg-per-point-note");
+
     const groups = [];
     const byId = {};
     perAttacker.forEach((p, i) => {
       const m = meta && meta[i];
       if (!m || !m.unitPoints) return;
       if (!byId[m.attackerId]) {
-        byId[m.attackerId] = {
-          unitName: m.unitName,
-          points: m.unitPoints,
-          items: [],
-        };
+        byId[m.attackerId] = { unitName: m.unitName, points: m.unitPoints, items: [] };
         groups.push(byId[m.attackerId]);
       }
-      byId[m.attackerId].items.push({
-        label: p.label,
-        damage: p.meanDamage,
-      });
+      byId[m.attackerId].items.push({ label: p.label, damage: p.meanDamage });
     });
     const rows = [];
     groups.forEach((g) => {
@@ -4620,6 +4546,7 @@ if (typeof module !== "undefined") {
         });
       }
     });
+
     if (!rows.length) {
       if (charts.dmgPerPoint) {
         charts.dmgPerPoint.destroy();
@@ -4632,6 +4559,7 @@ if (typeof module !== "undefined") {
     wrap.style.display = "";
     wrap.style.height = Math.max(240, rows.length * 58) + "px";
     note.style.display = "none";
+
     const ctx = document.getElementById("chart-dmg-per-point").getContext("2d");
     if (charts.dmgPerPoint) charts.dmgPerPoint.destroy();
     charts.dmgPerPoint = new Chart(ctx, {
@@ -4655,72 +4583,44 @@ if (typeof module !== "undefined") {
       },
       options: withDatalabels(chartBaseOptions("", "Damage / 100 pts"), endLabel(2), {
         indexAxis: "y",
-        plugins: {
-          legend: {
-            display: false,
-          },
-        },
+        plugins: { legend: { display: false } },
       }),
     });
   }
+
   function splitWeaponLabel(label) {
     const sep = " – ";
     const idx = label.indexOf(sep);
     if (idx === -1) return label;
     return [label.slice(0, idx), "- " + label.slice(idx + sep.length)];
   }
+
   function chartBaseOptions(xTitle, yTitle) {
     return {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: {
-          labels: {
-            color: COLORS.navy,
-            font: {
-              family: "inherit",
-            },
-          },
-        },
-        tooltip: {
-          backgroundColor: COLORS.navy,
-        },
+        legend: { labels: { color: COLORS.navy, font: { family: "inherit" } } },
+        tooltip: { backgroundColor: COLORS.navy },
       },
       scales: {
         x: {
-          title: {
-            display: !!xTitle,
-            text: xTitle,
-            color: COLORS.slate,
-          },
-          ticks: {
-            color: COLORS.slate,
-            maxRotation: 0,
-            autoSkip: true,
-          },
-          grid: {
-            color: COLORS.blueTint,
-          },
+          title: { display: !!xTitle, text: xTitle, color: COLORS.slate },
+          ticks: { color: COLORS.slate, maxRotation: 0, autoSkip: true },
+          grid: { color: COLORS.blueTint },
           grace: "10%",
         },
         y: {
-          title: {
-            display: !!yTitle,
-            text: yTitle,
-            color: COLORS.slate,
-          },
-          ticks: {
-            color: COLORS.slate,
-          },
-          grid: {
-            color: COLORS.blueTint,
-          },
+          title: { display: !!yTitle, text: yTitle, color: COLORS.slate },
+          ticks: { color: COLORS.slate },
+          grid: { color: COLORS.blueTint },
           beginAtZero: true,
           grace: "10%",
         },
       },
     };
   }
+
   function withDatalabels(base, datalabelsOpts, extra) {
     const merged = Object.assign({}, base, extra || {});
     merged.plugins = Object.assign({}, base.plugins, (extra && extra.plugins) || {}, {
@@ -4728,6 +4628,7 @@ if (typeof module !== "undefined") {
     });
     return merged;
   }
+
   function topLabel(decimals, suffix, hideBelow) {
     return {
       display: true,
@@ -4735,10 +4636,7 @@ if (typeof module !== "undefined") {
       anchor: "end",
       align: "top",
       offset: 4,
-      font: {
-        size: 10,
-        weight: "600",
-      },
+      font: { size: 10, weight: "600" },
       formatter: (v) => {
         if (typeof v !== "number") return v;
         if (hideBelow != null && v < hideBelow) return "";
@@ -4746,6 +4644,7 @@ if (typeof module !== "undefined") {
       },
     };
   }
+
   function endLabel(decimals, suffix, hideBelow) {
     return {
       display: true,
@@ -4753,10 +4652,7 @@ if (typeof module !== "undefined") {
       anchor: "end",
       align: "end",
       offset: 4,
-      font: {
-        size: 10,
-        weight: "600",
-      },
+      font: { size: 10, weight: "600" },
       formatter: (v) => {
         if (typeof v !== "number") return v;
         if (hideBelow != null && v < hideBelow) return "";
@@ -4764,40 +4660,19 @@ if (typeof module !== "undefined") {
       },
     };
   }
+
   function esc(s) {
     return String(s).replace(
       /[&<>"']/g,
-      (c) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[c]
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
     );
   }
+
   const EFF_METRICS = {
-    perHundred: {
-      label: "Damage / 100 pts",
-      higher: true,
-      fmt: (v) => v.toFixed(2),
-    },
-    damage: {
-      label: "Total damage",
-      higher: true,
-      fmt: (v) => v.toFixed(2),
-    },
-    kills100: {
-      label: "Models killed / 100 pts",
-      higher: true,
-      fmt: (v) => v.toFixed(2),
-    },
-    killChance: {
-      label: "Chance to kill defender",
-      higher: true,
-      fmt: (v) => v.toFixed(1) + "%",
-    },
+    perHundred: { label: "Damage / 100 pts", higher: true, fmt: (v) => v.toFixed(2) },
+    damage: { label: "Total damage", higher: true, fmt: (v) => v.toFixed(2) },
+    kills100: { label: "Models killed / 100 pts", higher: true, fmt: (v) => v.toFixed(2) },
+    killChance: { label: "Chance to kill defender", higher: true, fmt: (v) => v.toFixed(1) + "%" },
     ptsPerKill: {
       label: "Attacker pts to destroy the defender (est.)",
       higher: false,
@@ -4812,6 +4687,7 @@ if (typeof module !== "undefined") {
     faction: "",
     scenarioLabel: "",
   };
+
   function effValue(r, key) {
     return key === "unit"
       ? unitDisplayName(r.unit).toLowerCase()
@@ -4819,6 +4695,7 @@ if (typeof module !== "undefined") {
         ? r.weapon.name.toLowerCase()
         : r[key];
   }
+
   function effGroupRef(key, id) {
     const m = groupMetrics(id);
     if (key === "perHundred") return m.per100;
@@ -4833,6 +4710,7 @@ if (typeof module !== "undefined") {
     }
     return null;
   }
+
   function runEfficiencyFinder() {
     const faction = document.getElementById("eff-faction-sel").value;
     const rankBy = (document.getElementById("eff-rank-sel") || {}).value || "perHundred";
@@ -4842,12 +4720,14 @@ if (typeof module !== "undefined") {
     const list = visibleUnits(faction);
     const statusEl = document.getElementById("eff-status");
     const resultsEl = document.getElementById("eff-results");
+
     if (!list.length) {
       statusEl.textContent = "No units found for this faction.";
       resultsEl.innerHTML = "";
       setBoxVisible("eff-chart-wrap", false);
       return;
     }
+
     const activeScenario = scenarioById(currentScenarioId);
     const defProfile = Object.assign({}, buildDefenderProfile(), {
       coverBonus: activeScenario.cover,
@@ -4855,6 +4735,7 @@ if (typeof module !== "undefined") {
     const trials = sizeMode === "best" ? 700 : 1200;
     const higher = EFF_METRICS[rankBy].higher;
     const rows = [];
+
     list.forEach((unit) => {
       if (!unit.pointsMin) return;
       const tiers = pointTiers(unit);
@@ -4873,11 +4754,7 @@ if (typeof module !== "undefined") {
           if (wType === "ranged" && weapon.type === "Melee") return;
           if (wType === "melee" && weapon.type !== "Melee") return;
           if (!(meanOfDiceExpr(weapon.a) > 0) || !(meanOfDiceExpr(weapon.d) > 0)) return;
-          const row = {
-            count: firing,
-            mods: defaultMods(),
-            antiList: [],
-          };
+          const row = { count: firing, mods: defaultMods(), antiList: [] };
           prefillInnate(row, weapon);
           row.mods.halfRange = activeScenario.halfRange;
           const atk = buildEngineAttacker(unit, weapon, row);
@@ -4885,19 +4762,20 @@ if (typeof module !== "undefined") {
           const ks = res.modelsKilledSamples || [];
           const full = ks.filter((k) => k >= defProfile.models).length;
           const r = {
-            unit: unit,
-            weapon: weapon,
+            unit,
+            weapon,
             weaponIdx: widx,
-            size: size,
-            firing: firing,
-            points: points,
+            size,
+            firing,
+            points,
             damage: res.meanDamage,
             killed: res.meanModelsKilled,
             killChance: ks.length ? (full / ks.length) * 100 : 0,
             perHundred: (res.meanDamage / points) * 100,
             kills100: (res.meanModelsKilled / points) * 100,
+
             ptsPerKill:
-              res.meanDamage > 1e-4
+              res.meanDamage > 0.0001
                 ? (points * defProfile.wounds * defProfile.models) / res.meanDamage
                 : Infinity,
           };
@@ -4908,15 +4786,16 @@ if (typeof module !== "undefined") {
       });
       if (best) rows.push(best);
     });
+
     effState = {
-      rows: rows,
-      rankBy: rankBy,
+      rows,
+      rankBy,
       sortKey: rankBy,
       sortDir: higher ? -1 : 1,
-      faction: faction,
+      faction,
       scenarioLabel: activeScenario.label,
-      modelsMode: modelsMode,
-      sizeMode: sizeMode,
+      modelsMode,
+      sizeMode,
     };
     statusEl.textContent =
       "Analyzed " +
@@ -4937,8 +4816,9 @@ if (typeof module !== "undefined") {
       ". Click a column header to re-sort and a row for the unit card.";
     renderEfficiencyResults();
   }
+
   function effSortedRows() {
-    const { rows: rows, sortKey: sortKey, sortDir: sortDir } = effState;
+    const { rows, sortKey, sortDir } = effState;
     return rows.slice().sort((a, b) => {
       const x = effValue(a, sortKey),
         y = effValue(b, sortKey);
@@ -4948,9 +4828,10 @@ if (typeof module !== "undefined") {
       return sortDir * (xv - yv) || 0;
     });
   }
+
   function renderEfficiencyResults() {
     const resultsEl = document.getElementById("eff-results");
-    const { rankBy: rankBy } = effState;
+    const { rankBy } = effState;
     const sorted = effSortedRows();
     const top = sorted.slice(0, 25);
     if (!top.length) {
@@ -4961,7 +4842,7 @@ if (typeof module !== "undefined") {
     }
     const gids = groupResults ? Object.keys(groupResults) : [];
     const refs = gids.map((id) => ({
-      id: id,
+      id,
       label: groupResults[id].label,
       v: effGroupRef(rankBy, id),
     }));
@@ -5078,6 +4959,7 @@ if (typeof module !== "undefined") {
         )
         .join("") +
       "</tbody></table></div>";
+
     resultsEl.querySelectorAll(".eff-th").forEach((th) =>
       th.addEventListener("click", () => {
         const k = th.dataset.sort;
@@ -5090,6 +4972,7 @@ if (typeof module !== "undefined") {
       })
     );
     document.getElementById("eff-export-btn").addEventListener("click", exportEfficiencyCsv);
+
     resultsEl.querySelectorAll(".eff-add-btn").forEach((btn) =>
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -5097,6 +4980,7 @@ if (typeof module !== "undefined") {
         addEfficiencyRowToGroup(btn.dataset.g, r);
       })
     );
+
     resultsEl.querySelectorAll("tbody tr[data-unit-id]").forEach((tr) => {
       tr.addEventListener("click", () => {
         const tbody = tr.parentElement;
@@ -5131,10 +5015,12 @@ if (typeof module !== "undefined") {
           });
       });
     });
+
     renderEfficiencyChart(refs);
   }
+
   function renderEfficiencyChart(refs) {
-    const { rankBy: rankBy, rows: rows } = effState;
+    const { rankBy, rows } = effState;
     const m = EFF_METRICS[rankBy];
     const best = rows
       .filter((r) => isFinite(r[rankBy]))
@@ -5159,34 +5045,19 @@ if (typeof module !== "undefined") {
     makeChart("eff", "chart-eff", {
       type: "bar",
       data: {
-        labels: labels,
-        datasets: [
-          {
-            label: m.label,
-            data: vals,
-            backgroundColor: colorsArr,
-            borderRadius: 2,
-          },
-        ],
+        labels,
+        datasets: [{ label: m.label, data: vals, backgroundColor: colorsArr, borderRadius: 2 }],
       },
       options: withDatalabels(
         Object.assign(chartBaseOptions(m.label + " (top 10 of " + effState.faction + ")", ""), {
-          plugins: {
-            legend: {
-              display: false,
-            },
-            tooltip: {
-              backgroundColor: COLORS.navy,
-            },
-          },
+          plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } },
         }),
         endLabel(rankBy === "killChance" ? 1 : 2, rankBy === "killChance" ? "%" : "", null),
-        {
-          indexAxis: "y",
-        }
+        { indexAxis: "y" }
       ),
     });
   }
+
   function exportEfficiencyCsv() {
     const rows = effSortedRows();
     const head = [
@@ -5220,9 +5091,7 @@ if (typeof module !== "undefined") {
         ].join(",")
       )
     );
-    const blob = new Blob([lines.join("\n")], {
-      type: "text/csv",
-    });
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -5230,18 +5099,15 @@ if (typeof module !== "undefined") {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1e3);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+
   function addEfficiencyRowToGroup(gid, r) {
     syncActiveGroup();
     let g = groups.find((x) => x.id === gid);
     if (!g) {
       if (groups.length >= MAX_GROUPS) return;
-      g = {
-        id: gid,
-        label: "Group " + gid,
-        attackers: [],
-      };
+      g = { id: gid, label: "Group " + gid, attackers: [] };
       groups.push(g);
     }
     const row = newWeaponRow(r.unit);
@@ -5250,12 +5116,7 @@ if (typeof module !== "undefined") {
     row.mods = defaultMods();
     row.antiList = [];
     prefillInnate(row, r.weapon);
-    const atk = {
-      id: uid(),
-      unitId: r.unit.id,
-      unitSize: r.size,
-      weaponRows: [row],
-    };
+    const atk = { id: uid(), unitId: r.unit.id, unitSize: r.size, weaponRows: [row] };
     g.attackers = g.attackers.filter((a) => a.unitId || g.attackers.length > 1).concat([atk]);
     activeGroupId = gid;
     attackers = g.attackers;
@@ -5264,17 +5125,16 @@ if (typeof module !== "undefined") {
     const last = cards[cards.length - 1];
     if (last && last.scrollIntoView) {
       try {
-        last.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+        last.scrollIntoView({ behavior: "smooth", block: "center" });
       } catch (e) {}
     }
   }
+
   function unitDisplayName(unit) {
     if (!unit || !unit.name) return "";
     return unit.legends ? unit.name + " [Legends]" : unit.name;
   }
+
   function renderUnitCard(unit, opts) {
     if (!unit) return "";
     opts = opts || {};
@@ -5284,22 +5144,67 @@ if (typeof module !== "undefined") {
       unit.pointsMin != null
         ? `<span class="uc-points-chip">${esc(unit.pointsMinDesc || "Cost")}: ${unit.pointsMin} pts</span>`
         : "";
+
     const statsRows = (unit.models || [])
       .map(
-        (m) =>
-          `<tr>\n          <td>${esc(m.name || "-")}</td>\n          <td>${esc(m.m || "-")}</td>\n          <td>${m.t != null ? esc(String(m.t)) : "-"}</td>\n          <td>${m.sv != null ? m.sv + "+" : "-"}</td>\n          <td>${invText(unit, m)}</td>\n          <td>${m.w != null ? esc(String(m.w)) : "-"}</td>\n          <td>${m.ld != null ? m.ld + "+" : "-"}</td>\n          <td>${m.oc != null ? esc(String(m.oc)) : "-"}</td>\n        </tr>`
+        (m) => `<tr>
+          <td>${esc(m.name || "-")}</td>
+          <td>${esc(m.m || "-")}</td>
+          <td>${m.t != null ? esc(String(m.t)) : "-"}</td>
+          <td>${m.sv != null ? m.sv + "+" : "-"}</td>
+          <td>${invText(unit, m)}</td>
+          <td>${m.w != null ? esc(String(m.w)) : "-"}</td>
+          <td>${m.ld != null ? m.ld + "+" : "-"}</td>
+          <td>${m.oc != null ? esc(String(m.oc)) : "-"}</td>
+        </tr>`
       )
       .join("");
-    const statsTable = `<div class="unit-card-stats-table-wrap">\n      <table class="unit-card-stats-table">\n        <thead><tr><th>Model</th><th>M</th><th>T</th><th>SV</th><th>INV</th><th>W</th><th>LD</th><th>OC</th></tr></thead>\n        <tbody>${statsRows}</tbody>\n      </table>\n    </div>`;
+    const statsTable = `<div class="unit-card-stats-table-wrap">
+      <table class="unit-card-stats-table">
+        <thead><tr><th>Model</th><th>M</th><th>T</th><th>SV</th><th>INV</th><th>W</th><th>LD</th><th>OC</th></tr></thead>
+        <tbody>${statsRows}</tbody>
+      </table>
+    </div>`;
+
     const abilities = (unit.abilities || []).filter((a) => a.name);
     const abilitiesHtml = abilities.length
-      ? `<div class="unit-card-section-title">Abilities</div>\n         <div class="unit-card-abilities">\n           ${abilities.map((a) => `<div class="unit-card-ability">\n               <div class="unit-card-ability-name">${esc(a.name)}${a.type ? ` <span class="unit-card-ability-type">(${esc(a.type)})</span>` : ""}</div>\n               ${a.description ? `<div class="unit-card-ability-desc">${a.description}</div>` : ""}\n             </div>`).join("")}\n         </div>`
+      ? `<div class="unit-card-section-title">Abilities</div>
+         <div class="unit-card-abilities">
+           ${abilities
+             .map(
+               (a) => `<div class="unit-card-ability">
+               <div class="unit-card-ability-name">${esc(a.name)}${
+                 a.type ? ` <span class="unit-card-ability-type">(${esc(a.type)})</span>` : ""
+               }</div>
+               ${a.description ? `<div class="unit-card-ability-desc">${a.description}</div>` : ""}
+             </div>`
+             )
+             .join("")}
+         </div>`
       : "";
+
     const weaponHtml = opts.weapon
-      ? `<div class="unit-card-section-title">Weapon — ${esc(opts.weapon.name)}</div>\n         <div class="unit-card-weapon-wrap">\n           ${weaponStatLine(opts.weapon)}\n           ${weaponInnateBadges(opts.weapon)}\n         </div>`
+      ? `<div class="unit-card-section-title">Weapon — ${esc(opts.weapon.name)}</div>
+         <div class="unit-card-weapon-wrap">
+           ${weaponStatLine(opts.weapon)}
+           ${weaponInnateBadges(opts.weapon)}
+         </div>`
       : "";
-    return `<div class="unit-card">\n      <div class="unit-card-head">\n        ${opts.showClose ? `<button class="unit-card-close" title="Close">&times;</button>` : ""}\n        <div class="uc-name">${esc(unitDisplayName(unit))}</div>\n        <div class="uc-subtitle">${esc(subtitle)}</div>\n      </div>\n      <div class="unit-card-badges">${roleBadge}${pointsChip}</div>\n      <div class="unit-card-section-title">Model Stats</div>\n      ${statsTable}\n      ${weaponHtml}\n      ${abilitiesHtml}\n    </div>`;
+
+    return `<div class="unit-card">
+      <div class="unit-card-head">
+        ${opts.showClose ? `<button class="unit-card-close" title="Close">&times;</button>` : ""}
+        <div class="uc-name">${esc(unitDisplayName(unit))}</div>
+        <div class="uc-subtitle">${esc(subtitle)}</div>
+      </div>
+      <div class="unit-card-badges">${roleBadge}${pointsChip}</div>
+      <div class="unit-card-section-title">Model Stats</div>
+      ${statsTable}
+      ${weaponHtml}
+      ${abilitiesHtml}
+    </div>`;
   }
+
   function enhanceNumberInputs(root) {
     (root || document).querySelectorAll('input[type="number"]').forEach((inp) => {
       if (inp.parentElement && inp.parentElement.classList.contains("num-stepper")) return;
@@ -5321,16 +5226,8 @@ if (typeof module !== "undefined") {
           let next = (isNaN(cur) ? 0 : cur) + dir * step;
           next = Math.min(max, Math.max(min, next));
           inp.value = String(next);
-          inp.dispatchEvent(
-            new Event("input", {
-              bubbles: true,
-            })
-          );
-          inp.dispatchEvent(
-            new Event("change", {
-              bubbles: true,
-            })
-          );
+          inp.dispatchEvent(new Event("input", { bubbles: true }));
+          inp.dispatchEvent(new Event("change", { bubbles: true }));
         });
         return b;
       };
@@ -5340,6 +5237,7 @@ if (typeof module !== "undefined") {
       wrap.appendChild(mk("+", 1, "Increase"));
     });
   }
+
   function setShowLegends(on) {
     showLegends = on;
     document.querySelectorAll(".legend-opt").forEach((b) => {
@@ -5377,7 +5275,9 @@ if (typeof module !== "undefined") {
     }
     updateCalcBtnState();
   }
+
   const STORE_KEY = "mathhammer.savedGroups.v1";
+
   function storeLoad() {
     try {
       const v = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
@@ -5394,12 +5294,14 @@ if (typeof module !== "undefined") {
       return false;
     }
   }
+
   function savedMsg(text, warn) {
     const el = document.getElementById("saved-msg");
     if (!el) return;
     el.textContent = text || "";
     el.classList.toggle("warn", !!warn);
   }
+
   function modsDiff(mods) {
     const def = defaultMods();
     const out = {};
@@ -5408,6 +5310,7 @@ if (typeof module !== "undefined") {
     });
     return out;
   }
+
   function serializeAttacker(a) {
     const u = a.unitId ? unitById[a.unitId] : null;
     if (!u) return null;
@@ -5420,16 +5323,11 @@ if (typeof module !== "undefined") {
         .filter((r) => r.weaponIdx != null && u.weapons[r.weaponIdx])
         .map((r) => {
           const w = u.weapons[r.weaponIdx];
-          return {
-            w: w.name,
-            t: w.type,
-            c: r.count,
-            m: modsDiff(r.mods),
-            a: r.antiList || [],
-          };
+          return { w: w.name, t: w.type, c: r.count, m: modsDiff(r.mods), a: r.antiList || [] };
         }),
     };
   }
+
   function findUnitByRef(o) {
     let u = o.id ? unitById[o.id] : null;
     if (u && u.name === o.n) return u;
@@ -5438,6 +5336,7 @@ if (typeof module !== "undefined") {
       DATA.units.find((x) => x.name === o.n);
     return u || null;
   }
+
   function deserializeAttacker(o, warnings) {
     const u = findUnitByRef(o);
     if (!u) {
@@ -5469,24 +5368,23 @@ if (typeof module !== "undefined") {
       weaponRows: rows,
     };
   }
+
   function currentGroupAttackers(gid) {
     syncActiveGroup();
     const g = groups.find((x) => x.id === gid);
     return g ? g.attackers.map(serializeAttacker).filter(Boolean) : [];
   }
+
   function summarize(list) {
     return (list || []).map((a) => a.s + "x " + a.n).join(", ") || "(empty)";
   }
+
   function applyAttackersToGroup(gid, list, label) {
     syncActiveGroup();
     let g = groups.find((x) => x.id === gid);
     if (!g) {
       if (groups.length >= MAX_GROUPS) return;
-      g = {
-        id: gid,
-        label: label || "Group " + gid,
-        attackers: [],
-      };
+      g = { id: gid, label: label || "Group " + gid, attackers: [] };
       groups.push(g);
     } else if (label) {
       g.label = label;
@@ -5496,6 +5394,7 @@ if (typeof module !== "undefined") {
     attackers = g.attackers;
     renderAttackers();
   }
+
   function renderSavedList() {
     const wrap = document.getElementById("saved-list");
     if (!wrap) return;
@@ -5535,6 +5434,7 @@ if (typeof module !== "undefined") {
       wrap.appendChild(row);
     });
   }
+
   function saveCurrentGroup() {
     const nameEl = document.getElementById("saved-name");
     const list = currentGroupAttackers(activeGroupId);
@@ -5547,11 +5447,7 @@ if (typeof module !== "undefined") {
     let finalName = name,
       n = 2;
     while (store.some((p) => p.name === finalName)) finalName = name + " (" + n++ + ")";
-    store.push({
-      name: finalName,
-      savedAt: new Date().toISOString(),
-      attackers: list,
-    });
+    store.push({ name: finalName, savedAt: new Date().toISOString(), attackers: list });
     if (!storeSave(store)) {
       savedMsg("Could not save in this browser (storage blocked). Use Export instead.", true);
       return;
@@ -5560,6 +5456,7 @@ if (typeof module !== "undefined") {
     renderSavedList();
     savedMsg('Saved "' + finalName + '".');
   }
+
   function exportSaved() {
     const store = storeLoad();
     if (!store.length) {
@@ -5567,20 +5464,8 @@ if (typeof module !== "undefined") {
       return;
     }
     const blob = new Blob(
-      [
-        JSON.stringify(
-          {
-            app: "mathhammer",
-            version: 1,
-            groups: store,
-          },
-          null,
-          1
-        ),
-      ],
-      {
-        type: "application/json",
-      }
+      [JSON.stringify({ app: "mathhammer", version: 1, groups: store }, null, 1)],
+      { type: "application/json" }
     );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -5589,9 +5474,10 @@ if (typeof module !== "undefined") {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1e3);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     savedMsg("Exported " + store.length + " group(s).");
   }
+
   function importSavedText(text) {
     let data;
     try {
@@ -5628,6 +5514,7 @@ if (typeof module !== "undefined") {
     renderSavedList();
     savedMsg("Imported " + added + " group(s).");
   }
+
   const DEF_FIELDS = [
     "toughness",
     "save",
@@ -5646,6 +5533,7 @@ if (typeof module !== "undefined") {
     "apReduction",
     "rerollSave",
   ];
+
   function b64enc(str) {
     return btoa(unescape(encodeURIComponent(str)))
       .replace(/\+/g, "-")
@@ -5657,6 +5545,7 @@ if (typeof module !== "undefined") {
     while (s.length % 4) s += "=";
     return decodeURIComponent(escape(atob(s)));
   }
+
   function buildShareState() {
     syncActiveGroup();
     const du = defender.unitId ? unitById[defender.unitId] : null;
@@ -5664,38 +5553,26 @@ if (typeof module !== "undefined") {
     DEF_FIELDS.forEach((k) => (d[k] = defender[k]));
     return {
       v: 1,
-      g: groups.map((g) => ({
-        l: g.label,
-        a: g.attackers.map(serializeAttacker).filter(Boolean),
-      })),
+      g: groups.map((g) => ({ l: g.label, a: g.attackers.map(serializeAttacker).filter(Boolean) })),
       d: Object.assign(
-        {
-          id: du ? du.id : null,
-          n: du ? du.name : null,
-          f: du ? du.faction : defender.faction,
-        },
-        {
-          x: d,
-        }
+        { id: du ? du.id : null, n: du ? du.name : null, f: du ? du.faction : defender.faction },
+        { x: d }
       ),
       sc: currentScenarioId,
       lg: showLegends ? 1 : 0,
     };
   }
+
   function buildShareLink() {
     const base = location.href.split("#")[0];
     return base + "#s=" + b64enc(JSON.stringify(buildShareState()));
   }
+
   function applyShareState(st, warnings) {
     if (st.lg) setShowLegends(true);
+
     if (st.d) {
-      const u = st.d.n
-        ? findUnitByRef({
-            id: st.d.id,
-            n: st.d.n,
-            f: st.d.f,
-          })
-        : null;
+      const u = st.d.n ? findUnitByRef({ id: st.d.id, n: st.d.n, f: st.d.f }) : null;
       if (st.d.n && !u) warnings.push('Defender not found: "' + st.d.n + '"');
       if (u) {
         if (u.legends && !showLegends) setShowLegends(true);
@@ -5708,6 +5585,7 @@ if (typeof module !== "undefined") {
         });
       renderDefender();
     }
+
     const loaded = (st.g || []).slice(0, MAX_GROUPS).map((g, i) => ({
       id: i === 0 ? "A" : "B",
       label: g.l || (i === 0 ? "Group A" : "Group B"),
@@ -5724,6 +5602,7 @@ if (typeof module !== "undefined") {
     }
     if (st.sc && SCENARIOS.some((s) => s.id === st.sc)) currentScenarioId = st.sc;
   }
+
   function copyShareLink() {
     const link = buildShareLink();
     const box = document.getElementById("share-link-box");
@@ -5744,6 +5623,7 @@ if (typeof module !== "undefined") {
       ok ? "Share link copied to the clipboard." : "Share link ready below. Copy it with Ctrl+C."
     );
   }
+
   function loadFromHash() {
     const m = /^#s=(.+)$/.exec(location.hash || "");
     if (!m) return;
@@ -5764,6 +5644,7 @@ if (typeof module !== "undefined") {
     updateCalcBtnState();
     if (hasValidAttacker() && defender.unitId) setTimeout(runSimulation, 50);
   }
+
   function initSavedGroups() {
     const g = (id) => document.getElementById(id);
     if (!g("saved-save")) return;
@@ -5783,6 +5664,7 @@ if (typeof module !== "undefined") {
     });
     renderSavedList();
   }
+
   function init() {
     document.querySelectorAll(".legend-opt").forEach((btn) => {
       btn.addEventListener("click", () => setShowLegends(btn.dataset.legends === "on"));
@@ -5795,21 +5677,16 @@ if (typeof module !== "undefined") {
       const first = attackers.find((x) => x.unitId && unitById[x.unitId]);
       attackers.push(
         first
-          ? newAttacker({
-              faction: unitById[first.unitId].faction,
-              blankUnit: true,
-            })
+          ? newAttacker({ faction: unitById[first.unitId].faction, blankUnit: true })
           : newAttacker()
       );
       renderAttackers();
+
       const cards = document.querySelectorAll("#attackers-list .attacker-card");
       const last = cards[cards.length - 1];
       if (last && last.scrollIntoView) {
         try {
-          last.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
+          last.scrollIntoView({ behavior: "smooth", block: "center" });
         } catch (e) {}
       }
     });
@@ -5831,6 +5708,7 @@ if (typeof module !== "undefined") {
     initSavedGroups();
     document.getElementById("unit-count-note").textContent =
       DATA.unitCount + " units across " + DATA.factions.length + " factions (11th ed.)";
+
     const effFactionSel = document.getElementById("eff-faction-sel");
     if (effFactionSel) {
       effFactionSel.innerHTML = factionOptions(visibleFactions()[0]);
@@ -5850,6 +5728,7 @@ if (typeof module !== "undefined") {
     }
     loadFromHash();
   }
+
   document.addEventListener("DOMContentLoaded", init);
 })();
 
