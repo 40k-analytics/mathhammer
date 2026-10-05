@@ -593,6 +593,21 @@ footer.app-footer {
 .saved-msg.warn { color: var(--red); }
 .saved-hint { font-size: 11px; color: var(--slate, #475569); margin: 8px 0 0; }
 
+.eff-options { display: flex; flex-wrap: wrap; gap: 10px 14px; margin: 10px 0 4px; }
+.eff-options label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: var(--navy); }
+.eff-options .sel { min-width: 190px; }
+.eff-table-scroll { overflow-x: auto; }
+.eff-table-actions { margin-top: 10px; text-align: right; }
+.eff-th { cursor: pointer; user-select: none; white-space: nowrap; }
+.eff-rank-col { background: rgba(46, 92, 138, 0.09); }
+.eff-up { color: #15803d; font-weight: 800; }
+.eff-down { color: #b91c1c; font-weight: 800; }
+.eff-group-ref { margin-top: 10px; font-size: 12.5px; color: var(--navy); }
+.eff-add { white-space: nowrap; }
+.eff-add-btn { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); border-radius: 999px; padding: 3px 9px; margin-left: 4px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.eff-add-btn:hover { background: var(--navy); color: #fff; }
+.eff-chart-wrap { margin-top: 16px; }
+
 </style>
 </head>
 <body>
@@ -794,8 +809,41 @@ footer.app-footer {
       <select class="sel" id="eff-faction-sel"></select>
       <button class="btn" id="eff-run-btn">Find best matchups</button>
     </div>
+    <div class="eff-options">
+      <label>Rank by
+        <select class="sel" id="eff-rank-sel">
+          <option value="perHundred">Damage per 100 pts</option>
+          <option value="damage">Total damage</option>
+          <option value="kills100">Models killed per 100 pts</option>
+          <option value="killChance">Chance to kill the defender</option>
+          <option value="ptsPerKill">Points needed to destroy the defender (lowest)</option>
+        </select>
+      </label>
+      <label>Weapons
+        <select class="sel" id="eff-wtype-sel">
+          <option value="any">Best weapon (any type)</option>
+          <option value="ranged">Best ranged weapon</option>
+          <option value="melee">Best melee weapon</option>
+        </select>
+      </label>
+      <label>Models firing
+        <select class="sel" id="eff-models-sel">
+          <option value="all">All models in the unit</option>
+          <option value="one">One model (points per model)</option>
+        </select>
+      </label>
+      <label>Unit size
+        <select class="sel" id="eff-size-sel">
+          <option value="min">Smallest size</option>
+          <option value="best">Best listed size</option>
+        </select>
+      </label>
+    </div>
     <div id="eff-status" class="rule-empty-note"></div>
     <div id="eff-results"></div>
+    <div class="eff-chart-wrap" id="eff-chart-wrap" style="display:none">
+      <div class="chart-canvas-wrap" id="eff-chart-canvas-wrap"><canvas id="chart-eff"></canvas></div>
+    </div>
   </div>
 </section>
 
@@ -3691,8 +3739,41 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
   // rules auto-enabled (same defaults as prefillInnate), no user modifiers —
   // against the currently configured defender, then ranks units by expected
   // damage per 100 points using each unit's best weapon.
+  // ============================ EFFICIENCY FINDER ============================
+  const EFF_METRICS = {
+    perHundred: { label: "Damage / 100 pts", higher: true, fmt: (v) => v.toFixed(2) },
+    damage: { label: "Total damage", higher: true, fmt: (v) => v.toFixed(2) },
+    kills100: { label: "Models killed / 100 pts", higher: true, fmt: (v) => v.toFixed(2) },
+    killChance: { label: "Chance to kill defender", higher: true, fmt: (v) => v.toFixed(1) + "%" },
+    ptsPerKill: { label: "Attacker pts to destroy the defender (est.)", higher: false, fmt: (v) => (isFinite(v) ? v.toFixed(0) : "-") },
+  };
+  let effState = { rows: [], rankBy: "perHundred", sortKey: "perHundred", sortDir: -1, faction: "", scenarioLabel: "" };
+
+  function effValue(r, key) {
+    return key === "unit" ? unitDisplayName(r.unit).toLowerCase() : key === "weapon" ? r.weapon.name.toLowerCase() : r[key];
+  }
+
+  function effGroupRef(key, id) {
+    const m = groupMetrics(id);
+    if (key === "perHundred") return m.per100;
+    if (key === "damage") return m.dmg;
+    if (key === "kills100") return m.points ? (m.killed / m.points) * 100 : null;
+    if (key === "killChance") return m.killUnit;
+    if (key === "ptsPerKill") {
+      const gr = groupResults[id];
+      const e = gr.scenarioResults[currentScenarioId] || gr.scenarioResults[SCENARIOS[0].id];
+      const pool = e.def.wounds * e.def.models;
+      return m.dmg > 0 && m.points ? (m.points * pool) / m.dmg : null;
+    }
+    return null;
+  }
+
   function runEfficiencyFinder() {
     const faction = document.getElementById("eff-faction-sel").value;
+    const rankBy = (document.getElementById("eff-rank-sel") || {}).value || "perHundred";
+    const wType = (document.getElementById("eff-wtype-sel") || {}).value || "any";
+    const modelsMode = (document.getElementById("eff-models-sel") || {}).value || "all";
+    const sizeMode = (document.getElementById("eff-size-sel") || {}).value || "min";
     const list = visibleUnits(faction);
     const statusEl = document.getElementById("eff-status");
     const resultsEl = document.getElementById("eff-results");
@@ -3700,123 +3781,257 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
     if (!list.length) {
       statusEl.textContent = "No units found for this faction.";
       resultsEl.innerHTML = "";
+      setBoxVisible("eff-chart-wrap", false);
       return;
     }
 
-    // Use the currently active Range/Cover scenario (same one shown by the
-    // main calculator's buttons), so the Efficiency Finder's rankings match
-    // whatever situation the user is currently looking at.
+    // Uses the active Range/Cover scenario, the defender configured above and
+    // each weapon's innate rules only (no extra modifiers).
     const activeScenario = scenarioById(currentScenarioId);
     const defProfile = Object.assign({}, buildDefenderProfile(), { coverBonus: activeScenario.cover });
-    const trials = 1500; // lower than the main calculator (20000) since this runs many sims at once
+    const trials = sizeMode === "best" ? 700 : 1200;
+    const higher = EFF_METRICS[rankBy].higher;
     const rows = [];
 
     list.forEach((unit) => {
-      if (!unit.pointsMin) return; // skip units with no known points cost
-      let bestDamage = -1;
-      let bestWeapon = null;
-      (unit.weapons || []).forEach((weapon) => {
-        const meanA = meanOfDiceExpr(weapon.a);
-        const meanD = meanOfDiceExpr(weapon.d);
-        if (!(meanA > 0) || !(meanD > 0)) return; // skip non-damaging/empty wargear entries
-        const row = { count: 1, mods: defaultMods(), antiList: [] };
-        prefillInnate(row, weapon);
-        row.mods.halfRange = activeScenario.halfRange;
-        const atk = buildEngineAttacker(unit, weapon, row);
-        const result = simulate([atk], defProfile, trials);
-        if (result.meanDamage > bestDamage) {
-          bestDamage = result.meanDamage;
-          bestWeapon = weapon;
-        }
-      });
-      if (bestWeapon) {
-        rows.push({
-          unit,
-          weapon: bestWeapon,
-          damage: bestDamage,
-          points: unit.pointsMin,
-          perHundred: (bestDamage / unit.pointsMin) * 100,
+      if (!unit.pointsMin) return;
+      const tiers = pointTiers(unit);
+      const sizes = modelsMode === "one" ? [tiers[0][0]] : sizeMode === "best" ? tiers.map((t) => t[0]) : [tiers[0][0]];
+      let best = null;
+      sizes.forEach((size) => {
+        const unitPts = unitPointsFor(unit, size);
+        const points = modelsMode === "one" ? unitPts / size : unitPts;
+        const firing = modelsMode === "one" ? 1 : size;
+        (unit.weapons || []).forEach((weapon, widx) => {
+          if (wType === "ranged" && weapon.type === "Melee") return;
+          if (wType === "melee" && weapon.type !== "Melee") return;
+          if (!(meanOfDiceExpr(weapon.a) > 0) || !(meanOfDiceExpr(weapon.d) > 0)) return;
+          const row = { count: firing, mods: defaultMods(), antiList: [] };
+          prefillInnate(row, weapon);
+          row.mods.halfRange = activeScenario.halfRange;
+          const atk = buildEngineAttacker(unit, weapon, row);
+          const res = simulate([atk], defProfile, trials);
+          const ks = res.modelsKilledSamples || [];
+          const full = ks.filter((k) => k >= defProfile.models).length;
+          const r = {
+            unit, weapon, weaponIdx: widx, size, firing, points,
+            damage: res.meanDamage,
+            killed: res.meanModelsKilled,
+            killChance: ks.length ? (full / ks.length) * 100 : 0,
+            perHundred: (res.meanDamage / points) * 100,
+            kills100: (res.meanModelsKilled / points) * 100,
+            // attacker points needed to remove the defender's whole wound pool, if the
+            // unit's damage is scaled up proportionally (comparable for 1-model targets too)
+            ptsPerKill: res.meanDamage > 0.0001 ? (points * defProfile.wounds * defProfile.models) / res.meanDamage : Infinity,
+          };
+          const v = r[rankBy], bv = best ? best[rankBy] : null;
+          if (!best || (higher ? v > bv : v < bv)) best = r;
         });
-      }
+      });
+      if (best) rows.push(best);
     });
 
-    rows.sort((a, b) => b.perHundred - a.perHundred);
-    const top = rows.slice(0, 20);
-
+    effState = { rows, rankBy, sortKey: rankBy, sortDir: higher ? -1 : 1, faction, scenarioLabel: activeScenario.label, modelsMode, sizeMode };
     statusEl.textContent =
-      "Analyzed " +
-      rows.length +
-      " units in " +
-      faction +
-      " — 1 model firing its best weapon (innate rules only, no extra modifiers) vs. the defender configured above, under the " +
-      activeScenario.label +
-      " scenario.";
+      "Analyzed " + rows.length + " units in " + faction + ". " +
+      (modelsMode === "one" ? "One model firing its best weapon (points per model)" : "All models in the unit firing one weapon type") +
+      (sizeMode === "best" && modelsMode !== "one" ? ", best listed unit size" : ", smallest unit size") +
+      ", innate rules only, vs. the defender above under " + activeScenario.label +
+      ". Ranked by: " + EFF_METRICS[rankBy].label + ". Click a column header to re-sort and a row for the unit card.";
+    renderEfficiencyResults();
+  }
 
+  function effSortedRows() {
+    const { rows, sortKey, sortDir } = effState;
+    return rows.slice().sort((a, b) => {
+      const x = effValue(a, sortKey), y = effValue(b, sortKey);
+      if (typeof x === "string") return sortDir * x.localeCompare(y);
+      const xv = isFinite(x) ? x : Infinity * (sortDir > 0 ? 1 : -1) * -1;
+      const yv = isFinite(y) ? y : Infinity * (sortDir > 0 ? 1 : -1) * -1;
+      return sortDir * (xv - yv) || 0;
+    });
+  }
+
+  function renderEfficiencyResults() {
+    const resultsEl = document.getElementById("eff-results");
+    const { rankBy } = effState;
+    const sorted = effSortedRows();
+    const top = sorted.slice(0, 25);
     if (!top.length) {
-      resultsEl.innerHTML =
-        '<div class="rule-empty-note">No units with usable weapon + points data were found for this faction.</div>';
+      resultsEl.innerHTML = '<div class="rule-empty-note">No units with usable weapon + points data were found for this faction.</div>';
+      setBoxVisible("eff-chart-wrap", false);
       return;
     }
+    const gids = groupResults ? Object.keys(groupResults) : [];
+    const refs = gids.map((id) => ({ id, label: groupResults[id].label, v: effGroupRef(rankBy, id) }));
+    const cols = [
+      ["unit", "Unit"], ["size", "Models"], ["weapon", "Weapon"], ["points", "Pts"], ["damage", "Damage"],
+      ["perHundred", "Dmg / 100 pts"], ["kills100", "Kills / 100 pts"], ["killChance", "Kill chance"], ["ptsPerKill", "Pts to destroy"],
+    ];
+    const arrow = (k) => (effState.sortKey === k ? (effState.sortDir < 0 ? " ▼" : " ▲") : "");
+    const hl = (k) => (k === rankBy ? " eff-rank-col" : "");
+    const diffCell = (r, ref) => {
+      if (ref.v == null || !isFinite(ref.v) || ref.v === 0) return '<td class="rule-val">-</td>';
+      const v = r[rankBy];
+      if (!isFinite(v)) return '<td class="rule-val">-</td>';
+      const pct = EFF_METRICS[rankBy].higher ? (v / ref.v - 1) * 100 : (ref.v / v - 1) * 100;
+      return '<td class="rule-val ' + (pct >= 0 ? "eff-up" : "eff-down") + '">' + (pct >= 0 ? "+" : "") + pct.toFixed(0) + "%</td>";
+    };
+    resultsEl.innerHTML =
+      (refs.length
+        ? '<div class="eff-group-ref">Your groups (last Calculate), ' + esc(EFF_METRICS[rankBy].label) + ": " +
+          refs.map((g) => "<b>" + esc(g.label) + "</b> " + (g.v == null ? "-" : EFF_METRICS[rankBy].fmt(g.v))).join(" · ") + "</div>"
+        : "") +
+      '<div class="eff-table-actions"><button type="button" class="btn btn-secondary" id="eff-export-btn">Export CSV</button></div>' +
+      '<div class="eff-table-scroll"><table class="rule-table eff-table"><thead><tr>' +
+      cols.map(([k, l]) => '<td class="rule-label eff-th' + hl(k) + '" data-sort="' + k + '"><b>' + l + arrow(k) + "</b></td>").join("") +
+      refs.map((g) => '<td class="rule-val"><b>vs ' + esc(g.label) + "</b></td>").join("") +
+      '<td class="rule-val"><b>Add</b></td></tr></thead><tbody>' +
+      top.map((r, i) =>
+        '<tr data-unit-id="' + r.unit.id + '" data-idx="' + i + '" title="Click for full unit card">' +
+        '<td class="rule-label' + hl("unit") + '">' + (i + 1) + ". " + esc(unitDisplayName(r.unit)) + "</td>" +
+        '<td class="rule-val">' + (effState.modelsMode === "one" ? "1" : r.size) + "</td>" +
+        '<td class="rule-label">' + esc(r.weapon.name) + "</td>" +
+        '<td class="rule-val' + hl("points") + '">' + (r.points % 1 ? r.points.toFixed(1) : r.points) + "</td>" +
+        '<td class="rule-val' + hl("damage") + '">' + r.damage.toFixed(2) + "</td>" +
+        '<td class="rule-val' + hl("perHundred") + '">' + r.perHundred.toFixed(2) + "</td>" +
+        '<td class="rule-val' + hl("kills100") + '">' + r.kills100.toFixed(2) + "</td>" +
+        '<td class="rule-val' + hl("killChance") + '">' + r.killChance.toFixed(1) + "%</td>" +
+        '<td class="rule-val' + hl("ptsPerKill") + '">' + EFF_METRICS.ptsPerKill.fmt(r.ptsPerKill) + "</td>" +
+        refs.map((g) => diffCell(r, g)).join("") +
+        '<td class="rule-val eff-add"><button type="button" class="eff-add-btn" data-g="A">→ A</button><button type="button" class="eff-add-btn" data-g="B">→ B</button></td></tr>'
+      ).join("") +
+      "</tbody></table></div>";
 
-    resultsEl.innerHTML = `<table class="rule-table eff-table">
-      <thead><tr>
-        <td class="rule-label"><b>Unit</b></td>
-        <td class="rule-label"><b>Best weapon</b></td>
-        <td class="rule-val"><b>Points</b></td>
-        <td class="rule-val"><b>Dmg (1 model)</b></td>
-        <td class="rule-val"><b>Dmg / 100pts</b></td>
-      </tr></thead>
-      <tbody>
-        ${top
-          .map(
-            (r, i) => `<tr data-unit-id="${r.unit.id}" title="Click for full unit card">
-          <td class="rule-label">${i + 1}. ${esc(unitDisplayName(r.unit))}</td>
-          <td class="rule-label">${esc(r.weapon.name)}</td>
-          <td class="rule-val">${r.points}</td>
-          <td class="rule-val">${r.damage.toFixed(2)}</td>
-          <td class="rule-val">${r.perHundred.toFixed(2)}</td>
-        </tr>`
-          )
-          .join("")}
-      </tbody>
-    </table>`;
+    // header sorting
+    resultsEl.querySelectorAll(".eff-th").forEach((th) =>
+      th.addEventListener("click", () => {
+        const k = th.dataset.sort;
+        if (effState.sortKey === k) effState.sortDir *= -1;
+        else {
+          effState.sortKey = k;
+          effState.sortDir = k === "unit" || k === "weapon" || k === "ptsPerKill" ? 1 : -1;
+        }
+        renderEfficiencyResults();
+      })
+    );
+    document.getElementById("eff-export-btn").addEventListener("click", exportEfficiencyCsv);
 
-    // Clicking a row expands/collapses the full unit card directly beneath
-    // that row (as a spanning detail row), rather than in a separate panel
-    // below the whole table — only one row's card is open at a time.
+    // add to group
+    resultsEl.querySelectorAll(".eff-add-btn").forEach((btn) =>
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const r = top[parseInt(btn.closest("tr").dataset.idx, 10)];
+        addEfficiencyRowToGroup(btn.dataset.g, r);
+      })
+    );
+
+    // row click -> unit card
     resultsEl.querySelectorAll("tbody tr[data-unit-id]").forEach((tr) => {
       tr.addEventListener("click", () => {
         const tbody = tr.parentElement;
         const existingDetail = tbody.querySelector("tr.eff-detail-row");
-        const reopeningSameRow =
-          existingDetail && existingDetail.previousElementSibling === tr && tr.classList.contains("active");
+        const reopeningSameRow = existingDetail && existingDetail.previousElementSibling === tr && tr.classList.contains("active");
         if (existingDetail) existingDetail.remove();
         tbody.querySelectorAll("tr[data-unit-id]").forEach((r) => r.classList.remove("active"));
-        if (reopeningSameRow) return; // second click on the same row collapses it
-
-        const rowData = top.find((r) => r.unit.id === tr.getAttribute("data-unit-id"));
+        if (reopeningSameRow) return;
+        const rowData = top[parseInt(tr.dataset.idx, 10)];
         const unit = rowData ? rowData.unit : unitById[tr.getAttribute("data-unit-id")];
         if (!unit) return;
         tr.classList.add("active");
-
         const detailTr = document.createElement("tr");
         detailTr.className = "eff-detail-row";
         const td = document.createElement("td");
-        td.colSpan = 5;
+        td.colSpan = tr.children.length;
         td.innerHTML = renderUnitCard(unit, { weapon: rowData ? rowData.weapon : null, showClose: true });
         detailTr.appendChild(td);
         tr.after(detailTr);
-
         const closeBtn = td.querySelector(".unit-card-close");
-        if (closeBtn) {
-          closeBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            detailTr.remove();
-            tr.classList.remove("active");
-          });
-        }
+        if (closeBtn) closeBtn.addEventListener("click", (e) => { e.stopPropagation(); detailTr.remove(); tr.classList.remove("active"); });
       });
     });
+
+    renderEfficiencyChart(refs);
+  }
+
+  function renderEfficiencyChart(refs) {
+    const { rankBy, rows } = effState;
+    const m = EFF_METRICS[rankBy];
+    const best = rows
+      .filter((r) => isFinite(r[rankBy]))
+      .sort((a, b) => (m.higher ? b[rankBy] - a[rankBy] : a[rankBy] - b[rankBy]))
+      .slice(0, 10);
+    if (!best.length) {
+      setBoxVisible("eff-chart-wrap", false);
+      return;
+    }
+    setBoxVisible("eff-chart-wrap", true);
+    const labels = best.map((r) => [unitDisplayName(r.unit), r.weapon.name]);
+    const vals = best.map((r) => r[rankBy]);
+    const colorsArr = gradColors(vals, COLORS.green);
+    refs.forEach((g, i) => {
+      if (g.v == null || !isFinite(g.v)) return;
+      labels.push([g.label, "(your group)"]);
+      vals.push(g.v);
+      colorsArr.push(i === 0 ? COLORS.navy : COLORS.red);
+    });
+    const wrap = document.getElementById("eff-chart-canvas-wrap");
+    if (wrap) wrap.style.height = Math.max(260, labels.length * 40 + 70) + "px";
+    makeChart("eff", "chart-eff", {
+      type: "bar",
+      data: { labels, datasets: [{ label: m.label, data: vals, backgroundColor: colorsArr, borderRadius: 2 }] },
+      options: withDatalabels(
+        Object.assign(chartBaseOptions(m.label + " (top 10 of " + effState.faction + ")", ""), { plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } } }),
+        endLabel(rankBy === "killChance" ? 1 : 2, rankBy === "killChance" ? "%" : "", null), { indexAxis: "y" }
+      ),
+    });
+  }
+
+  function exportEfficiencyCsv() {
+    const rows = effSortedRows();
+    const head = ["Unit", "Faction", "Models", "Weapon", "Points", "Damage", "Dmg per 100 pts", "Models killed", "Kills per 100 pts", "Kill chance %", "Pts to destroy defender (est.)"];
+    const q = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+    const lines = [head.join(",")].concat(
+      rows.map((r) => [q(unitDisplayName(r.unit)), q(r.unit.faction), effState.modelsMode === "one" ? 1 : r.size, q(r.weapon.name), r.points.toFixed(1), r.damage.toFixed(3),
+        r.perHundred.toFixed(3), r.killed.toFixed(3), r.kills100.toFixed(3), r.killChance.toFixed(2), isFinite(r.ptsPerKill) ? r.ptsPerKill.toFixed(1) : ""].join(","))
+    );
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "efficiency-" + effState.faction.replace(/\W+/g, "_") + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // Adds the ranked unit (with the weapon and unit size used in the ranking)
+  // as a new attacker to Group A or B and brings it into view.
+  function addEfficiencyRowToGroup(gid, r) {
+    syncActiveGroup();
+    let g = groups.find((x) => x.id === gid);
+    if (!g) {
+      if (groups.length >= MAX_GROUPS) return;
+      g = { id: gid, label: "Group " + gid, attackers: [] };
+      groups.push(g);
+    }
+    const row = newWeaponRow(r.unit);
+    row.weaponIdx = r.weaponIdx;
+    row.count = r.firing;
+    row.mods = defaultMods();
+    row.antiList = [];
+    prefillInnate(row, r.weapon);
+    const atk = { id: uid(), unitId: r.unit.id, unitSize: r.size, weaponRows: [row] };
+    g.attackers = g.attackers.filter((a) => a.unitId || g.attackers.length > 1).concat([atk]);
+    activeGroupId = gid;
+    attackers = g.attackers;
+    renderAttackers();
+    const cards = document.querySelectorAll("#attackers-list .attacker-card");
+    const last = cards[cards.length - 1];
+    if (last && last.scrollIntoView) {
+      try { last.scrollIntoView({ behavior: "smooth", block: "center" }); } catch (e) {}
+    }
   }
 
   // Unit name helper (centralized so a future display-only suffix — e.g. a
