@@ -1050,6 +1050,7 @@ function simulate(attackers, defender, trials) {
     sumWounds = 0,
     sumUnsaved = 0,
     sumDamage = 0,
+    sumDamageAfterFnp = 0,
     sumDamageBeforeFnp = 0,
     sumAttacks = 0;
 
@@ -1157,8 +1158,9 @@ function simulate(attackers, defender, trials) {
         const lethalProc = isCritHit && mods.lethalHits;
         if (lethalProc) sumLethalHitsProcs++;
         const woundAttempts = [{ autoWound: lethalProc }];
-        if (isCritHit && atk.kw.sustainedDiceExpr && mods.sustainedHits) {
-          const extraRoller = parseDiceExpr(atk.kw.sustainedDiceExpr);
+        const sustainedDice = atk.kw.sustainedDiceExpr || (mods.sustainedHits ? "1" : null);
+        if (isCritHit && sustainedDice && mods.sustainedHits) {
+          const extraRoller = parseDiceExpr(sustainedDice);
           const extra = extraRoller();
           sumSustainedExtraHits += extra;
           for (let e = 0; e < extra; e++) woundAttempts.push({ autoWound: false });
@@ -1260,9 +1262,7 @@ function simulate(attackers, defender, trials) {
             damage = through;
           }
 
-          sumDamage += damage;
-          trialDamage += damage;
-          pa.sumDamage += damage;
+          sumDamageAfterFnp += damage;
 
           // Allocate damage from THIS attack only to the current model. Per
           // core rules, excess damage from a single attack does not spill
@@ -1272,6 +1272,11 @@ function simulate(attackers, defender, trials) {
           // allocated to a fresh model.
           if (modelsRemaining > 0) {
             const take = Math.min(damage, currentModelWounds);
+            // Effective damage = wounds actually removed (excludes overkill
+            // waste and attacks made after the target is already destroyed).
+            sumDamage += take;
+            trialDamage += take;
+            pa.sumDamage += take;
             currentModelWounds -= take;
             if (currentModelWounds <= 0) {
               modelsRemaining--;
@@ -1306,6 +1311,7 @@ function simulate(attackers, defender, trials) {
     meanWounds: sumWounds / trials,
     meanUnsaved: sumUnsaved / trials,
     meanDamage: sumDamage / trials,
+    meanDamageAfterFnp: sumDamageAfterFnp / trials,
     meanDamageBeforeFnp: sumDamageBeforeFnp / trials,
     meanModelsKilled: avg(modelsKilledSamples),
     perAttacker: perAttacker.map((pa) => ({
@@ -3438,11 +3444,11 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
   function renderStageFunnel(result, def) {
     const hasFnp = !!(def && def.fnp);
     const labels = ["Attacks", "Hits", "Wounds", "Unsaved", hasFnp ? "Damage (pre-FNP)" : "Damage"];
-    const data = [result.meanAttacks, result.meanHits, result.meanWounds, result.meanUnsaved, hasFnp ? result.meanDamageBeforeFnp : result.meanDamage];
+    const data = [result.meanAttacks, result.meanHits, result.meanWounds, result.meanUnsaved, hasFnp ? result.meanDamageBeforeFnp : result.meanDamageAfterFnp];
     const colors = [COLORS.slate, COLORS.blue, COLORS.blue, COLORS.navy, COLORS.red];
     if (hasFnp) {
       labels.push("After FNP");
-      data.push(result.meanDamage);
+      data.push(result.meanDamageAfterFnp);
       colors.push(COLORS.green);
     }
     const ctx = document.getElementById("chart-funnel").getContext("2d");
