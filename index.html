@@ -1554,7 +1554,7 @@ if (typeof module !== "undefined") {
     const bar = document.getElementById("group-tabs");
     if (!bar) return;
     bar.innerHTML = "";
-    groups.forEach((g) => {
+    (groups.length > 1 ? groups : []).forEach((g) => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "group-tab" + (g.id === activeGroupId ? " active" : "");
@@ -2628,13 +2628,13 @@ if (typeof module !== "undefined") {
     const datasets = [];
     ids.forEach((id, gi) => {
       datasets.push({
-        type: "bar", label: groupResults[id].label + " (P10\u2013P90)",
+        type: "bar", label: (ids.length > 1 ? groupResults[id].label + " " : "") + "(P10\u2013P90)",
         data: stats[id].map((x) => [x.p10, x.p90]),
         backgroundColor: colors[gi] + "88", borderColor: colors[gi], borderWidth: 1, borderRadius: 2,
         datalabels: { display: false },
       });
       datasets.push({
-        type: "line", label: groupResults[id].label + " median",
+        type: "line", label: (ids.length > 1 ? groupResults[id].label + " " : "") + "median",
         data: stats[id].map((x) => x.p50), showLine: false, pointStyle: "rectRot",
 pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
         borderColor: colors[gi], backgroundColor: colors[gi],
@@ -2647,10 +2647,10 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
       options: withDatalabels(chartBaseOptions("", "Damage"), { display: false }),
     });
     let html = '<p class="chart-explain"><b>P10</b> = 10% of simulated runs deal this much damage or less (a bad roll). <b>P90</b> = only 10% of runs deal more (a great roll). <b>Median</b> (diamond) = the typical result. Each bar spans P10 to P90, i.e. the middle 80% of outcomes \u2014 a short bar means a reliable result.</p>' +
-      '<table class="group-compare-table"><thead><tr><th>Group / scenario</th><th>P10</th><th>Median</th><th>Mean</th><th>P90</th></tr></thead><tbody>';
+      '<table class="group-compare-table"><thead><tr><th>' + (ids.length > 1 ? "Group / scenario" : "Scenario") + '</th><th>P10</th><th>Median</th><th>Mean</th><th>P90</th></tr></thead><tbody>';
     ids.forEach((id) => scs.forEach((s, i) => {
       const x = stats[id][i];
-      html += "<tr><td>" + esc(groupResults[id].label) + " \u00b7 " + esc(s.label) + "</td><td>" + x.p10.toFixed(1) +
+      html += "<tr><td>" + (ids.length > 1 ? esc(groupResults[id].label) + " \u00b7 " : "") + esc(s.label) + "</td><td>" + x.p10.toFixed(1) +
         "</td><td>" + x.p50.toFixed(1) + "</td><td>" + x.mean.toFixed(1) + "</td><td>" + x.p90.toFixed(1) + "</td></tr>";
     }));
     document.getElementById("variance-table").innerHTML = html + "</tbody></table>";
@@ -2705,12 +2705,12 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
         byId[m.attackerId].dmg += p.meanDamage;
       });
       rows.forEach((r) => {
-        labels.push([gr.label, r.name, r.points + " pts"]);
+        labels.push(ids.length > 1 ? [gr.label, r.name, r.points + " pts"] : [r.name, r.points + " pts"]);
         vals.push((Math.min(1, r.dmg / pool) * lastDefenderPts) / r.points);
         cols.push(colors[gi]);
       });
       if (rows.length > 1 && gr.points) {
-        labels.push([gr.label, "Total", gr.points + " pts"]);
+        labels.push(ids.length > 1 ? [gr.label, "Total", gr.points + " pts"] : ["Total", gr.points + " pts"]);
         vals.push((Math.min(1, entry.result.meanDamage / pool) * lastDefenderPts) / gr.points);
         cols.push(colors[gi]);
       }
@@ -2792,13 +2792,14 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
         })),
       },
       options: withDatalabels(chartBaseOptions("", "% of target's wounds destroyed"), topLabel(0, "%", 0.5), {
+        plugins: { legend: { display: ids.length > 1, labels: { color: COLORS.navy } }, tooltip: { backgroundColor: COLORS.navy } },
         scales: Object.assign({}, chartBaseOptions("", "% of target's wounds destroyed").scales, {
           y: Object.assign({}, chartBaseOptions("", "").scales.y, { title: { display: true, text: "% of target's wounds destroyed", color: COLORS.slate }, max: 115, grace: 0 }),
         }),
       }),
     });
     let html = '<table class="group-compare-table"><thead><tr><th>Target</th>' +
-      ids.map((id) => "<th>" + esc(groupResults[id].label) + "</th>").join("") + "</tr></thead><tbody>";
+      ids.map((id) => "<th>" + (ids.length > 1 ? esc(groupResults[id].label) : "Expected damage") + "</th>").join("") + "</tr></thead><tbody>";
     ARCHETYPES.forEach((a, i) => {
       const vals = ids.map((id) => res[id][i].dmg);
       let best = -1;
