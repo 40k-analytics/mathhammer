@@ -656,8 +656,8 @@ footer.app-footer a { color: var(--navy); font-weight: 700; text-decoration: und
     <div class="stat-tile"><div class="val" id="stat-hits">0</div><div class="lbl">Hits</div></div>
     <div class="stat-tile"><div class="val" id="stat-wounds">0</div><div class="lbl">Wounds</div></div>
     <div class="stat-tile accent"><div class="val" id="stat-unsaved">0</div><div class="lbl">Unsaved</div></div>
-    <div class="stat-tile accent2"><div class="val" id="stat-damage">0</div><div class="lbl">Exp. damage</div></div>
-    <div class="stat-tile accent2"><div class="val" id="stat-models-killed">0</div><div class="lbl">Models killed</div></div>
+    <div class="stat-tile accent2" title="Average total damage dealt across all simulations, including overkill (damage beyond what is needed to destroy the target). It is an average over many outcomes, so it can exceed the target's wounds."><div class="val" id="stat-damage">0</div><div class="lbl">Exp. damage <span class="info-dot" title="Average total damage dealt across all simulations, including overkill. It can exceed the target's wounds.">?</span></div></div>
+    <div class="stat-tile accent2" title="Average number of models destroyed per simulation. Against a single model this equals the probability of killing it (0.83 = 83% of simulations)."><div class="val" id="stat-models-killed">0</div><div class="lbl">Models killed <span class="info-dot" title="Average models destroyed per simulation. Against a single model this equals the chance to kill it.">?</span></div></div>
     <div class="stat-tile" title="Expected damage as a percentage of the defending unit's total wound pool (wounds per model × number of models). Capped at 100%.">
       <div class="val" id="stat-pct-unit">0%</div>
       <div class="lbl">% of unit's wounds <span class="info-dot" title="Expected damage as a percentage of the defending unit's total wound pool (wounds per model × number of models). Capped at 100%.">?</span></div>
@@ -1262,6 +1262,9 @@ function simulate(attackers, defender, trials) {
             damage = through;
           }
 
+          sumDamage += damage;
+          trialDamage += damage;
+          pa.sumDamage += damage;
           sumDamageAfterFnp += damage;
 
           // Allocate damage from THIS attack only to the current model. Per
@@ -1272,11 +1275,6 @@ function simulate(attackers, defender, trials) {
           // allocated to a fresh model.
           if (modelsRemaining > 0) {
             const take = Math.min(damage, currentModelWounds);
-            // Effective damage = wounds actually removed (excludes overkill
-            // waste and attacks made after the target is already destroyed).
-            sumDamage += take;
-            trialDamage += take;
-            pa.sumDamage += take;
             currentModelWounds -= take;
             if (currentModelWounds <= 0) {
               modelsRemaining--;
@@ -3444,11 +3442,11 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
   function renderStageFunnel(result, def) {
     const hasFnp = !!(def && def.fnp);
     const labels = ["Attacks", "Hits", "Wounds", "Unsaved", hasFnp ? "Damage (pre-FNP)" : "Damage"];
-    const data = [result.meanAttacks, result.meanHits, result.meanWounds, result.meanUnsaved, hasFnp ? result.meanDamageBeforeFnp : result.meanDamageAfterFnp];
+    const data = [result.meanAttacks, result.meanHits, result.meanWounds, result.meanUnsaved, hasFnp ? result.meanDamageBeforeFnp : result.meanDamage];
     const colors = [COLORS.slate, COLORS.blue, COLORS.blue, COLORS.navy, COLORS.red];
     if (hasFnp) {
       labels.push("After FNP");
-      data.push(result.meanDamageAfterFnp);
+      data.push(result.meanDamage);
       colors.push(COLORS.green);
     }
     const ctx = document.getElementById("chart-funnel").getContext("2d");
