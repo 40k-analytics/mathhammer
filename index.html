@@ -2822,7 +2822,12 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
       });
     }
     const d = cache.scaling;
+    const maxDmg = Math.max.apply(null, d.map((x) => x.dmg));
     const opts = withDatalabels(chartBaseOptions("Weapon copies firing (relative to current)", "Expected damage"), topLabel(1, "", 0.01));
+    opts.plugins = Object.assign({}, opts.plugins, {
+      legend: { labels: { color: COLORS.navy, filter: (item) => item.text !== "kill-label" } },
+      tooltip: { backgroundColor: COLORS.navy, filter: (item) => item.dataset.label !== "kill-label" },
+    });
     opts.scales.y1 = { position: "right", min: 0, max: 112, title: { display: true, text: "Chance to kill unit (%)", color: COLORS.slate },
       ticks: { color: COLORS.slate, callback: (v) => (v <= 100 ? v : "") }, grid: { drawOnChartArea: false } };
     makeChart("scaling", "chart-scaling", {
@@ -2831,11 +2836,19 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
         labels: d.map((x) => "\u00d7" + x.f + (x.f === 1 ? " (current)" : "")),
         datasets: [
           { type: "bar", label: "Expected damage", data: d.map((x) => x.dmg), backgroundColor: COLORS.blue, borderRadius: 2, yAxisID: "y",
-            datalabels: { display: true, color: "#fff", anchor: "end", align: "start", offset: 6,
+            datalabels: { display: (c) => c.dataset.data[c.dataIndex] >= maxDmg * 0.12, color: "#fff", anchor: "end", align: "start", offset: 6,
               font: { size: 11, weight: "700" }, formatter: (v) => v.toFixed(1) } },
           { type: "line", label: "Chance to kill unit (%)", data: d.map((x) => x.kill), borderColor: COLORS.red,
-            backgroundColor: COLORS.red, yAxisID: "y1", tension: 0.25,
-            datalabels: LABEL_BOX(COLORS.red, "top", (v) => v.toFixed(0) + "%") },
+            backgroundColor: COLORS.red, yAxisID: "y1", tension: 0.25, datalabels: { display: false } },
+          // Invisible helper points sitting on top of each bar; they carry the
+          // kill-chance text so it always appears just above the bar.
+          { type: "line", label: "kill-label", data: d.map((x) => x.dmg), yAxisID: "y", showLine: false,
+            pointRadius: 0, pointHoverRadius: 0, borderWidth: 0,
+            datalabels: { display: true, color: COLORS.red, anchor: "end", align: "top", offset: 4,
+              font: { size: 12, weight: "800" }, formatter: (v, ctx) => {
+                const x = d[ctx.dataIndex];
+                return (x.dmg < maxDmg * 0.12 ? x.dmg.toFixed(1) + " dmg \u00b7 " : "") + x.kill.toFixed(0) + "%";
+              } } },
         ],
       },
       options: opts,
