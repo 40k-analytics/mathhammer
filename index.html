@@ -569,6 +569,11 @@ footer.app-footer {
 .group-rename-input { border: 2px solid var(--navy); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; color: var(--navy); width: 150px; }
 .chart-explain { font-size: 12px; color: var(--slate, #475569); margin: 8px 0 10px; line-height: 1.5; }
 
+.unit-size-row { display: flex; align-items: center; gap: 12px; margin: 10px 0; font-size: 13px; font-weight: 700; color: var(--navy); }
+.unit-size-row label { display: flex; align-items: center; gap: 8px; }
+.unit-size-row .num-input { width: 70px; }
+.unit-size-pts { color: var(--blue); font-weight: 800; }
+
 </style>
 </head>
 <body>
@@ -1405,6 +1410,39 @@ if (typeof module !== "undefined") {
   // A weapon row = one specific weapon this attacker's unit is firing/swinging,
   // with its own count + modifiers (a unit like a Defiler fires several
   // different weapon systems at once, so an attacker can have several rows).
+  // ---- Points for a chosen unit size ---------------------------------------
+  // unit.points looks like "3 models: 115; 5 models: 180; 10 models: 360"
+  // (sometimes with repeat-purchase tiers and per-weapon extras). We use the
+  // first listed price per model count (the 1st unit), skip "per <wargear>"
+  // entries and later-purchase tiers, and price a chosen size at the
+  // smallest listed size that fits it (above the largest, per-model scaled).
+  function pointTiers(unit) {
+    if (unit._tiers) return unit._tiers;
+    const byModels = {};
+    String(unit.points || "").split(";").forEach((part) => {
+      const m = part.trim().match(/^(\d+)\s+models?\s*(?:\(([^)]*)\))?\s*:\s*(\d+)/i);
+      if (!m) return;
+      if (m[2] && /\d+(?:st|nd|rd|th)\+/i.test(m[2])) return;
+      const n = parseInt(m[1], 10);
+      if (byModels[n] == null) byModels[n] = parseInt(m[3], 10);
+    });
+    let tiers = Object.keys(byModels).map((k) => [parseInt(k, 10), byModels[k]]).sort((a, b) => a[0] - b[0]);
+    if (!tiers.length && unit.pointsMin) tiers = [[unit.modelsMin || 1, unit.pointsMin]];
+    unit._tiers = tiers;
+    return tiers;
+  }
+
+  function unitPointsFor(unit, n) {
+    if (!unit) return null;
+    const tiers = pointTiers(unit);
+    if (!tiers.length) return unit.pointsMin || null;
+    n = Math.max(1, n || unit.modelsMin || 1);
+    const fit = tiers.find((t) => t[0] >= n);
+    if (fit) return fit[1];
+    const last = tiers[tiers.length - 1];
+    return Math.round((last[1] / last[0]) * n);
+  }
+
   function newWeaponRow(unit) {
     const weaponIdx = unit && unit.weapons.length ? 0 : null;
     // Default the model count to the unit's minimum buildable size (e.g. 5
@@ -1424,6 +1462,7 @@ if (typeof module !== "undefined") {
     return {
       id: uid(),
       unitId,
+      unitSize: unit && unit.modelsMin ? unit.modelsMin : 1,
       weaponRows: [newWeaponRow(unit)],
     };
   }
@@ -1684,6 +1723,12 @@ if (typeof module !== "undefined") {
         <select class="sel unit-sel">${unitOptions(faction, a.unitId)}</select>
       </div>
       <div class="unit-stat-line-wrap">${renderUnitCard(unit)}</div>
+      <div class="unit-size-row">
+        <label>Models in unit
+          <input type="number" class="num-input unit-size-input" min="1" max="60" value="${a.unitSize || (unit && unit.modelsMin) || 1}" />
+        </label>
+        <span class="unit-size-pts"></span>
+      </div>
       <div class="weapon-rows"></div>
       <button class="btn btn-secondary add-weapon-row">+ Add weapon</button>
     `;
@@ -1698,6 +1743,26 @@ if (typeof module !== "undefined") {
     const statWrap = card.querySelector(".unit-stat-line-wrap");
     const rowsWrap = card.querySelector(".weapon-rows");
     const addRowBtn = card.querySelector(".add-weapon-row");
+    const sizeInput = card.querySelector(".unit-size-input");
+    const sizePts = card.querySelector(".unit-size-pts");
+
+    function refreshSizePts() {
+      const u = a.unitId ? unitById[a.unitId] : null;
+      const p = u ? unitPointsFor(u, a.unitSize) : null;
+      sizePts.textContent = p ? "= " + p + " pts" : "";
+    }
+    sizeInput.addEventListener("input", () => {
+      a.unitSize = Math.max(1, parseInt(sizeInput.value, 10) || 1);
+      refreshSizePts();
+    });
+    function bumpUnitSize(count) {
+      if (count > (a.unitSize || 1)) {
+        a.unitSize = count;
+        sizeInput.value = count;
+        refreshSizePts();
+      }
+    }
+    refreshSizePts();
 
     factionSel.addEventListener("change", (e) => {
       const f = e.target.value;
@@ -1723,6 +1788,9 @@ if (typeof module !== "undefined") {
     function onUnitChanged() {
       const u = a.unitId ? unitById[a.unitId] : null;
       statWrap.innerHTML = renderUnitCard(u);
+      a.unitSize = u && u.modelsMin ? u.modelsMin : 1;
+      sizeInput.value = a.unitSize;
+      refreshSizePts();
       // a different unit means the old weapon selections no longer apply —
       // start over with a single default weapon row for the new unit.
       a.weaponRows = [newWeaponRow(u)];
@@ -1743,7 +1811,7 @@ if (typeof module !== "undefined") {
           buildWeaponRowEl(u, row, () => {
             a.weaponRows = a.weaponRows.filter((r) => r.id !== row.id);
             renderWeaponRows();
-          })
+          }, bumpUnitSize)
         );
       });
       updateCalcBtnState();
@@ -1757,7 +1825,7 @@ if (typeof module !== "undefined") {
   // count, and the full modifier panel (special rules are per-weapon, so
   // e.g. a Defiler's Ectoplasma destructor and Heavy reaper autocannons
   // keep independent Lethal Hits / Sustained Hits / etc. settings).
-  function buildWeaponRowEl(unit, row, onRemove) {
+  function buildWeaponRowEl(unit, row, onRemove, onCount) {
     const el = document.createElement("div");
     el.className = "weapon-row";
 
@@ -1776,6 +1844,7 @@ if (typeof module !== "undefined") {
     el.querySelector(".remove-weapon-row").addEventListener("click", onRemove);
     el.querySelector(".weapons-count").addEventListener("input", (e) => {
       row.count = Math.max(1, parseInt(e.target.value, 10) || 1);
+      if (onCount) onCount(row.count);
     });
     weaponSel.addEventListener("change", (e) => {
       row.weaponIdx = parseInt(e.target.value, 10);
@@ -2094,12 +2163,14 @@ if (typeof module !== "undefined") {
     const oldDefenderUnit = unitById[defender.unitId];
     if (!oldAttackerUnit || !oldDefenderUnit) return;
 
+    const oldDefenderModels = defender.models || oldDefenderUnit.modelsMin || 1;
     defender.unitId = oldAttackerUnit.id;
     defender.faction = oldAttackerUnit.faction;
     applyUnitToDefender(oldAttackerUnit);
+    defender.models = atkWithUnit.unitSize || oldAttackerUnit.modelsMin || 1;
 
     attackers = [
-      { id: uid(), unitId: oldDefenderUnit.id, weaponRows: [newWeaponRow(oldDefenderUnit)] },
+      { id: uid(), unitId: oldDefenderUnit.id, unitSize: oldDefenderModels, weaponRows: [newWeaponRow(oldDefenderUnit)] },
     ];
     renderAttackers();
     renderDefender();
@@ -2275,7 +2346,7 @@ if (typeof module !== "undefined") {
         const weapon = row.weaponIdx != null ? unit.weapons[row.weaponIdx] : null;
         if (!weapon) return;
         engineAttackers.push(buildEngineAttacker(unit, weapon, row));
-        meta.push({ attackerId: a.id, unitId: unit.id, unitName: unit.name, unitPoints: unit.pointsMin || null, isMelee: weapon.type === "Melee" });
+        meta.push({ attackerId: a.id, unitId: unit.id, unitName: unit.name, unitPoints: unitPointsFor(unit, a.unitSize) || unit.pointsMin || null, isMelee: weapon.type === "Melee" });
       });
     });
     return { engineAttackers, meta };
@@ -2343,7 +2414,7 @@ if (typeof module !== "undefined") {
     lastDefenderPts = null;
     if (defender.unitId && unitById[defender.unitId]) {
       const du = unitById[defender.unitId];
-      if (du.pointsMin) lastDefenderPts = (du.pointsMin / (du.modelsMin || 1)) * (defender.models || 1);
+      lastDefenderPts = unitPointsFor(du, defender.models) || null;
     }
     lastDefenderName = defender.unitId && unitById[defender.unitId] ? unitDisplayName(unitById[defender.unitId]) : "Custom defender";
     const baseDef = buildDefenderProfile();
@@ -3752,6 +3823,7 @@ pointRadius: 6, pointBackgroundColor: colors[gi], pointBorderColor: "#fff",
           const nu = list.length ? list[0] : null;
           a.unitId = nu ? nu.id : null;
           a.weaponRows = [newWeaponRow(nu)];
+          a.unitSize = nu && nu.modelsMin ? nu.modelsMin : 1;
         }
       }));
       const du = defender.unitId ? unitById[defender.unitId] : null;
