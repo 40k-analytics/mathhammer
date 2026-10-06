@@ -1298,6 +1298,20 @@ footer.app-footer a {
   padding: 0 12px 12px;
 }
 
+.group-compare-table .phase-head td {
+  background: var(--blue-light);
+  color: var(--navy);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.chart-subhead {
+  margin: 18px 0 6px;
+  font-size: 13px;
+  color: var(--navy);
+}
+
 </style>
 </head>
 <body>
@@ -1336,6 +1350,8 @@ footer.app-footer a {
     <div id="group-compare-verdict" class="group-verdict"></div>
     <div id="group-compare-table"></div>
     <div class="chart-canvas-wrap"><canvas id="chart-group-compare"></canvas></div>
+    <h4 class="chart-subhead">Expected damage by phase</h4>
+    <div class="chart-canvas-wrap" id="group-phase-wrap"><canvas id="chart-group-phase"></canvas></div>
   </div>
   <div class="group-view-bar" id="group-view-bar" style="display:none"></div>
   <div class="stats-grid">
@@ -4279,6 +4295,59 @@ if (typeof module !== "undefined") {
     };
   }
 
+  const COMPARE_PHASES = [
+    {
+      key: "shooting",
+      label: "Shooting",
+      filter: (x) => !x.melee,
+      mods: () => ({ fireOverwatch: false }),
+      usesScenario: true,
+    },
+    {
+      key: "melee",
+      label: "Melee",
+      filter: (x) => x.melee,
+      mods: () => ({ fireOverwatch: false }),
+      usesScenario: false,
+    },
+    {
+      key: "overwatch",
+      label: "Overwatch",
+      filter: (x) => !x.melee,
+      mods: () => ({ fireOverwatch: true }),
+      usesScenario: true,
+    },
+  ];
+
+  function groupPhaseMetrics(id, scenario) {
+    const cacheKey = "phase|" + id + "|" + scenario.id;
+    if (extrasCache[cacheKey]) return extrasCache[cacheKey];
+    const gr = groupResults[id];
+    const baseDef = gr.baseDef;
+    const pool = baseDef.wounds * baseDef.models;
+    const metrics = {};
+    COMPARE_PHASES.forEach((phase) => {
+      const result = runVariant(gr, phase.usesScenario ? scenario : SCENARIOS[0], {
+        filter: phase.filter,
+        mods: phase.mods,
+      });
+      if (!result) {
+        metrics[phase.key] = null;
+        return;
+      }
+      const kills = result.modelsKilledSamples || [];
+      const fullKills = kills.filter((k) => k >= baseDef.models).length;
+      metrics[phase.key] = {
+        dmg: result.meanDamage,
+        killed: result.meanModelsKilled,
+        pct: pool > 0 ? Math.min(100, (result.meanEffectiveDamage / pool) * 100) : 0,
+        killUnit: kills.length ? (fullKills / kills.length) * 100 : 0,
+      };
+    });
+    extrasCache[cacheKey] = metrics;
+    return metrics;
+  }
+
   function groupAttackerNames(id) {
     const gr = groupResults[id];
     const first = Object.values(gr.scenarioResults)[0];
@@ -4363,6 +4432,10 @@ if (typeof module !== "undefined") {
         charts.groupCompare.destroy();
         charts.groupCompare = null;
       }
+      if (charts.groupPhase) {
+        charts.groupPhase.destroy();
+        charts.groupPhase = null;
+      }
       return;
     }
     box.style.display = "";
@@ -4421,6 +4494,45 @@ if (typeof module !== "undefined") {
           .join("") +
         "</tr>";
     });
+    const phaseMetrics = {};
+    ids.forEach((id) => (phaseMetrics[id] = groupPhaseMetrics(id, sc)));
+    const activePhases = COMPARE_PHASES.filter((p) => ids.some((id) => phaseMetrics[id][p.key]));
+    const phaseRows = [
+      { key: "dmg", label: "Expected damage", fmt: (v) => v.toFixed(2) },
+      { key: "killed", label: "Models killed", fmt: (v) => v.toFixed(2) },
+      { key: "pct", label: "% of unit's wounds", fmt: (v) => v.toFixed(1) + "%" },
+      { key: "killUnit", label: "Chance to kill unit", fmt: (v) => v.toFixed(1) + "%" },
+    ];
+    activePhases.forEach((phase) => {
+      html +=
+        '<tr class="phase-head"><td colspan="' +
+        (ids.length + 1) +
+        '">' +
+        phase.label +
+        (phase.key === "overwatch" ? " (ranged weapons, hits only on unmodified 6)" : "") +
+        "</td></tr>";
+      phaseRows.forEach((r) => {
+        const vals = ids.map((id) => (phaseMetrics[id][phase.key] ? phaseMetrics[id][phase.key][r.key] : null));
+        let bestIdx = -1;
+        if (vals.every((v) => v != null)) {
+          const best = Math.max(...vals);
+          const runnerUp = Math.max(...vals.filter((v) => v !== best), -Infinity);
+          const clearWin = best > 0 && (runnerUp === -Infinity || best - runnerUp > best * 0.02);
+          if (clearWin && vals.filter((v) => v === best).length === 1) bestIdx = vals.indexOf(best);
+        }
+        html +=
+          "<tr><td>" +
+          r.label +
+          "</td>" +
+          vals
+            .map(
+              (v, i) =>
+                '<td class="' + (i === bestIdx ? "best" : "") + '">' + (v == null ? "-" : r.fmt(v)) + "</td>"
+            )
+            .join("") +
+          "</tr>";
+      });
+    });
     html += "</tbody></table>";
     document.getElementById("group-compare-table").innerHTML = html;
 
@@ -4448,7 +4560,24 @@ if (typeof module !== "undefined") {
         m[eff].per100.toFixed(2) +
         " dmg / 100 pts).";
     }
+    const phaseNotes = activePhases
+      .map((phase) => {
+        const va = phaseMetrics[a][phase.key];
+        const vb = phaseMetrics[b][phase.key];
+        if (!va || !vb) return null;
+        if (Math.abs(va.dmg - vb.dmg) <= Math.max(va.dmg, vb.dmg) * 0.02) {
+          return phase.label + ": about equal";
+        }
+        const win = va.dmg > vb.dmg ? a : b;
+        return (
+          phase.label + ": " + groupResults[win].label + " (" + va.dmg.toFixed(1) + " vs " + vb.dmg.toFixed(1) + ")"
+        );
+      })
+      .filter(Boolean);
+    if (phaseNotes.length) text += " By phase \u2014 " + phaseNotes.join("; ") + ".";
     verdict.textContent = text;
+
+    renderGroupPhaseChart(ids, phaseMetrics, activePhases);
 
     const labels = SCENARIOS.map((s) => s.label.split(" \u00b7 "));
     const ctx = document.getElementById("chart-group-compare").getContext("2d");
@@ -4466,6 +4595,26 @@ if (typeof module !== "undefined") {
             return e.result.meanDamage;
           }),
           backgroundColor: i === 0 ? COLORS.blue : COLORS.red,
+          borderRadius: 2,
+        })),
+      },
+      options: withDatalabels(chartBaseOptions("", "Expected damage"), topLabel(2, "", 0.01)),
+    });
+  }
+
+  function renderGroupPhaseChart(ids, phaseMetrics, phases) {
+    const wrap = document.getElementById("group-phase-wrap");
+    if (wrap) wrap.style.display = phases.length ? "" : "none";
+    if (!phases.length) return;
+    const colors = [COLORS.blue, COLORS.red];
+    makeChart("groupPhase", "chart-group-phase", {
+      type: "bar",
+      data: {
+        labels: phases.map((p) => p.label),
+        datasets: ids.map((id, i) => ({
+          label: groupResults[id].label,
+          data: phases.map((p) => (phaseMetrics[id][p.key] ? phaseMetrics[id][p.key].dmg : null)),
+          backgroundColor: colors[i],
           borderRadius: 2,
         })),
       },
