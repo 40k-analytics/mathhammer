@@ -1612,6 +1612,54 @@ button:not(:disabled):not(.combo-input):active {
   }
 }
 
+@media (hover: none) {
+  button:not(:disabled):not(.legend-opt):not(.combo-input):hover {
+    transform: none;
+    filter: none;
+    box-shadow:
+      0 2px 0 rgba(20, 35, 50, 0.32),
+      0 4px 8px rgba(20, 35, 50, 0.14);
+  }
+}
+
+@media (max-width: 700px) {
+  .weapon-row-head .weapons-count {
+    flex: 0 0 64px;
+    width: 64px;
+  }
+  .icon-btn:not(:disabled),
+  .group-tab-rename:not(:disabled),
+  .group-tab-remove:not(:disabled) {
+    box-shadow: 0 1px 0 rgba(20, 35, 50, 0.3);
+  }
+  .card-head {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .btn-clear-all {
+    min-height: 36px;
+  }
+  .sim-loading {
+    padding: 20px 12px;
+  }
+  .sim-dice {
+    gap: 10px;
+  }
+  .die {
+    width: 38px;
+    height: 38px;
+    padding: 5px;
+  }
+  .sim-title {
+    font-size: 17px;
+  }
+  .btn-calc-top:not(:disabled) {
+    box-shadow:
+      0 3px 0 rgba(20, 35, 50, 0.38),
+      0 6px 10px rgba(20, 35, 50, 0.2);
+  }
+}
+
 </style>
 </head>
 <body>
@@ -3100,13 +3148,6 @@ if (typeof module !== "undefined") {
       a.unitSize = Math.max(1, parseInt(sizeInput.value, 10) || 1);
       refreshSizePts();
     });
-    function bumpUnitSize(count) {
-      if (count > (a.unitSize || 1)) {
-        a.unitSize = count;
-        sizeInput.value = count;
-        refreshSizePts();
-      }
-    }
     refreshSizePts();
 
     factionSel.addEventListener("change", (e) => {
@@ -3159,8 +3200,7 @@ if (typeof module !== "undefined") {
             () => {
               a.weaponRows = a.weaponRows.filter((r) => r.id !== row.id);
               renderWeaponRows();
-            },
-            bumpUnitSize
+            }
           )
         );
       });
@@ -3171,7 +3211,7 @@ if (typeof module !== "undefined") {
     return card;
   }
 
-  function buildWeaponRowEl(unit, row, onRemove, onCount) {
+  function buildWeaponRowEl(unit, row, onRemove) {
     const el = document.createElement("div");
     el.className = "weapon-row";
 
@@ -3190,7 +3230,6 @@ if (typeof module !== "undefined") {
     el.querySelector(".remove-weapon-row").addEventListener("click", onRemove);
     el.querySelector(".weapons-count").addEventListener("input", (e) => {
       row.count = Math.max(1, parseInt(e.target.value, 10) || 1);
-      if (onCount) onCount(row.count);
     });
     weaponSel.addEventListener("change", (e) => {
       row.weaponIdx = parseInt(e.target.value, 10);
