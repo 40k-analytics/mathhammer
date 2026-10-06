@@ -846,6 +846,10 @@ footer.app-footer {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+}
+.legend-toggle-label-next {
+  margin-left: 14px;
 }
 .legend-toggle-label {
   font-size: 13px;
@@ -860,7 +864,8 @@ footer.app-footer {
   border-radius: 999px;
   overflow: hidden;
 }
-.legend-opt {
+.legend-opt,
+.card-opt {
   background: var(--white);
   color: var(--navy);
   border: 0;
@@ -869,11 +874,13 @@ footer.app-footer {
   font-weight: 700;
   cursor: pointer;
 }
-.legend-opt.active {
+.legend-opt.active,
+.card-opt.active {
   background: var(--navy);
   color: var(--white);
 }
-.legend-opt:not(.active):hover {
+.legend-opt:not(.active):hover,
+.card-opt:not(.active):hover {
   background: var(--blue-tint);
 }
 
@@ -2045,6 +2052,84 @@ button:not(:disabled):not(.combo-input):active {
   }
 }
 
+.legend-opt,
+.card-opt {
+  box-shadow: inset 0 -3px 0 rgba(20, 35, 50, 0.22);
+  transition:
+    transform 0.09s ease,
+    box-shadow 0.09s ease,
+    background-color 0.15s ease;
+}
+.legend-opt:active,
+.card-opt:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 3px 6px rgba(20, 35, 50, 0.35);
+}
+.card-opt.active,
+.legend-opt.active {
+  box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.35);
+}
+label.btn,
+.saved-panel summary {
+  box-shadow:
+    0 2px 0 rgba(20, 35, 50, 0.32),
+    0 4px 8px rgba(20, 35, 50, 0.14);
+  transition:
+    transform 0.09s ease,
+    box-shadow 0.09s ease,
+    filter 0.15s ease;
+  user-select: none;
+}
+label.btn:hover,
+.saved-panel summary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+label.btn:active,
+.saved-panel summary:active {
+  transform: translateY(2px) scale(0.985);
+  box-shadow: inset 0 2px 5px rgba(20, 35, 50, 0.28);
+  filter: brightness(0.96);
+}
+.btn-clear-all:not(:disabled) {
+  box-shadow:
+    0 2px 0 rgba(120, 30, 30, 0.35),
+    0 4px 8px rgba(20, 35, 50, 0.14);
+}
+@media (hover: none) {
+  label.btn:hover,
+  .saved-panel summary:hover {
+    transform: none;
+    filter: none;
+  }
+}
+.unit-card-simple {
+  padding: 8px 10px;
+}
+.uc-simple-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.uc-simple-name small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--slate);
+}
+@media (max-width: 700px) {
+  .legend-toggle-label-next {
+    margin-left: 0;
+  }
+  .legend-toggle-bar {
+    gap: 8px 12px;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -2059,6 +2144,11 @@ button:not(:disabled):not(.combo-input):active {
   <div class="legend-toggle" role="group" aria-label="Show Legend Units">
     <button type="button" class="legend-opt active" data-legends="off">Off</button>
     <button type="button" class="legend-opt" data-legends="on">On</button>
+  </div>
+  <span class="legend-toggle-label legend-toggle-label-next">Show Unit Cards</span>
+  <div class="legend-toggle" role="group" aria-label="Show Unit Cards">
+    <button type="button" class="card-opt" data-cards="off">Off</button>
+    <button type="button" class="card-opt active" data-cards="on">On</button>
   </div>
 </div>
 
@@ -2242,7 +2332,6 @@ button:not(:disabled):not(.combo-input):active {
     <div class="col-head">
       <h2>Defender</h2>
     </div>
-    <div class="card" id="defender-panel"></div>
     <details class="saved-panel" id="saved-def-panel">
       <summary>Saved defenders</summary>
       <div class="saved-body">
@@ -2259,6 +2348,7 @@ button:not(:disabled):not(.combo-input):active {
         <p class="saved-hint">Saved defenders live in this browser only and include attached models / leader, their order and all modifiers. Use Export / Import to move them between devices.</p>
       </div>
     </details>
+    <div class="card" id="defender-panel"></div>
     <div class="calc-bar calc-bar-defender">
       <button class="btn btn-calc-top" id="calc-btn-3" disabled>Calculate</button>
     <button class="btn btn-switch switch-btn" disabled title="Swap the attacker and defender units">Switch Attacker &amp; Defender</button>
@@ -2898,6 +2988,27 @@ if (typeof module !== "undefined") {
   DATA.units.forEach((u) => (unitById[u.id] = u));
 
   let showLegends = false;
+  let showUnitCards = true;
+  const PREFS_KEY = "mathhammer.prefs.v1";
+
+  function loadPrefs() {
+    try {
+      const p = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}");
+      return p && typeof p === "object" ? p : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function savePrefs() {
+    try {
+      localStorage.setItem(
+        PREFS_KEY,
+        JSON.stringify({ legends: showLegends, unitCards: showUnitCards })
+      );
+    } catch (e) {}
+  }
+
   function visibleUnits(faction) {
     const list = unitsByFaction[faction] || [];
     return showLegends ? list : list.filter((u) => !u.legends);
@@ -4183,12 +4294,23 @@ if (typeof module !== "undefined") {
     renderDefenderOrder();
   }
 
+  function clearAllDefenders() {
+    const count = 1 + defender.members.length;
+    if (count > 1 && !window.confirm("Remove the defender and all " + (count - 1) + " attached model(s) / leader(s)?"))
+      return;
+    defender = freshDefender();
+    renderDefender();
+  }
+
   function renderDefender() {
     const wrap = document.getElementById("defender-panel");
     const unit = defender.unitId ? unitById[defender.unitId] : null;
     const faction = defender.faction || "";
 
     wrap.innerHTML = `
+      <div class="card-head">
+        <button type="button" class="btn-clear-all clear-all-defenders" title="Reset the defender and remove all attached models / leaders">Clear all defenders</button>
+      </div>
       <div class="picker-section-label">Select Defender</div>
       <div class="picker-row">
         <select class="sel def-faction-sel">${defFactionOptions(faction)}</select>
@@ -4220,6 +4342,7 @@ if (typeof module !== "undefined") {
       </div>
     `;
 
+    wrap.querySelector(".clear-all-defenders").addEventListener("click", clearAllDefenders);
     const factionSel = wrap.querySelector(".def-faction-sel");
     const unitSel = wrap.querySelector(".def-unit-sel");
     makeSearchable(unitSel);
@@ -7072,6 +7195,7 @@ if (typeof module !== "undefined") {
         td.innerHTML = renderUnitCard(unit, {
           weapon: rowData ? rowData.weapon : null,
           showClose: true,
+          forceFull: true,
         });
         detailTr.appendChild(td);
         tr.after(detailTr);
@@ -7204,9 +7328,26 @@ if (typeof module !== "undefined") {
     return unit.legends ? unit.name + " [Legends]" : unit.name;
   }
 
+  function renderUnitStatLine(unit) {
+    const rows = (unit.models || [])
+      .map(
+        (m) =>
+          `<tr><td>${esc(m.name || "-")}</td><td>${esc(m.m || "-")}</td><td>${m.t != null ? esc(String(m.t)) : "-"}</td><td>${m.sv != null ? m.sv + "+" : "-"}</td><td>${invText(unit, m)}</td><td>${m.w != null ? esc(String(m.w)) : "-"}</td><td>${m.ld != null ? m.ld + "+" : "-"}</td><td>${m.oc != null ? esc(String(m.oc)) : "-"}</td></tr>`
+      )
+      .join("");
+    return `<div class="unit-card unit-card-simple">
+      <div class="uc-simple-name">${esc(unitDisplayName(unit))}<small>${esc(unit.faction)}</small></div>
+      <div class="unit-card-stats-table-wrap"><table class="unit-card-stats-table">
+        <thead><tr><th>Model</th><th>M</th><th>T</th><th>SV</th><th>INV</th><th>W</th><th>LD</th><th>OC</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+    </div>`;
+  }
+
   function renderUnitCard(unit, opts) {
     if (!unit) return "";
     opts = opts || {};
+    if (!showUnitCards && !opts.forceFull) return renderUnitStatLine(unit);
     const subtitle = unit.faction + (unit.chapterSubfaction ? " · " + unit.chapterSubfaction : "");
     const roleBadge = unit.role ? `<span class="uc-role-badge">${esc(unit.role)}</span>` : "";
     const pointsChip =
@@ -7305,6 +7446,15 @@ if (typeof module !== "undefined") {
       wrap.appendChild(inp);
       wrap.appendChild(mk("+", 1, "Increase"));
     });
+  }
+
+  function setShowUnitCards(on) {
+    showUnitCards = on;
+    document.querySelectorAll(".card-opt").forEach((b) => {
+      b.classList.toggle("active", (b.dataset.cards === "on") === on);
+    });
+    renderAttackers();
+    renderDefender();
   }
 
   function setShowLegends(on) {
@@ -8005,9 +8155,24 @@ if (typeof module !== "undefined") {
   }
 
   function init() {
+    const prefs = loadPrefs();
+    if (prefs.unitCards === false) showUnitCards = false;
     document.querySelectorAll(".legend-opt").forEach((btn) => {
-      btn.addEventListener("click", () => setShowLegends(btn.dataset.legends === "on"));
+      btn.addEventListener("click", () => {
+        setShowLegends(btn.dataset.legends === "on");
+        savePrefs();
+      });
     });
+    document.querySelectorAll(".card-opt").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setShowUnitCards(btn.dataset.cards === "on");
+        savePrefs();
+      });
+    });
+    document.querySelectorAll(".card-opt").forEach((b) => {
+      b.classList.toggle("active", (b.dataset.cards === "on") === showUnitCards);
+    });
+    if (prefs.legends === true) setShowLegends(true);
     new MutationObserver(() => enhanceNumberInputs(document)).observe(document.body, {
       childList: true,
       subtree: true,
