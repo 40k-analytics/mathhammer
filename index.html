@@ -1465,7 +1465,7 @@ footer.app-footer a {
       </div>
     </details>
     <details id="group-mods-panel" class="group-mods">
-      <summary><span id="group-mods-title">Modifiers for all attackers in this group</span> <span class="info-dot" title="Applies to every weapon in this group, on top of each weapon's own modifiers. Numbers add together, checkboxes switch the rule on for all weapons, and re-rolls are used on weapons that have no re-roll of their own.">?</span></summary>
+      <summary><span id="group-mods-title">Modifiers for this group</span> <span class="info-dot" title="Applies to every weapon in this group, on top of each weapon's own modifiers. Numbers add together, checkboxes switch the rule on for all weapons, and re-rolls are used on weapons that have no re-roll of their own.">?</span></summary>
       <div id="group-mods-body"></div>
     </details>
     <div id="attackers-list"></div>
@@ -2396,14 +2396,14 @@ if (typeof module !== "undefined") {
     const row = groupModRow(group);
     const count = groupModCount(row);
     summary.textContent =
-      "Modifiers for all of " + group.label + (count ? " (" + count + " active)" : "");
+      "Modifiers for " + group.label + (count ? " (" + count + " active)" : "");
     body.innerHTML = renderModifierGroups(row, null);
     wireModifierGroups(body, row, () => {
       renderGroupMods();
     });
     body.querySelectorAll("[data-mod], [data-modnum]").forEach((el) => {
       el.addEventListener("change", () => {
-        const text = "Modifiers for all of " + group.label;
+        const text = "Modifiers for " + group.label;
         const n = groupModCount(row);
         summary.textContent = text + (n ? " (" + n + " active)" : "");
       });
@@ -2625,6 +2625,7 @@ if (typeof module !== "undefined") {
       if (save && v) g.label = v;
       if (groupResults && groupResults[g.id]) groupResults[g.id].label = g.label;
       renderGroupTabs();
+      renderGroupMods();
       if (
         groupResults &&
         Object.keys(groupResults).length &&
