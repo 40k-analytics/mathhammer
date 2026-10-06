@@ -1663,6 +1663,141 @@ button:not(:disabled):not(.combo-input):active {
   }
 }
 
+.swap-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(20, 35, 50, 0.55);
+  animation: swap-fade 0.15s ease-out;
+}
+.swap-box {
+  width: 100%;
+  max-width: 460px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: var(--white);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 12px 36px rgba(14, 30, 60, 0.4);
+  animation: swap-pop 0.18s ease-out;
+}
+.swap-box h3 {
+  margin: 0 0 6px;
+  color: var(--navy);
+  font-size: 18px;
+}
+.swap-sub {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--slate);
+  line-height: 1.4;
+}
+.swap-note {
+  margin: 0 0 14px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--navy);
+  background: var(--blue-tint);
+  border-left: 3px solid var(--blue);
+  border-radius: 4px;
+}
+.swap-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.swap-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--blue-light);
+  border-radius: 8px;
+  background: var(--blue-tint);
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+.swap-option:has(input:checked) {
+  border-color: var(--blue);
+  background: var(--blue-mid);
+}
+.swap-option input {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+.swap-option-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--navy);
+}
+.swap-option-text small {
+  color: var(--slate);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.swap-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.swap-actions .btn {
+  min-width: 110px;
+  min-height: 42px;
+  font-size: 14px;
+}
+@media (max-width: 700px) {
+  .swap-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .swap-box {
+    max-width: none;
+    border-radius: 14px 14px 0 0;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+    max-height: 85vh;
+  }
+  .swap-actions .btn {
+    flex: 1 1 0;
+    min-height: 46px;
+  }
+}
+@keyframes swap-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes swap-pop {
+  from {
+    transform: translateY(10px) scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .swap-overlay,
+  .swap-box {
+    animation: none;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -3561,11 +3696,8 @@ if (typeof module !== "undefined") {
     });
   }
 
-  function switchAttackerAndDefender() {
-    if (!defender.unitId) return;
-    const atkWithUnit = attackers.find((a) => a.unitId);
-    if (!atkWithUnit) return;
-    const oldAttackerUnit = unitById[atkWithUnit.unitId];
+  function swapAttackerWithDefender(atk) {
+    const oldAttackerUnit = unitById[atk.unitId];
     const oldDefenderUnit = unitById[defender.unitId];
     if (!oldAttackerUnit || !oldDefenderUnit) return;
 
@@ -3573,18 +3705,83 @@ if (typeof module !== "undefined") {
     defender.unitId = oldAttackerUnit.id;
     defender.faction = oldAttackerUnit.faction;
     applyUnitToDefender(oldAttackerUnit);
-    defender.models = atkWithUnit.unitSize || oldAttackerUnit.modelsMin || 1;
+    defender.models = atk.unitSize || oldAttackerUnit.modelsMin || 1;
 
-    attackers = [
-      {
-        id: uid(),
-        unitId: oldDefenderUnit.id,
-        unitSize: oldDefenderModels,
-        weaponRows: [newWeaponRow(oldDefenderUnit)],
-      },
-    ];
+    const replacement = {
+      id: uid(),
+      unitId: oldDefenderUnit.id,
+      unitSize: oldDefenderModels,
+      weaponRows: [newWeaponRow(oldDefenderUnit)],
+    };
+    attackers = [replacement];
+    const group = activeGroup();
+    if (group) group.attackers = attackers;
     renderAttackers();
     renderDefender();
+  }
+
+  function closeSwapDialog() {
+    const dialog = document.getElementById("swap-dialog");
+    if (dialog) dialog.remove();
+    document.removeEventListener("keydown", onSwapDialogKey);
+  }
+
+  function onSwapDialogKey(e) {
+    if (e.key === "Escape") closeSwapDialog();
+  }
+
+  function switchAttackerAndDefender() {
+    if (!defender.unitId || !unitById[defender.unitId]) return;
+    const candidates = attackers.filter((a) => a.unitId && unitById[a.unitId]);
+    if (!candidates.length) return;
+    closeSwapDialog();
+
+    const defUnit = unitById[defender.unitId];
+    const overlay = document.createElement("div");
+    overlay.id = "swap-dialog";
+    overlay.className = "swap-overlay";
+    overlay.innerHTML = `
+      <div class="swap-box" role="dialog" aria-modal="true" aria-labelledby="swap-title">
+        <h3 id="swap-title">Switch attacker &amp; defender</h3>
+        <p class="swap-sub">${
+          candidates.length > 1 ? "Choose the attacker that becomes the defender." : "This attacker becomes the defender."
+        }</p>
+        <p class="swap-note">The current defender, <strong>${esc(unitDisplayName(defUnit))}</strong>, becomes the only attacker. All other attackers in this group are removed.</p>
+        <div class="swap-options">
+          ${candidates
+            .map((a, i) => {
+              const u = unitById[a.unitId];
+              const weapons = a.weaponRows
+                .map((r) => (u.weapons && u.weapons[r.weaponIdx] ? u.weapons[r.weaponIdx].name : null))
+                .filter(Boolean)
+                .join(", ");
+              return `<label class="swap-option">
+                <input type="radio" name="swap-pick" value="${i}" ${i === 0 ? "checked" : ""} />
+                <span class="swap-option-text"><strong>${esc(unitDisplayName(u))}</strong>
+                <small>${a.unitSize || 1} models${weapons ? " · " + esc(weapons) : ""}</small></span>
+              </label>`;
+            })
+            .join("")}
+        </div>
+        <div class="swap-actions">
+          <button type="button" class="btn btn-secondary swap-cancel">Cancel</button>
+          <button type="button" class="btn swap-confirm">Confirm</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.addEventListener("keydown", onSwapDialogKey);
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeSwapDialog();
+    });
+    overlay.querySelector(".swap-cancel").addEventListener("click", closeSwapDialog);
+    overlay.querySelector(".swap-confirm").addEventListener("click", () => {
+      const picked = overlay.querySelector('input[name="swap-pick"]:checked');
+      const atk = candidates[picked ? Number(picked.value) : 0];
+      closeSwapDialog();
+      swapAttackerWithDefender(atk);
+    });
+    overlay.querySelector(".swap-confirm").focus();
   }
 
   function hasValidAttacker() {
