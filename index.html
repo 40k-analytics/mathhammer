@@ -1752,6 +1752,10 @@ button:not(:disabled):not(.combo-input):active {
     <h3>Damage &amp; hits by unit/weapon</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-weapon-breakdown"></canvas></div>
   </div>
+  <div class="chart-box" id="kills-by-weapon-box">
+    <h3>Models killed by unit/weapon</h3>
+    <div class="chart-canvas-wrap" id="kills-by-weapon-wrap"><canvas id="chart-kills-by-weapon"></canvas></div>
+  </div>
   <div class="chart-box" id="dmg-per-point-box">
     <h3>Expected damage per 100 points (by attacker)</h3>
     <div class="chart-canvas-wrap" id="dmg-per-point-wrap"><canvas id="chart-dmg-per-point"></canvas></div>
@@ -2099,6 +2103,7 @@ function simulate(attackers, defender, trials) {
     sumUnsaved: 0,
     sumDamage: 0,
     sumEffective: 0,
+    sumKills: 0,
     sumDamageBeforeFnp: 0,
   }));
 
@@ -2304,6 +2309,7 @@ function simulate(attackers, defender, trials) {
             if (currentModelWounds <= 0) {
               modelsRemaining--;
               modelsKilledThisTrial++;
+              pa.sumKills++;
               currentModelWounds = defender.wounds;
             }
           }
@@ -2346,6 +2352,7 @@ function simulate(attackers, defender, trials) {
       meanUnsaved: pa.sumUnsaved / trials,
       meanDamage: pa.sumDamage / trials,
       meanEffectiveDamage: pa.sumEffective / trials,
+      meanModelsKilled: pa.sumKills / trials,
       meanDamageBeforeFnp: pa.sumDamageBeforeFnp / trials,
     })),
     rules: {
@@ -4134,6 +4141,7 @@ if (typeof module !== "undefined") {
     renderWaterfallChart(entry.result);
     renderCostChart();
     renderGroupWeaponChart(sc);
+    renderKillsByWeaponChart(sc);
     renderArchetypeChart(sc);
     renderScalingChart(gr, sc, cache);
     renderSensitivityChart(gr, sc, entry, cache);
@@ -4383,6 +4391,39 @@ if (typeof module !== "undefined") {
         })),
       },
       options: withDatalabels(chartBaseOptions("Expected damage", ""), endLabel(2, "", 0.01), {
+        indexAxis: "y",
+      }),
+    });
+  }
+
+  function renderKillsByWeaponChart(sc) {
+    const ids = Object.keys(groupResults);
+    const per = {};
+    const labelOrder = [];
+    ids.forEach((id) => {
+      const g = groupResults[id];
+      const e = g.scenarioResults[sc.id] || g.scenarioResults[SCENARIOS[0].id];
+      per[id] = {};
+      e.result.perAttacker.forEach((p) => {
+        per[id][p.label] = (per[id][p.label] || 0) + p.meanModelsKilled;
+        if (labelOrder.indexOf(p.label) < 0) labelOrder.push(p.label);
+      });
+    });
+    const colors = [COLORS.blue, COLORS.red, COLORS.blueLight];
+    const wrap = document.getElementById("kills-by-weapon-wrap");
+    if (wrap) wrap.style.height = Math.max(240, labelOrder.length * 46 * ids.length * 0.6 + 80) + "px";
+    makeChart("killsByWeapon", "chart-kills-by-weapon", {
+      type: "bar",
+      data: {
+        labels: labelOrder.map(splitWeaponLabel),
+        datasets: ids.map((id, gi) => ({
+          label: groupResults[id].label,
+          data: labelOrder.map((l) => (per[id][l] != null ? per[id][l] : null)),
+          backgroundColor: colors[gi % colors.length],
+          borderRadius: 2,
+        })),
+      },
+      options: withDatalabels(chartBaseOptions("Expected models killed", ""), endLabel(2, "", 0.01), {
         indexAxis: "y",
       }),
     });
