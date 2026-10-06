@@ -2243,6 +2243,22 @@ button:not(:disabled):not(.combo-input):active {
       <h2>Defender</h2>
     </div>
     <div class="card" id="defender-panel"></div>
+    <details class="saved-panel" id="saved-def-panel">
+      <summary>Saved defenders</summary>
+      <div class="saved-body">
+        <div class="saved-save-row">
+          <input type="text" id="saved-def-name" class="saved-name" maxlength="60" placeholder="Name, e.g. Battle Sisters + Canoness" />
+          <button type="button" class="btn" id="saved-def-save">Save current defender</button>
+        </div>
+        <div id="saved-def-list" class="saved-list"></div>
+        <div class="saved-actions">
+          <button type="button" class="btn btn-secondary" id="saved-def-export">Export saved defenders (file)</button>
+          <label class="btn btn-secondary saved-import-label">Import file<input type="file" id="saved-def-import" accept=".json,application/json" hidden /></label>
+        </div>
+        <div id="saved-def-msg" class="saved-msg"></div>
+        <p class="saved-hint">Saved defenders live in this browser only and include attached models / leader, their order and all modifiers. Use Export / Import to move them between devices.</p>
+      </div>
+    </details>
     <div class="calc-bar calc-bar-defender">
       <button class="btn btn-calc-top" id="calc-btn-3" disabled>Calculate</button>
     <button class="btn btn-switch switch-btn" disabled title="Swap the attacker and defender units">Switch Attacker &amp; Defender</button>
@@ -2915,32 +2931,35 @@ if (typeof module !== "undefined") {
     if (g) g.attackers = attackers;
   }
   let nextId = 1;
-  let defender = {
-    faction: "",
-    unitId: null,
-    toughness: 4,
-    save: 3,
-    invuln: 0,
-    invulnRanged: 0,
-    invulnMelee: 0,
-    wounds: 2,
-    models: 5,
-    fnp: 0,
-    coverBonus: false,
-    keywords: [],
+  function freshDefender() {
+    return {
+      faction: "",
+      unitId: null,
+      toughness: 4,
+      save: 3,
+      invuln: 0,
+      invulnRanged: 0,
+      invulnMelee: 0,
+      wounds: 2,
+      models: 5,
+      fnp: 0,
+      coverBonus: false,
+      keywords: [],
+      toughnessBonus: 0,
+      saveBonus: 0,
+      damageReduction: 0,
+      hitPenalty: 0,
+      woundPenalty: 0,
+      apReduction: 0,
+      rerollSave: "none",
+      isCharacter: false,
+      invulnFragile: false,
+      members: [],
+      order: null,
+    };
+  }
+  let defender = freshDefender();
 
-    toughnessBonus: 0,
-    saveBonus: 0,
-    damageReduction: 0,
-    hitPenalty: 0,
-    woundPenalty: 0,
-    apReduction: 0,
-    rerollSave: "none",
-    isCharacter: false,
-    invulnFragile: false,
-    members: [],
-    order: null,
-  };
   let charts = {};
 
   const SCENARIOS = [
@@ -7684,11 +7703,35 @@ if (typeof module !== "undefined") {
     }
   }
 
+  function serializeDefenderState() {
+    const du = defender.unitId ? unitById[defender.unitId] : null;
+    const x = {};
+    DEF_FIELDS.forEach((k) => (x[k] = defender[k]));
+    return Object.assign(
+      { id: du ? du.id : null, n: du ? du.name : null, f: du ? du.faction : defender.faction },
+      { x },
+      serializeDefenderMembers()
+    );
+  }
+
+  function applyDefenderState(d, warnings) {
+    const u = d.n ? findUnitByRef({ id: d.id, n: d.n, f: d.f }) : null;
+    if (d.n && !u) warnings.push('Defender not found: "' + d.n + '"');
+    if (u) {
+      if (u.legends && !showLegends) setShowLegends(true);
+      defender.unitId = u.id;
+      defender.faction = u.faction;
+    }
+    if (d.x)
+      DEF_FIELDS.forEach((k) => {
+        if (d.x[k] !== undefined) defender[k] = d.x[k];
+      });
+    applyDefenderMembers(d, warnings);
+    renderDefender();
+  }
+
   function buildShareState() {
     syncActiveGroup();
-    const du = defender.unitId ? unitById[defender.unitId] : null;
-    const d = {};
-    DEF_FIELDS.forEach((k) => (d[k] = defender[k]));
     return {
       v: 1,
       g: groups.map((g) => ({
@@ -7696,11 +7739,7 @@ if (typeof module !== "undefined") {
         a: g.attackers.map(serializeAttacker).filter(Boolean),
         gm: serializeGroupMods(g),
       })),
-      d: Object.assign(
-        { id: du ? du.id : null, n: du ? du.name : null, f: du ? du.faction : defender.faction },
-        { x: d },
-        serializeDefenderMembers()
-      ),
+      d: serializeDefenderState(),
       sc: currentScenarioId,
       lg: showLegends ? 1 : 0,
     };
@@ -7714,21 +7753,7 @@ if (typeof module !== "undefined") {
   function applyShareState(st, warnings) {
     if (st.lg) setShowLegends(true);
 
-    if (st.d) {
-      const u = st.d.n ? findUnitByRef({ id: st.d.id, n: st.d.n, f: st.d.f }) : null;
-      if (st.d.n && !u) warnings.push('Defender not found: "' + st.d.n + '"');
-      if (u) {
-        if (u.legends && !showLegends) setShowLegends(true);
-        defender.unitId = u.id;
-        defender.faction = u.faction;
-      }
-      if (st.d.x)
-        DEF_FIELDS.forEach((k) => {
-          if (st.d.x[k] !== undefined) defender[k] = st.d.x[k];
-        });
-      applyDefenderMembers(st.d, warnings);
-      renderDefender();
-    }
+    if (st.d) applyDefenderState(st.d, warnings);
 
     const loaded = (st.g || []).slice(0, MAX_GROUPS).map((g, i) => ({
       id: i === 0 ? "A" : "B",
@@ -7788,6 +7813,175 @@ if (typeof module !== "undefined") {
     }
     updateCalcBtnState();
     if (hasValidAttacker() && defender.unitId) setTimeout(startCalculation, 50);
+  }
+
+  const DEF_STORE_KEY = "mathhammer.savedDefenders.v1";
+
+  function defStoreLoad() {
+    try {
+      const v = JSON.parse(localStorage.getItem(DEF_STORE_KEY) || "[]");
+      return Array.isArray(v) ? v : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function defStoreSave(list) {
+    try {
+      localStorage.setItem(DEF_STORE_KEY, JSON.stringify(list));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function defSavedMsg(text, warn) {
+    const el = document.getElementById("saved-def-msg");
+    if (!el) return;
+    el.textContent = text || "";
+    el.classList.toggle("warn", !!warn);
+  }
+
+  function summarizeDefender(d) {
+    if (!d || !d.n) return "(empty)";
+    const models = d.x && d.x.models ? d.x.models + "x " : "";
+    const extra = (d.dm || []).map((m) => m.m + "x " + m.n);
+    return [models + d.n].concat(extra).join(" + ");
+  }
+
+  function renderSavedDefenders() {
+    const wrap = document.getElementById("saved-def-list");
+    if (!wrap) return;
+    const list = defStoreLoad();
+    wrap.innerHTML = list.length ? "" : '<div class="empty-hint small">No saved defenders yet.</div>';
+    list.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "saved-item";
+      row.innerHTML =
+        '<div class="si-main"><div class="si-name"></div><div class="si-sum"></div></div>' +
+        '<button type="button" data-act="load">Load defender</button>' +
+        '<button type="button" class="si-del" data-act="del">Delete</button>';
+      row.querySelector(".si-name").textContent = p.name;
+      row.querySelector(".si-sum").textContent = summarizeDefender(p.d);
+      row.querySelector(".si-sum").title = summarizeDefender(p.d);
+      row.querySelectorAll("button").forEach((b) =>
+        b.addEventListener("click", () => {
+          if (b.dataset.act === "del") {
+            const l = defStoreLoad();
+            l.splice(i, 1);
+            defStoreSave(l);
+            renderSavedDefenders();
+            return;
+          }
+          const warnings = [];
+          defender = freshDefender();
+          applyDefenderState(p.d, warnings);
+          updateCalcBtnState();
+          defSavedMsg(
+            warnings.length
+              ? "Loaded with warnings:\n" + warnings.join("\n")
+              : 'Loaded "' + p.name + '".',
+            warnings.length > 0
+          );
+        })
+      );
+      wrap.appendChild(row);
+    });
+  }
+
+  function saveCurrentDefender() {
+    const nameEl = document.getElementById("saved-def-name");
+    if (!defender.unitId || !unitById[defender.unitId]) {
+      defSavedMsg("Pick a defender unit first.", true);
+      return;
+    }
+    const state = serializeDefenderState();
+    const name = (nameEl.value || "").trim() || summarizeDefender(state).slice(0, 40);
+    const store = defStoreLoad();
+    let finalName = name,
+      n = 2;
+    while (store.some((p) => p.name === finalName)) finalName = name + " (" + n++ + ")";
+    store.push({ name: finalName, savedAt: new Date().toISOString(), d: state });
+    if (!defStoreSave(store)) {
+      defSavedMsg("Could not save in this browser (storage blocked). Use Export instead.", true);
+      return;
+    }
+    nameEl.value = "";
+    renderSavedDefenders();
+    defSavedMsg('Saved "' + finalName + '".');
+  }
+
+  function exportSavedDefenders() {
+    const store = defStoreLoad();
+    if (!store.length) {
+      defSavedMsg("Nothing to export yet. Save a defender first.", true);
+      return;
+    }
+    const blob = new Blob(
+      [JSON.stringify({ app: "mathhammer", version: 1, defenders: store }, null, 1)],
+      { type: "application/json" }
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "mathhammer-saved-defenders.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    defSavedMsg("Exported " + store.length + " defender(s).");
+  }
+
+  function importSavedDefendersText(text) {
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      defSavedMsg("That file is not valid JSON.", true);
+      return;
+    }
+    const incoming = Array.isArray(data)
+      ? data
+      : data && Array.isArray(data.defenders)
+        ? data.defenders
+        : null;
+    if (!incoming) {
+      defSavedMsg("No saved defenders found in that file.", true);
+      return;
+    }
+    const store = defStoreLoad();
+    let added = 0;
+    incoming.forEach((p) => {
+      if (!p || !p.d || typeof p.d !== "object") return;
+      const name = String(p.name || "Imported defender").slice(0, 60);
+      let final = name,
+        n = 2;
+      while (store.some((x) => x.name === final)) final = name + " (" + n++ + ")";
+      store.push({ name: final, savedAt: p.savedAt || new Date().toISOString(), d: p.d });
+      added++;
+    });
+    defStoreSave(store);
+    renderSavedDefenders();
+    defSavedMsg("Imported " + added + " defender(s).");
+  }
+
+  function initSavedDefenders() {
+    const g = (id) => document.getElementById(id);
+    if (!g("saved-def-save")) return;
+    g("saved-def-save").addEventListener("click", saveCurrentDefender);
+    g("saved-def-name").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") saveCurrentDefender();
+    });
+    g("saved-def-export").addEventListener("click", exportSavedDefenders);
+    g("saved-def-import").addEventListener("change", (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => importSavedDefendersText(String(rd.result || ""));
+      rd.readAsText(f);
+      e.target.value = "";
+    });
+    renderSavedDefenders();
   }
 
   function initSavedGroups() {
@@ -7851,6 +8045,7 @@ if (typeof module !== "undefined") {
     renderDefender();
     renderAttackers();
     initSavedGroups();
+    initSavedDefenders();
     initButtonFeedback();
     document.getElementById("unit-count-note").textContent =
       DATA.unitCount + " units across " + DATA.factions.length + " factions (11th ed.)";
