@@ -1458,6 +1458,21 @@ main > section,
   }
 }
 
+.btn-clear-all {
+  margin-right: auto;
+  background: var(--white);
+  color: #a32020;
+  border: 1px solid #d9a3a3;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-clear-all:hover {
+  background: #fbeaea;
+}
+
 </style>
 </head>
 <body>
@@ -2834,6 +2849,15 @@ if (typeof module !== "undefined") {
     renderAttackers();
   }
 
+  function clearAllAttackers() {
+    if (attackers.length > 1 && !window.confirm("Remove all " + attackers.length + " attackers from " + activeGroup().label + "?")) {
+      return;
+    }
+    attackers = [];
+    syncActiveGroup();
+    renderAttackers();
+  }
+
   function addAttackerGroup() {
     if (groups.length >= MAX_GROUPS) return;
     syncActiveGroup();
@@ -2886,6 +2910,7 @@ if (typeof module !== "undefined") {
 
     card.innerHTML = `
       <div class="card-head">
+        ${attackers[0] === a ? '<button class="btn-clear-all clear-all-attackers" title="Remove every attacker from this group">Clear all attackers</button>' : ""}
         <button class="icon-btn remove-attacker" title="Remove">&times;</button>
       </div>
       <div class="picker-section-label">Select Attacker</div>
@@ -2903,6 +2928,9 @@ if (typeof module !== "undefined") {
       <div class="weapon-rows"></div>
       <button class="btn btn-secondary add-weapon-row">+ Add weapon</button>
     `;
+
+    const clearAll = card.querySelector(".clear-all-attackers");
+    if (clearAll) clearAll.addEventListener("click", clearAllAttackers);
 
     card.querySelector(".remove-attacker").addEventListener("click", () => {
       attackers = attackers.filter((x) => x.id !== a.id);
@@ -4711,7 +4739,7 @@ if (typeof module !== "undefined") {
         const va = phaseMetrics[a][phase.key];
         const vb = phaseMetrics[b][phase.key];
         if (!va || !vb) return null;
-        if (Math.abs(va.dmg - vb.dmg) <= Math.max(va.dmg, vb.dmg) * 0.02) {
+        if (Math.abs(va.dmg - vb.dmg) <= Math.max(va.dmg, vb.dmg) * 0.05) {
           return phase.label + ": about equal";
         }
         const win = va.dmg > vb.dmg ? a : b;
@@ -6038,6 +6066,22 @@ if (typeof module !== "undefined") {
     renderAttackers();
   }
 
+  function addAttackersToGroup(gid, list, groupMods) {
+    syncActiveGroup();
+    let g = groups.find((x) => x.id === gid);
+    if (!g) {
+      if (groups.length >= MAX_GROUPS) return;
+      g = { id: gid, label: "Group " + gid, attackers: [] };
+      groups.push(g);
+    }
+    g.attackers = g.attackers.filter((at) => at.unitId).concat(list);
+    if (!g.attackers.length) g.attackers = [newAttacker()];
+    if (!groupModCount(groupModRow(g))) g.gm = deserializeGroupMods(groupMods);
+    activeGroupId = gid;
+    attackers = g.attackers;
+    renderAttackers();
+  }
+
   function renderSavedList() {
     const wrap = document.getElementById("saved-list");
     if (!wrap) return;
@@ -6048,7 +6092,7 @@ if (typeof module !== "undefined") {
       row.className = "saved-item";
       row.innerHTML =
         '<div class="si-main"><div class="si-name"></div><div class="si-sum"></div></div>' +
-        '<button type="button" data-act="A">Load into A</button><button type="button" data-act="B">Load into B</button>' +
+        '<button type="button" data-act="A">Add to Group A</button><button type="button" data-act="B">Add to Group B</button>' +
         '<button type="button" class="si-del" data-act="del">Delete</button>';
       row.querySelector(".si-name").textContent = p.name;
       row.querySelector(".si-sum").textContent = summarize(p.attackers);
@@ -6065,11 +6109,11 @@ if (typeof module !== "undefined") {
           }
           const warnings = [];
           const loaded = p.attackers.map((o) => deserializeAttacker(o, warnings)).filter(Boolean);
-          applyAttackersToGroup(act, loaded, undefined, p.gm);
+          addAttackersToGroup(act, loaded, p.gm);
           savedMsg(
             warnings.length
-              ? "Loaded with warnings:\n" + warnings.join("\n")
-              : 'Loaded "' + p.name + '" into Group ' + act + ".",
+              ? "Added with warnings:\n" + warnings.join("\n")
+              : 'Added "' + p.name + '" to Group ' + act + ".",
             warnings.length > 0
           );
         })
