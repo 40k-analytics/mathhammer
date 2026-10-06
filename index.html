@@ -1473,6 +1473,145 @@ main > section,
   background: #fbeaea;
 }
 
+button:not(:disabled):not(.legend-opt):not(.combo-input) {
+  box-shadow:
+    0 2px 0 rgba(20, 35, 50, 0.32),
+    0 4px 8px rgba(20, 35, 50, 0.14);
+  transition:
+    transform 0.09s ease,
+    box-shadow 0.09s ease,
+    background-color 0.15s ease,
+    filter 0.15s ease;
+}
+button:not(:disabled):not(.legend-opt):not(.combo-input):hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 3px 0 rgba(20, 35, 50, 0.32),
+    0 7px 12px rgba(20, 35, 50, 0.18);
+  filter: brightness(1.04);
+}
+button:not(:disabled):not(.combo-input):active {
+  transform: translateY(2px) scale(0.985);
+  box-shadow:
+    0 0 0 rgba(20, 35, 50, 0.32),
+    inset 0 2px 5px rgba(20, 35, 50, 0.28);
+  filter: brightness(0.96);
+}
+.btn-calc-top:not(:disabled) {
+  box-shadow:
+    0 4px 0 rgba(20, 35, 50, 0.38),
+    0 8px 14px rgba(20, 35, 50, 0.2);
+}
+.legend-opt {
+  transition:
+    transform 0.09s ease,
+    background-color 0.15s ease;
+}
+
+.sim-loading {
+  background: var(--navy);
+  color: var(--white);
+  border-radius: 12px;
+  padding: 26px 20px 24px;
+  margin: 0 0 18px;
+  text-align: center;
+  box-shadow: 0 6px 18px rgba(14, 30, 60, 0.28);
+}
+.sim-dice {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  min-height: 52px;
+}
+.die {
+  width: 46px;
+  height: 46px;
+  box-sizing: border-box;
+  padding: 6px;
+  background: var(--white);
+  border-radius: 10px;
+  box-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.35),
+    0 6px 10px rgba(0, 0, 0, 0.25);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  place-items: center;
+  animation: die-tumble 0.7s ease-in-out infinite;
+}
+.die:nth-child(2) {
+  animation-delay: -0.23s;
+}
+.die:nth-child(3) {
+  animation-delay: -0.46s;
+}
+.die .pip {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.die .pip.on {
+  background: var(--navy);
+}
+@keyframes die-tumble {
+  0% {
+    transform: translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateY(-14px) rotate(140deg);
+  }
+  70% {
+    transform: translateY(0) rotate(300deg);
+  }
+  85% {
+    transform: translateY(-3px) rotate(340deg);
+  }
+  100% {
+    transform: translateY(0) rotate(360deg);
+  }
+}
+.sim-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+.sim-dots span {
+  display: inline-block;
+  animation: sim-dot 1.2s infinite;
+}
+.sim-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.sim-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes sim-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.2;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+.sim-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--blue-light);
+}
+@media (prefers-reduced-motion: reduce) {
+  .die,
+  .sim-dots span {
+    animation: none;
+  }
+  button:not(:disabled):hover,
+  button:not(:disabled):active {
+    transform: none;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -1494,6 +1633,12 @@ main > section,
   <button class="btn btn-calc-top" id="calc-btn" disabled>Calculate</button>
   <button class="btn btn-switch switch-btn" disabled title="Swap the attacker and defender units">Switch Attacker &amp; Defender</button>
   <p class="calc-hint" id="calc-hint">Pick an attacker (unit + weapon) and a defender unit below to enable Calculate.</p>
+</div>
+
+<div id="sim-loading" class="sim-loading" style="display:none" role="status" aria-live="polite">
+  <div class="sim-dice" id="sim-dice"></div>
+  <div class="sim-title">Simulating 20,000 times<span class="sim-dots"><span>.</span><span>.</span><span>.</span></span></div>
+  <div class="sim-sub" id="sim-sub">Rolling to hit</div>
 </div>
 
 <section id="results-panel" class="results-full hidden">
@@ -3646,15 +3791,101 @@ if (typeof module !== "undefined") {
     });
     if (!Object.keys(bundles).length) {
       alert("Add at least one attacker with a weapon selected before calculating.");
-      return;
+      return false;
     }
     groupResults = bundles;
     if (!bundles[viewGroupId]) viewGroupId = Object.keys(bundles)[0];
     showGroupView(viewGroupId);
     renderResults(currentScenarioId);
+    return true;
+  }
+
+  const SIM_STEPS = [
+    "Rolling to hit",
+    "Rolling to wound",
+    "Making saves",
+    "Allocating damage",
+    "Running the extra analyses",
+  ];
+  const PIP_CELLS = {
+    1: [5],
+    2: [1, 9],
+    3: [1, 5, 9],
+    4: [1, 3, 7, 9],
+    5: [1, 3, 5, 7, 9],
+    6: [1, 3, 4, 6, 7, 9],
+  };
+  const SIM_MIN_VISIBLE_MS = 700;
+  let simRunning = false;
+  let simTimer = null;
+
+  function dieHtml(face) {
+    let cells = "";
+    for (let i = 1; i <= 9; i++) {
+      cells += '<i class="pip' + (PIP_CELLS[face].indexOf(i) >= 0 ? " on" : "") + '"></i>';
+    }
+    return '<div class="die">' + cells + "</div>";
+  }
+
+  function showSimulating() {
+    const box = document.getElementById("sim-loading");
+    const dice = document.getElementById("sim-dice");
+    const sub = document.getElementById("sim-sub");
+    if (!box || !dice) return;
+    let step = 0;
+    const roll = () => {
+      dice.innerHTML = [0, 1, 2]
+        .map(() => dieHtml(1 + Math.floor(Math.random() * 6)))
+        .join("");
+      if (sub && step % 5 === 0) sub.textContent = SIM_STEPS[(step / 5) % SIM_STEPS.length];
+      step++;
+    };
+    roll();
+    box.style.display = "";
+    simTimer = setInterval(roll, 140);
+  }
+
+  function hideSimulating() {
+    clearInterval(simTimer);
+    simTimer = null;
+    const box = document.getElementById("sim-loading");
+    if (box) box.style.display = "none";
+  }
+
+  function startCalculation() {
+    if (simRunning) return;
+    simRunning = true;
+    const panel = document.getElementById("results-panel");
+    const panelWasHidden = panel.classList.contains("hidden");
+    panel.style.display = "none";
+    showSimulating();
     try {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: "auto" });
     } catch (e) {}
+    const startedAt = Date.now();
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        let ok = false;
+        try {
+          ok = runSimulation();
+        } finally {
+          const wait = Math.max(0, SIM_MIN_VISIBLE_MS - (Date.now() - startedAt));
+          setTimeout(() => {
+            hideSimulating();
+            panel.style.display = "";
+            if (!ok && panelWasHidden) panel.classList.add("hidden");
+            simRunning = false;
+          }, wait);
+        }
+      }, 40);
+    });
+  }
+
+  function initButtonFeedback() {
+    document.addEventListener("pointerdown", (e) => {
+      const btn = e.target.closest && e.target.closest("button");
+      if (btn && !btn.disabled && navigator.vibrate) navigator.vibrate(8);
+    });
   }
 
   function renderResults(scenarioId) {
@@ -6340,7 +6571,7 @@ if (typeof module !== "undefined") {
       if (p) p.open = true;
     }
     updateCalcBtnState();
-    if (hasValidAttacker() && defender.unitId) setTimeout(runSimulation, 50);
+    if (hasValidAttacker() && defender.unitId) setTimeout(startCalculation, 50);
   }
 
   function initSavedGroups() {
@@ -6390,7 +6621,7 @@ if (typeof module !== "undefined") {
     });
     CALC_BTN_IDS.forEach((id) => {
       const btn = document.getElementById(id);
-      if (btn) btn.addEventListener("click", runSimulation);
+      if (btn) btn.addEventListener("click", startCalculation);
     });
     document.querySelectorAll(".switch-btn").forEach((btn) => {
       btn.addEventListener("click", switchAttackerAndDefender);
@@ -6404,6 +6635,7 @@ if (typeof module !== "undefined") {
     renderDefender();
     renderAttackers();
     initSavedGroups();
+    initButtonFeedback();
     document.getElementById("unit-count-note").textContent =
       DATA.unitCount + " units across " + DATA.factions.length + " factions (11th ed.)";
 
