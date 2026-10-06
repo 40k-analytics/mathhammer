@@ -2259,7 +2259,7 @@ function simulate(attackers, defender, trials) {
             const saveNeeded = effInv ? Math.min(armorSaveNeeded, effInv) : armorSaveNeeded;
             const saveRerollPolicy = defender.rerollSave || "none";
             let saveRoll = d6();
-            const saveFirstFailed = !(saveRoll !== 1 && (saveRoll === 6 || saveRoll >= saveNeeded));
+            const saveFirstFailed = !(saveRoll !== 1 && saveRoll >= saveNeeded);
             if (
               saveRerollPolicy === "all" ||
               (saveRerollPolicy === "ones" && saveRoll === 1) ||
@@ -2267,10 +2267,10 @@ function simulate(attackers, defender, trials) {
             ) {
               saveRoll = d6();
               sumSaveRerolls++;
-              const saveFinalSuccess = saveRoll !== 1 && (saveRoll === 6 || saveRoll >= saveNeeded);
+              const saveFinalSuccess = saveRoll !== 1 && saveRoll >= saveNeeded;
               if (saveFirstFailed && saveFinalSuccess) sumSaveRerollToSuccess++;
             }
-            const saveSuccess = saveRoll !== 1 && (saveRoll === 6 || saveRoll >= saveNeeded);
+            const saveSuccess = saveRoll !== 1 && saveRoll >= saveNeeded;
             if (saveSuccess) continue;
             sumUnsaved++;
             pa.sumUnsaved++;
