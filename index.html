@@ -1798,6 +1798,253 @@ button:not(:disabled):not(.combo-input):active {
   }
 }
 
+.def-members-wrap {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--blue-light);
+}
+.def-order-note {
+  margin: 4px 0 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--slate);
+}
+.def-member {
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid var(--blue-light);
+  border-radius: 8px;
+  background: var(--blue-tint);
+}
+.def-member-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: var(--navy);
+  font-size: 13px;
+}
+.def-member-stats {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  color: var(--slate);
+}
+.def-member-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 6px;
+  font-size: 13px;
+}
+.def-member-fields label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.def-member-fields .num-input {
+  width: 72px;
+}
+.def-member-add {
+  width: 100%;
+  margin-top: 4px;
+}
+.def-order {
+  margin-top: 14px;
+}
+.def-order-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.def-order-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--blue-light);
+  border-radius: 8px;
+  background: var(--white);
+}
+.def-order-pos {
+  flex: 0 0 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: var(--white);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.def-order-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+  overflow-wrap: anywhere;
+}
+.def-order-name small {
+  font-weight: 400;
+  color: var(--slate);
+  font-size: 11px;
+}
+.def-order-item .icon-btn {
+  flex: 0 0 auto;
+  min-width: 36px;
+  min-height: 36px;
+}
+.def-order-item .icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+@media (max-width: 700px) {
+  .def-order-item .icon-btn {
+    min-width: 42px;
+    min-height: 42px;
+  }
+  .def-member-fields .num-input {
+    width: 84px;
+  }
+}
+
+#def-groups-box {
+  border: 2px solid var(--blue);
+  border-top-width: 6px;
+  box-shadow: 0 4px 14px rgba(34, 48, 60, 0.12);
+}
+#def-groups-box h3 {
+  font-size: 17px;
+}
+.def-groups-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+  border: 1px solid var(--blue-light);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.def-groups-table th {
+  background: var(--navy);
+  color: var(--white);
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.def-groups-table td {
+  padding: 11px 12px;
+  border-top: 1px solid var(--blue-light);
+  color: var(--navy);
+}
+.def-groups-table tbody tr:nth-child(even) td {
+  background: var(--blue-tint);
+}
+.def-groups-table td:first-child {
+  font-weight: 700;
+}
+.def-groups-table td:nth-child(n + 2) {
+  font-variant-numeric: tabular-nums;
+}
+.def-groups-table td:last-child {
+  font-weight: 700;
+  color: var(--blue);
+}
+#weapon-order-box {
+  border: 2px solid var(--blue);
+  border-top-width: 6px;
+}
+.order-group + .order-group {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--blue-light);
+}
+.order-group-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--navy);
+}
+.order-phase + .order-phase {
+  margin-top: 16px;
+}
+.order-phase h4 {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  display: inline-block;
+  background: var(--navy);
+  color: var(--white);
+  border-radius: 6px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.order-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.order-col {
+  padding: 10px 12px;
+  border: 2px solid var(--blue);
+  border-radius: 8px;
+  background: var(--blue-tint);
+  min-width: 0;
+}
+.order-col-muted {
+  border: 1px solid var(--blue-light);
+  background: var(--white);
+}
+.order-col-title {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--blue);
+}
+.order-list {
+  margin: 0 0 8px;
+  padding-left: 22px;
+  font-size: 13px;
+  color: var(--navy);
+}
+.order-list li {
+  margin-bottom: 3px;
+  overflow-wrap: anywhere;
+}
+.order-stats {
+  font-size: 12px;
+  color: var(--slate);
+}
+.order-verdict {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--navy);
+  background: var(--blue-tint);
+  border-left: 3px solid var(--blue);
+  border-radius: 4px;
+}
+@media (max-width: 700px) {
+  .def-groups-table th,
+  .def-groups-table td {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+  .order-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 </style>
 </head>
 <body>
@@ -1890,6 +2137,14 @@ button:not(:disabled):not(.combo-input):active {
   <div class="chart-box" id="kills-by-weapon-box">
     <h3>Models killed by unit/weapon</h3>
     <div class="chart-canvas-wrap" id="kills-by-weapon-wrap"><canvas id="chart-kills-by-weapon"></canvas></div>
+  </div>
+  <div class="chart-box" id="def-groups-box" style="display:none">
+    <h3>Damage taken by attached models / leader</h3>
+    <div id="def-groups-table" class="rule-table-wrap"></div>
+  </div>
+  <div class="chart-box" id="weapon-order-box" style="display:none">
+    <h3>Suggested weapon order</h3>
+    <div id="weapon-order-body"></div>
   </div>
   <div class="chart-box" id="dmg-per-point-box">
     <h3>Expected damage per 100 points (by attacker)</h3>
@@ -2258,11 +2513,134 @@ function simulate(attackers, defender, trials) {
     sumSaveRerolls = 0,
     sumSaveRerollToSuccess = 0;
 
+  const defGroups =
+    defender.groups && defender.groups.length
+      ? defender.groups
+      : [
+          {
+            label: defender.label || "Defender",
+            models: defender.models,
+            wounds: defender.wounds,
+            save: defender.save,
+            invuln: defender.invuln,
+            invulnRanged: defender.invulnRanged,
+            invulnMelee: defender.invulnMelee,
+            fnp: defender.fnp,
+            invulnFragile: defender.invulnFragile,
+            isCharacter: false,
+          },
+        ];
+  const groupAlive = new Array(defGroups.length);
+  const groupCurWounds = new Array(defGroups.length);
+  const groupKillSums = new Array(defGroups.length).fill(0);
+  const groupEffectiveSums = new Array(defGroups.length).fill(0);
+  let modelsKilledThisTrial = 0;
+  let trialDamage = 0;
+
+  function declareOrder() {
+    const rank = (i) => {
+      const g = defGroups[i];
+      const wounded = groupCurWounds[i] < g.wounds ? 0 : 1;
+      return (g.isCharacter ? 2 : 0) + wounded;
+    };
+    const alive = [];
+    for (let i = 0; i < defGroups.length; i++) if (groupAlive[i] > 0) alive.push(i);
+    if (!alive.length) return [defGroups.length - 1];
+    return alive.sort((a, b) => rank(a) - rank(b) || a - b);
+  }
+
+  function resolvePool(pool, atk, pa, mods, ap) {
+    if (!pool.length) return;
+    const order = declareOrder();
+    const items = pool
+      .map((w) => ({ dev: w.dev, roll: w.dev ? 0 : d6() }))
+      .sort((x, y) => x.roll - y.roll);
+    let ptr = 0;
+    for (const it of items) {
+      while (ptr < order.length - 1 && groupAlive[order[ptr]] <= 0) ptr++;
+      const gi = order[ptr];
+      const g = defGroups[gi];
+      let damage;
+      if (it.dev) {
+        damage = rollDamage(atk, mods);
+        sumUnsaved++;
+        pa.sumUnsaved++;
+      } else {
+        let effAp = ap;
+        if (defender.apReduction) effAp = Math.min(effAp + defender.apReduction, 0);
+        let armorSaveNeeded =
+          (g.save || 7) - effAp + (mods.worsenDefenderSave || 0) - (defender.saveBonus || 0);
+        armorSaveNeeded = clampThreshold(armorSaveNeeded, 7);
+
+        const invulnLost = g.invulnFragile && groupCurWounds[gi] < g.wounds;
+        const invOpts = invulnLost
+          ? []
+          : [g.invuln, atk.isMelee ? g.invulnMelee : g.invulnRanged].filter((v) => v > 0);
+        const effInv = invOpts.length ? Math.min.apply(null, invOpts) : 0;
+        const saveNeeded = effInv ? Math.min(armorSaveNeeded, effInv) : armorSaveNeeded;
+        const saveRerollPolicy = defender.rerollSave || "none";
+        let saveRoll = it.roll;
+        const saveFirstFailed = !(saveRoll !== 1 && saveRoll >= saveNeeded);
+        if (
+          saveRerollPolicy === "all" ||
+          (saveRerollPolicy === "ones" && saveRoll === 1) ||
+          (saveRerollPolicy === "failed" && saveRoll !== 1 && saveRoll < saveNeeded)
+        ) {
+          saveRoll = d6();
+          sumSaveRerolls++;
+          const saveFinalSuccess = saveRoll !== 1 && saveRoll >= saveNeeded;
+          if (saveFirstFailed && saveFinalSuccess) sumSaveRerollToSuccess++;
+        }
+        const saveSuccess = saveRoll !== 1 && saveRoll >= saveNeeded;
+        if (saveSuccess) continue;
+        sumUnsaved++;
+        pa.sumUnsaved++;
+        damage = rollDamage(atk, mods);
+      }
+
+      if (defender.damageReduction) damage = Math.max(1, damage - defender.damageReduction);
+
+      sumDamageBeforeFnp += damage;
+      pa.sumDamageBeforeFnp += damage;
+
+      if (g.fnp) {
+        let through = 0;
+        for (let p = 0; p < damage; p++) {
+          const r = d6();
+          if (r < g.fnp) through++;
+        }
+        damage = through;
+      }
+
+      sumDamage += damage;
+      trialDamage += damage;
+      pa.sumDamage += damage;
+      sumDamageAfterFnp += damage;
+
+      if (groupAlive[gi] > 0) {
+        const take = Math.min(damage, groupCurWounds[gi]);
+        sumEffectiveDamage += take;
+        pa.sumEffective += take;
+        groupEffectiveSums[gi] += take;
+        groupCurWounds[gi] -= take;
+        if (groupCurWounds[gi] <= 0) {
+          groupAlive[gi]--;
+          modelsKilledThisTrial++;
+          groupKillSums[gi]++;
+          pa.sumKills++;
+          groupCurWounds[gi] = g.wounds;
+        }
+      }
+    }
+  }
+
   for (let t = 0; t < trials; t++) {
-    let modelsRemaining = defender.models;
-    let currentModelWounds = defender.wounds;
-    let modelsKilledThisTrial = 0;
-    let trialDamage = 0;
+    for (let gi = 0; gi < defGroups.length; gi++) {
+      groupAlive[gi] = defGroups[gi].models;
+      groupCurWounds[gi] = defGroups[gi].wounds;
+    }
+    modelsKilledThisTrial = 0;
+    trialDamage = 0;
 
     for (let atkIdx = 0; atkIdx < attackers.length; atkIdx++) {
       const atk = attackers[atkIdx];
@@ -2278,7 +2656,7 @@ function simulate(attackers, defender, trials) {
       if (atk.kw.rapidFireN && mods.halfRange) totalAttacks += atk.kw.rapidFireN * numWeapons;
 
       if (atk.kw.blastN)
-        totalAttacks += atk.kw.blastN * Math.floor((defender.models || 1) / 5) * numWeapons;
+        totalAttacks += atk.kw.blastN * Math.floor(Math.max(1, groupAlive.reduce((n, m) => n + m, 0)) / 5) * numWeapons;
       sumAttacks += totalAttacks;
       pa.sumAttacks += totalAttacks;
 
@@ -2303,6 +2681,7 @@ function simulate(attackers, defender, trials) {
       const woundRerollPolicy =
         mods.twinLinked || atk.kw.TWIN_LINKED ? "failed" : mods.rerollWound || "none";
 
+      const pool = [];
       for (let i = 0; i < totalAttacks; i++) {
         let isHit, isCritHit, hitRollNatural;
         if (atk.kw.TORRENT) {
@@ -2375,81 +2754,12 @@ function simulate(attackers, defender, trials) {
           pa.sumWounds++;
           if (isCritWound) sumCritWounds++;
 
-          let damage;
-          if (isCritWound && mods.devastatingWounds) {
-            sumDevastatingWoundsProcs++;
-            damage = rollDamage(atk, mods);
-            sumUnsaved++;
-            pa.sumUnsaved++;
-          } else {
-            let effAp = ap;
-            if (defender.apReduction) effAp = Math.min(effAp + defender.apReduction, 0);
-            let armorSaveNeeded =
-              (defender.save || 7) -
-              effAp +
-              (mods.worsenDefenderSave || 0) -
-              (defender.saveBonus || 0);
-            armorSaveNeeded = clampThreshold(armorSaveNeeded, 7);
-
-            const invOpts = [
-              defender.invuln,
-              atk.isMelee ? defender.invulnMelee : defender.invulnRanged,
-            ].filter((v) => v > 0);
-            const effInv = invOpts.length ? Math.min.apply(null, invOpts) : 0;
-            const saveNeeded = effInv ? Math.min(armorSaveNeeded, effInv) : armorSaveNeeded;
-            const saveRerollPolicy = defender.rerollSave || "none";
-            let saveRoll = d6();
-            const saveFirstFailed = !(saveRoll !== 1 && saveRoll >= saveNeeded);
-            if (
-              saveRerollPolicy === "all" ||
-              (saveRerollPolicy === "ones" && saveRoll === 1) ||
-              (saveRerollPolicy === "failed" && saveRoll !== 1 && saveRoll < saveNeeded)
-            ) {
-              saveRoll = d6();
-              sumSaveRerolls++;
-              const saveFinalSuccess = saveRoll !== 1 && saveRoll >= saveNeeded;
-              if (saveFirstFailed && saveFinalSuccess) sumSaveRerollToSuccess++;
-            }
-            const saveSuccess = saveRoll !== 1 && saveRoll >= saveNeeded;
-            if (saveSuccess) continue;
-            sumUnsaved++;
-            pa.sumUnsaved++;
-            damage = rollDamage(atk, mods);
-          }
-
-          if (defender.damageReduction) damage = Math.max(1, damage - defender.damageReduction);
-
-          sumDamageBeforeFnp += damage;
-          pa.sumDamageBeforeFnp += damage;
-
-          if (defender.fnp) {
-            let through = 0;
-            for (let p = 0; p < damage; p++) {
-              const r = d6();
-              if (r < defender.fnp) through++;
-            }
-            damage = through;
-          }
-
-          sumDamage += damage;
-          trialDamage += damage;
-          pa.sumDamage += damage;
-          sumDamageAfterFnp += damage;
-
-          if (modelsRemaining > 0) {
-            const take = Math.min(damage, currentModelWounds);
-            sumEffectiveDamage += take;
-            pa.sumEffective += take;
-            currentModelWounds -= take;
-            if (currentModelWounds <= 0) {
-              modelsRemaining--;
-              modelsKilledThisTrial++;
-              pa.sumKills++;
-              currentModelWounds = defender.wounds;
-            }
-          }
+          const devastating = isCritWound && mods.devastatingWounds;
+          if (devastating) sumDevastatingWoundsProcs++;
+          pool.push({ dev: devastating });
         }
       }
+      resolvePool(pool, atk, pa, mods, ap);
     }
 
     damageSamples[t] = trialDamage;
@@ -2479,6 +2789,14 @@ function simulate(attackers, defender, trials) {
     meanEffectiveDamage: sumEffectiveDamage / trials,
     meanDamageBeforeFnp: sumDamageBeforeFnp / trials,
     meanModelsKilled: avg(modelsKilledSamples),
+    perGroup: defGroups.map((g, i) => ({
+      label: g.label,
+      models: g.models,
+      wounds: g.wounds,
+      isCharacter: !!g.isCharacter,
+      meanModelsKilled: groupKillSums[i] / trials,
+      meanEffectiveDamage: groupEffectiveSums[i] / trials,
+    })),
     perAttacker: perAttacker.map((pa) => ({
       label: pa.label,
       meanAttacks: pa.sumAttacks / trials,
@@ -2618,6 +2936,10 @@ if (typeof module !== "undefined") {
     woundPenalty: 0,
     apReduction: 0,
     rerollSave: "none",
+    isCharacter: false,
+    invulnFragile: false,
+    members: [],
+    order: null,
   };
   let charts = {};
 
@@ -3596,6 +3918,252 @@ if (typeof module !== "undefined") {
     });
   }
 
+  function hasFragileInvuln(unit) {
+    return (
+      !!unit &&
+      typeof unit.abilities !== "string" &&
+      JSON.stringify(unit.abilities || []).search(/loses a wound[^"]*no\s*(<b>)?\s*InSv/i) >= 0
+    );
+  }
+
+  function isCharacterUnit(unit) {
+    return !!unit && (unit.keywords || []).some((k) => String(k).toUpperCase() === "CHARACTER");
+  }
+
+  function newDefenderMember() {
+    return {
+      id: uid("m"),
+      faction: "",
+      unitId: null,
+      models: 1,
+      isCharacter: true,
+      toughness: 4,
+      save: 3,
+      invuln: 0,
+      invulnRanged: 0,
+      invulnMelee: 0,
+      wounds: 1,
+      fnp: 0,
+      keywords: [],
+      invulnFragile: false,
+    };
+  }
+
+  function applyUnitToMember(m, unit) {
+    const model = unit.models[0] || {};
+    m.unitId = unit.id;
+    m.faction = unit.faction;
+    m.toughness = model.t || m.toughness;
+    m.save = model.sv || m.save;
+    m.invuln = typeof model.inv === "number" ? model.inv : 0;
+    m.invulnRanged = unit.invR || 0;
+    m.invulnMelee = unit.invM || 0;
+    m.fnp = unit.fnp || 0;
+    m.wounds = model.w || m.wounds;
+    m.models = unit.modelsMin || 1;
+    m.isCharacter = isCharacterUnit(unit);
+    m.invulnFragile = hasFragileInvuln(unit);
+    m.keywords = (unit.keywords || []).filter((k) => ANTI_KEYWORDS.includes(k));
+  }
+
+  function defenderGroupList() {
+    const list = [];
+    const mainUnit = defender.unitId ? unitById[defender.unitId] : null;
+    if (mainUnit) {
+      list.push({
+        id: "main",
+        label: unitDisplayName(mainUnit),
+        models: defender.models,
+        wounds: defender.wounds,
+        toughness: defender.toughness,
+        save: defender.save,
+        invuln: defender.invuln,
+        invulnRanged: defender.invulnRanged,
+        invulnMelee: defender.invulnMelee,
+        fnp: defender.fnp,
+        keywords: defender.keywords,
+        invulnFragile: !!defender.invulnFragile,
+        isCharacter: !!defender.isCharacter,
+      });
+    }
+    defender.members.forEach((m) => {
+      const u = m.unitId ? unitById[m.unitId] : null;
+      if (!u) return;
+      list.push({
+        id: m.id,
+        label: unitDisplayName(u),
+        models: m.models,
+        wounds: m.wounds,
+        toughness: m.toughness,
+        save: m.save,
+        invuln: m.invuln,
+        invulnRanged: m.invulnRanged,
+        invulnMelee: m.invulnMelee,
+        fnp: m.fnp,
+        keywords: m.keywords,
+        invulnFragile: !!m.invulnFragile,
+        isCharacter: !!m.isCharacter,
+      });
+    });
+    const pos = (g, i) => {
+      const at = defender.order ? defender.order.indexOf(g.id) : -1;
+      return at >= 0 ? at : 1000 + i;
+    };
+    return list
+      .map((g, i) => ({ g, p: pos(g, i), c: g.isCharacter ? 1 : 0 }))
+      .sort((x, y) => x.c - y.c || x.p - y.p)
+      .map((x) => x.g);
+  }
+
+  function moveDefenderGroup(id, dir) {
+    const list = defenderGroupList();
+    const i = list.findIndex((g) => g.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    if (list[i].isCharacter !== list[j].isCharacter) return;
+    const ids = list.map((g) => g.id);
+    ids[i] = list[j].id;
+    ids[j] = list[i].id;
+    defender.order = ids;
+  }
+
+  function renderDefenderOrder() {
+    const wrap = document.getElementById("def-order");
+    if (!wrap) return;
+    const list = defenderGroupList();
+    if (list.length < 2) {
+      wrap.style.display = "none";
+      wrap.innerHTML = "";
+      return;
+    }
+    wrap.style.display = "";
+    wrap.innerHTML = `
+      <div class="mod-group-title">SAVE ALLOCATION ORDER ${defender.order ? "(custom)" : "(default)"}</div>
+      <p class="def-order-note">Saves are allocated to the first group until all its models are destroyed, then the next. Rules: damaged non-character groups always go first, and characters always go after non-characters. Default: units first, then characters.</p>
+      <ol class="def-order-list">
+        ${list
+          .map((g, i) => {
+            const prev = list[i - 1];
+            const next = list[i + 1];
+            const canUp = prev && prev.isCharacter === g.isCharacter;
+            const canDown = next && next.isCharacter === g.isCharacter;
+            return `<li class="def-order-item" data-gid="${g.id}">
+              <span class="def-order-pos">${i + 1}</span>
+              <span class="def-order-name">${esc(g.label)}<small>${g.models} × T${g.toughness} ${g.save}+${g.invuln ? " / " + g.invuln + "++" : ""} W${g.wounds}${g.isCharacter ? " · Character" : ""}</small></span>
+              <button type="button" class="icon-btn def-order-up" ${canUp ? "" : "disabled"} title="Move earlier">&#9650;</button>
+              <button type="button" class="icon-btn def-order-down" ${canDown ? "" : "disabled"} title="Move later">&#9660;</button>
+            </li>`;
+          })
+          .join("")}
+      </ol>
+      ${defender.order ? '<button type="button" class="btn btn-secondary def-order-reset">Reset to default order</button>' : ""}`;
+    wrap.querySelectorAll(".def-order-item").forEach((li) => {
+      const id = li.getAttribute("data-gid");
+      li.querySelector(".def-order-up").addEventListener("click", () => {
+        moveDefenderGroup(id, -1);
+        renderDefenderOrder();
+      });
+      li.querySelector(".def-order-down").addEventListener("click", () => {
+        moveDefenderGroup(id, 1);
+        renderDefenderOrder();
+      });
+    });
+    const reset = wrap.querySelector(".def-order-reset");
+    if (reset)
+      reset.addEventListener("click", () => {
+        defender.order = null;
+        renderDefenderOrder();
+      });
+  }
+
+  function defenderMembersHtml() {
+    const cards = defender.members
+      .map((m, i) => {
+        const u = m.unitId ? unitById[m.unitId] : null;
+        return `<div class="def-member" data-mid="${m.id}">
+          <div class="def-member-head">
+            <strong>Attached model / leader ${i + 1}</strong>
+            <button type="button" class="icon-btn dm-remove" title="Remove this attached model">&times;</button>
+          </div>
+          <div class="picker-row">
+            <select class="sel dm-faction">${defFactionOptions(m.faction)}</select>
+            <select class="sel dm-unit" ${m.faction ? "" : "disabled"}>${defUnitOptions(m.faction, m.unitId)}</select>
+          </div>
+          ${u ? `<div class="unit-stat-line-wrap">${renderUnitCard(u)}</div>` : ""}
+          ${
+            u
+              ? `<div class="def-member-stats">T${m.toughness} · Sv ${m.save}+${m.invuln ? " · Inv " + m.invuln + "+" : ""} · W${m.wounds}${m.fnp ? " · FNP " + m.fnp + "+" : ""}</div>
+          <div class="def-member-fields">
+            <label>Models <input type="number" class="num-input dm-models" min="1" max="50" value="${m.models}" /></label>
+            <label class="chk-row"><input type="checkbox" class="dm-char" ${m.isCharacter ? "checked" : ""} /> Character</label>
+            <label class="chk-row" title="Shadowfield-style rule: the invulnerable save is lost for the rest of the battle once the model loses a wound"><input type="checkbox" class="dm-fragile" ${m.invulnFragile ? "checked" : ""} /> Invuln lost after first wound lost</label>
+          </div>`
+              : ""
+          }
+        </div>`;
+      })
+      .join("");
+    return `
+      <div class="def-members-wrap">
+        <div class="mod-group-title">ATTACHED MODELS / LEADER</div>
+        <p class="def-order-note">Add a leader or other attached models that are part of the same target unit (for example a character with a bodyguard). Attacks use the highest Toughness among the non-character groups.</p>
+        ${cards}
+        <button type="button" class="btn btn-secondary def-member-add">+ Add attached model / leader</button>
+        <div id="def-order" class="def-order" style="display:none"></div>
+      </div>`;
+  }
+
+  function wireDefenderMembers(wrap) {
+    const add = wrap.querySelector(".def-member-add");
+    if (add)
+      add.addEventListener("click", () => {
+        const member = newDefenderMember();
+        member.faction = defender.faction;
+        defender.members.push(member);
+        renderDefender();
+      });
+    wrap.querySelectorAll(".def-member").forEach((card) => {
+      const m = defender.members.find((x) => x.id === card.getAttribute("data-mid"));
+      if (!m) return;
+      const unitSel = card.querySelector(".dm-unit");
+      makeSearchable(unitSel);
+      card.querySelector(".dm-remove").addEventListener("click", () => {
+        defender.members = defender.members.filter((x) => x !== m);
+        if (defender.order) defender.order = defender.order.filter((id) => id !== m.id);
+        renderDefender();
+      });
+      card.querySelector(".dm-faction").addEventListener("change", (e) => {
+        m.faction = e.target.value;
+        m.unitId = null;
+        renderDefender();
+      });
+      unitSel.addEventListener("change", (e) => {
+        const u = e.target.value ? unitById[e.target.value] : null;
+        if (u) applyUnitToMember(m, u);
+        else m.unitId = null;
+        renderDefender();
+      });
+      const models = card.querySelector(".dm-models");
+      if (models)
+        models.addEventListener("input", () => {
+          m.models = Math.max(1, parseInt(models.value, 10) || 1);
+          renderDefenderOrder();
+        });
+      const fragile = card.querySelector(".dm-fragile");
+      if (fragile)
+        fragile.addEventListener("change", () => {
+          m.invulnFragile = fragile.checked;
+        });
+      const chr = card.querySelector(".dm-char");
+      if (chr)
+        chr.addEventListener("change", () => {
+          m.isCharacter = chr.checked;
+          renderDefenderOrder();
+        });
+    });
+    renderDefenderOrder();
+  }
+
   function renderDefender() {
     const wrap = document.getElementById("defender-panel");
     const unit = defender.unitId ? unitById[defender.unitId] : null;
@@ -3618,6 +4186,8 @@ if (typeof module !== "undefined") {
         <label>Wounds/model <input type="number" class="num-input" data-def="wounds" value="${defender.wounds}" min="1" max="30"/></label>
         <label>Number of models <input type="number" class="num-input" data-def="models" value="${defender.models}" min="1" max="50"/></label>
         <label>Feel No Pain (0=none) <input type="number" class="num-input" data-def="fnp" value="${defender.fnp}" min="0" max="6"/></label>
+        <label class="chk-row"><input type="checkbox" class="def-char" ${defender.isCharacter ? "checked" : ""}/> Character group</label>
+        <label class="chk-row" title="Shadowfield-style rule: the invulnerable save is lost for the rest of the battle once the model loses a wound"><input type="checkbox" class="def-fragile" ${defender.invulnFragile ? "checked" : ""}/> Invuln lost after first wound lost</label>
       </div>
       <div class="mod-group-title" style="margin-top:10px">KEYWORDS (for Anti-X)</div>
       <div class="kw-chip-row">
@@ -3627,6 +4197,7 @@ if (typeof module !== "undefined") {
         ).join("")}
       </div>
       ${renderDefenderModifierGroups()}
+      ${unit ? defenderMembersHtml() : ""}
       </div>
     `;
 
@@ -3660,7 +4231,19 @@ if (typeof module !== "undefined") {
         defender.keywords = Array.from(set);
       });
     });
+    const defFragile = wrap.querySelector(".def-fragile");
+    if (defFragile)
+      defFragile.addEventListener("change", () => {
+        defender.invulnFragile = defFragile.checked;
+      });
+    const defChar = wrap.querySelector(".def-char");
+    if (defChar)
+      defChar.addEventListener("change", () => {
+        defender.isCharacter = defChar.checked;
+        renderDefenderOrder();
+      });
     wireDefenderModifierGroups(wrap);
+    wireDefenderMembers(wrap);
     updateEffTitle();
     renderEfficiencyDefenderPanel();
     updateCalcBtnState();
@@ -3714,6 +4297,8 @@ if (typeof module !== "undefined") {
       weaponRows: [newWeaponRow(oldDefenderUnit)],
     };
     attackers = [replacement];
+    defender.members = [];
+    defender.order = null;
     const group = activeGroup();
     if (group) group.attackers = attackers;
     renderAttackers();
@@ -3899,6 +4484,8 @@ if (typeof module !== "undefined") {
     defender.wounds = model.w || defender.wounds;
     defender.models = unit.modelsMin || defender.models;
     defender.keywords = (unit.keywords || []).filter((k) => ANTI_KEYWORDS.includes(k));
+    defender.isCharacter = isCharacterUnit(unit);
+    defender.invulnFragile = hasFragileInvuln(unit);
   }
 
   function buildEngineAttacker(unit, weapon, row) {
@@ -3955,6 +4542,38 @@ if (typeof module !== "undefined") {
   }
 
   function buildDefenderProfile() {
+    const profile = buildBaseDefenderProfile();
+    const list = defenderGroupList();
+    if (list.length < 2) return profile;
+    const toughnessPool = list.some((g) => !g.isCharacter) ? list.filter((g) => !g.isCharacter) : list;
+    const models = list.reduce((n, g) => n + g.models, 0);
+    const pool = list.reduce((n, g) => n + g.models * g.wounds, 0);
+    const keywords = new Set();
+    list.forEach((g) => (g.keywords || []).forEach((k) => keywords.add(k)));
+    return Object.assign(profile, {
+      toughness: Math.max.apply(
+        null,
+        toughnessPool.map((g) => g.toughness)
+      ),
+      models,
+      wounds: pool / models,
+      keywords: Array.from(keywords),
+      groups: list.map((g) => ({
+        label: g.label,
+        models: g.models,
+        wounds: g.wounds,
+        save: g.save,
+        invuln: g.invuln,
+        invulnRanged: g.invulnRanged,
+        invulnMelee: g.invulnMelee,
+        fnp: g.fnp,
+        invulnFragile: g.invulnFragile,
+        isCharacter: g.isCharacter,
+      })),
+    });
+  }
+
+  function buildBaseDefenderProfile() {
     return {
       toughness: defender.toughness,
       save: defender.save,
@@ -3973,6 +4592,7 @@ if (typeof module !== "undefined") {
       woundPenalty: defender.woundPenalty,
       apReduction: defender.apReduction,
       rerollSave: defender.rerollSave,
+      invulnFragile: defender.invulnFragile,
     };
   }
 
@@ -4024,11 +4644,19 @@ if (typeof module !== "undefined") {
     if (defender.unitId && unitById[defender.unitId]) {
       const du = unitById[defender.unitId];
       lastDefenderPts = unitPointsFor(du, defender.models) || null;
+      defender.members.forEach((m) => {
+        const mu = m.unitId ? unitById[m.unitId] : null;
+        if (mu && lastDefenderPts != null) lastDefenderPts += unitPointsFor(mu, m.models) || 0;
+      });
     }
     lastDefenderName =
       defender.unitId && unitById[defender.unitId]
         ? unitDisplayName(unitById[defender.unitId])
         : "Custom defender";
+    const extraNames = defender.members
+      .map((m) => (m.unitId && unitById[m.unitId] ? unitDisplayName(unitById[m.unitId]) : null))
+      .filter(Boolean);
+    if (extraNames.length) lastDefenderName += " + " + extraNames.join(" + ");
     const baseDef = buildDefenderProfile();
     const bundles = {};
     groups.forEach((g) => {
@@ -4184,6 +4812,7 @@ if (typeof module !== "undefined") {
       def.wounds * def.models
     );
     renderWeaponBreakdown(result.perAttacker);
+    renderDefenderGroupTable(result.perGroup);
     renderDamagePerPoint(result.perAttacker, meta);
     renderRulesBreakdown(result.rules);
     renderRerollBreakdown(result.rerolls);
@@ -4203,6 +4832,7 @@ if (typeof module !== "undefined") {
     let items = gr.engine.map((a, i) => ({ a, i, melee: gr.meta[i].isMelee }));
     if (opts.filter) items = items.filter(opts.filter);
     if (!items.length) return null;
+    if (opts.order) items = opts.order.map((i) => items.find((x) => x.i === i)).filter(Boolean);
     const list = items.map((x) => {
       const mods = Object.assign(
         {},
@@ -4339,6 +4969,7 @@ if (typeof module !== "undefined") {
     renderCostChart();
     renderGroupWeaponChart(sc);
     renderKillsByWeaponChart(sc);
+    renderWeaponOrder(sc);
     renderArchetypeChart(sc);
     renderScalingChart(gr, sc, cache);
     renderSensitivityChart(gr, sc, entry, cache);
@@ -4591,6 +5222,242 @@ if (typeof module !== "undefined") {
         indexAxis: "y",
       }),
     });
+  }
+
+  const ORDER_SEARCH_TRIALS = 1000;
+  const ORDER_FINAL_TRIALS = 6000;
+  const ORDER_MAX_EVALS = 30;
+  let orderRunId = 0;
+
+  function permutations(list) {
+    if (list.length <= 1) return [list.slice()];
+    const out = [];
+    list.forEach((item, i) => {
+      const rest = list.slice(0, i).concat(list.slice(i + 1));
+      permutations(rest).forEach((p) => out.push([item].concat(p)));
+    });
+    return out;
+  }
+
+  function weaponBlocks(items, meta) {
+    const blocks = [];
+    const byKey = {};
+    items.forEach((i) => {
+      const key = meta[i].attackerId + "|" + meta[i].weaponsCount;
+      if (!byKey[key]) {
+        byKey[key] = [];
+        blocks.push(byKey[key]);
+      }
+      byKey[key].push(i);
+    });
+    return blocks;
+  }
+
+  function flattenBlocks(blocks) {
+    return blocks.reduce((acc, b) => acc.concat(b), []);
+  }
+
+  function candidateOrders(blocks) {
+    const inner = blocks.map((b) => permutations(b));
+    const total = permutations(blocks.map((_, i) => i)).length * inner.reduce((n, p) => n * p.length, 1);
+    if (total > 24) return null;
+    const out = [];
+    permutations(blocks.map((_, i) => i)).forEach((perm) => {
+      let combos = [[]];
+      perm.forEach((bi) => {
+        const next = [];
+        combos.forEach((c) => inner[bi].forEach((p) => next.push(c.concat([p]))));
+        combos = next;
+      });
+      combos.forEach((c) => out.push(flattenBlocks(c)));
+    });
+    return out;
+  }
+
+  function neighbourOrders(blocks) {
+    const out = [];
+    for (let i = 0; i + 1 < blocks.length; i++) {
+      const copy = blocks.slice();
+      copy[i] = blocks[i + 1];
+      copy[i + 1] = blocks[i];
+      out.push(copy);
+    }
+    blocks.forEach((b, bi) => {
+      for (let j = 0; j + 1 < b.length; j++) {
+        const inner = b.slice();
+        inner[j] = b[j + 1];
+        inner[j + 1] = b[j];
+        const copy = blocks.slice();
+        copy[bi] = inner;
+        out.push(copy);
+      }
+    });
+    return out;
+  }
+
+  function searchWeaponOrder(gr, sc, filter, meta) {
+    const idx = gr.engine.map((_, i) => i).filter((i) => filter({ i, melee: meta[i].isMelee }));
+    const evalOrder = (order, trials) => {
+      const r = runVariant(gr, sc, { filter: (x) => idx.indexOf(x.i) >= 0, order, trials });
+      return { order, dmg: r.meanEffectiveDamage, kills: r.meanModelsKilled };
+    };
+    const startBlocks = weaponBlocks(idx, meta);
+    const evaluated = {};
+    const record = (order, trials) => {
+      const key = order.join(",");
+      if (!evaluated[key]) evaluated[key] = evalOrder(order, trials);
+      return evaluated[key];
+    };
+    const all = candidateOrders(startBlocks);
+    if (all) {
+      all.forEach((o) => record(o, ORDER_SEARCH_TRIALS));
+    } else {
+      const heur = startBlocks
+        .slice()
+        .sort((x, y) => {
+          const score = (b) => Math.max.apply(null, b.map((i) => meanOfDiceExpr(gr.engine[i].damageExpr)));
+          return score(y) - score(x);
+        });
+      [startBlocks, heur].forEach((start) => {
+        let cur = start;
+        let curScore = record(flattenBlocks(cur), ORDER_SEARCH_TRIALS).dmg;
+        let improved = true;
+        while (improved && Object.keys(evaluated).length < ORDER_MAX_EVALS) {
+          improved = false;
+          const nbrs = neighbourOrders(cur);
+          for (const n of nbrs) {
+            if (Object.keys(evaluated).length >= ORDER_MAX_EVALS) break;
+            const s = record(flattenBlocks(n), ORDER_SEARCH_TRIALS).dmg;
+            if (s > curScore) {
+              cur = n;
+              curScore = s;
+              improved = true;
+              break;
+            }
+          }
+        }
+      });
+    }
+    const pool = Object.values(evaluated);
+    const topBy = (key) =>
+      pool
+        .slice()
+        .sort((x, y) => y[key] - x[key])
+        .slice(0, 2);
+    const finalists = {};
+    topBy("dmg")
+      .concat(topBy("kills"))
+      .forEach((c) => (finalists[c.order.join(",")] = c.order));
+    const currentOrder = idx.slice();
+    finalists[currentOrder.join(",")] = currentOrder;
+    const final = Object.values(finalists).map((o) => evalOrder(o, ORDER_FINAL_TRIALS));
+    const pick = (key) => final.slice().sort((x, y) => y[key] - x[key])[0];
+    return {
+      count: idx.length,
+      current: final.find((f) => f.order.join(",") === currentOrder.join(",")),
+      bestDmg: pick("dmg"),
+      bestKills: pick("kills"),
+    };
+  }
+
+  function orderLabel(gr, i) {
+    const a = gr.engine[i];
+    return esc(a.label) + (a.weaponsCount > 1 ? " ×" + a.weaponsCount : "");
+  }
+
+  function renderOrderList(gr, order) {
+    return `<ol class="order-list">${order.map((i) => `<li>${orderLabel(gr, i)}</li>`).join("")}</ol>`;
+  }
+
+  function renderOrderPhase(gr, phase, res) {
+    const title = phase === "shooting" ? "Shooting" : "Melee";
+    if (res.count < 2)
+      return `<div class="order-phase"><h4>${title}</h4><p class="def-order-note">Only one weapon selected, so there is no order to choose.</p></div>`;
+    const sameBest = res.bestDmg.order.join() === res.bestKills.order.join();
+    const gainDmg = res.current.dmg > 0 ? (res.bestDmg.dmg / res.current.dmg - 1) * 100 : 0;
+    const gainKills = res.bestKills.kills - res.current.kills;
+    const matters = gainDmg >= 1.5 || gainKills >= 0.05;
+    const stats = (c) =>
+      `${c.dmg.toFixed(2)} wounds lost · ${c.kills.toFixed(2)} models killed`;
+    let body;
+    if (sameBest) {
+      body = `<div class="order-cols"><div class="order-col"><div class="order-col-title">Best for damage and models killed</div>${renderOrderList(gr, res.bestDmg.order)}<div class="order-stats">${stats(res.bestDmg)}</div></div>
+        <div class="order-col order-col-muted"><div class="order-col-title">Your current order</div>${renderOrderList(gr, res.current.order)}<div class="order-stats">${stats(res.current)}</div></div></div>`;
+    } else {
+      body = `<div class="order-cols"><div class="order-col"><div class="order-col-title">Best for expected damage</div>${renderOrderList(gr, res.bestDmg.order)}<div class="order-stats">${stats(res.bestDmg)}</div></div>
+        <div class="order-col"><div class="order-col-title">Best for models killed</div>${renderOrderList(gr, res.bestKills.order)}<div class="order-stats">${stats(res.bestKills)}</div></div>
+        <div class="order-col order-col-muted"><div class="order-col-title">Your current order</div>${renderOrderList(gr, res.current.order)}<div class="order-stats">${stats(res.current)}</div></div></div>`;
+    }
+    if (!matters)
+      body =
+        `<p class="order-verdict">Order barely matters here (best vs your current order: ${gainDmg >= 0 ? "+" : ""}${gainDmg.toFixed(1)}% damage).</p>` +
+        body;
+    return `<div class="order-phase"><h4>${title}</h4>${body}</div>`;
+  }
+
+  function renderWeaponOrder(sc) {
+    const box = document.getElementById("weapon-order-box");
+    const body = document.getElementById("weapon-order-body");
+    if (!box || !body) return;
+    const ids = Object.keys(groupResults);
+    const runId = ++orderRunId;
+    const tasks = [];
+    ids.forEach((id) => {
+      const gr = groupResults[id];
+      const gsc = gr.meleeOnly ? SCENARIOS[0] : sc;
+      const meta = gr.meta.map((m, i) => Object.assign({}, m, { weaponsCount: gr.engine[i].weaponsCount }));
+      ["shooting", "melee"].forEach((phase) => {
+        const wantMelee = phase === "melee";
+        if (meta.some((m) => m.isMelee === wantMelee))
+          tasks.push({ id, gr, gsc, meta, phase, wantMelee, key: "order|" + id + "|" + gsc.id + "|" + phase });
+      });
+    });
+    if (!tasks.length) {
+      setBoxVisible("weapon-order-box", false);
+      return;
+    }
+    setBoxVisible("weapon-order-box", true);
+
+    const paint = (pending) => {
+      let html = "";
+      ids.forEach((id) => {
+        const mine = tasks.filter((t) => t.id === id);
+        if (!mine.length) return;
+        const parts = mine
+          .map((t) => {
+            const res = extrasCache[t.key];
+            return res
+              ? renderOrderPhase(t.gr, t.phase, res)
+              : `<div class="order-phase"><h4>${t.phase === "shooting" ? "Shooting" : "Melee"}</h4><p class="def-order-note">Working out the best order…</p></div>`;
+          })
+          .join("");
+        html += `<div class="order-group">${ids.length > 1 ? `<h4 class="order-group-title">${esc(mine[0].gr.label)}</h4>` : ""}${parts}</div>`;
+      });
+      if (!pending)
+        html +=
+          '<p class="def-order-note">Each order is simulated against the defender above (current range and cover). Weapons in the same unit with the same model count are treated as one model and kept together, because a model that starts shooting must finish all its weapons. Blast attacks are counted against the models still alive when that weapon is resolved.</p>';
+      body.innerHTML = html;
+    };
+
+    const step = (i) => {
+      if (runId !== orderRunId) return;
+      if (i >= tasks.length) {
+        paint(false);
+        return;
+      }
+      const t = tasks[i];
+      if (!extrasCache[t.key]) {
+        paint(true);
+        setTimeout(() => {
+          if (runId !== orderRunId) return;
+          extrasCache[t.key] = searchWeaponOrder(t.gr, t.gsc, (x) => x.melee === t.wantMelee, t.meta);
+          step(i + 1);
+        }, 20);
+      } else {
+        step(i + 1);
+      }
+    };
+    step(0);
   }
 
   function renderKillsByWeaponChart(sc) {
@@ -5311,6 +6178,28 @@ if (typeof module !== "undefined") {
     document.querySelectorAll(".scenario-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.scenario === currentScenarioId);
     });
+  }
+
+  function renderDefenderGroupTable(perGroup) {
+    const show = perGroup && perGroup.length > 1;
+    setBoxVisible("def-groups-box", !!show);
+    if (!show) return;
+    const rows = perGroup
+      .map((g, i) => {
+        const pool = g.models * g.wounds;
+        const pct = pool ? Math.min(100, (g.meanEffectiveDamage / pool) * 100) : 0;
+        return `<tr>
+          <td>${i + 1}. ${esc(g.label)}${g.isCharacter ? " (Character)" : ""}</td>
+          <td>${g.models}</td>
+          <td>${g.meanEffectiveDamage.toFixed(2)}</td>
+          <td>${pct.toFixed(0)}%</td>
+          <td>${g.meanModelsKilled.toFixed(2)}</td>
+        </tr>`;
+      })
+      .join("");
+    document.getElementById("def-groups-table").innerHTML = `<table class="def-groups-table">
+      <thead><tr><th>Attached model / unit (allocation order)</th><th>Models</th><th>Wounds lost</th><th>% of group wounds</th><th>Models killed</th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
   }
 
   function renderWeaponBreakdown(perAttacker) {
@@ -6736,6 +7625,8 @@ if (typeof module !== "undefined") {
     "woundPenalty",
     "apReduction",
     "rerollSave",
+    "isCharacter",
+    "invulnFragile",
   ];
 
   function b64enc(str) {
@@ -6748,6 +7639,49 @@ if (typeof module !== "undefined") {
     s = s.replace(/-/g, "+").replace(/_/g, "/");
     while (s.length % 4) s += "=";
     return decodeURIComponent(escape(atob(s)));
+  }
+
+  function serializeDefenderMembers() {
+    const members = defender.members.filter((m) => m.unitId && unitById[m.unitId]);
+    if (!members.length) return {};
+    const ids = ["main"].concat(members.map((m) => m.id));
+    const out = {
+      dm: members.map((m) => {
+        const u = unitById[m.unitId];
+        return {
+          id: u.id,
+          n: u.name,
+          f: u.faction,
+          m: m.models,
+          c: m.isCharacter ? 1 : 0,
+          x: m.invulnFragile ? 1 : 0,
+        };
+      }),
+    };
+    if (defender.order) out.do = defender.order.map((id) => ids.indexOf(id)).filter((i) => i >= 0);
+    return out;
+  }
+
+  function applyDefenderMembers(st, warnings) {
+    defender.members = [];
+    defender.order = null;
+    (st.dm || []).forEach((o) => {
+      const u = findUnitByRef({ id: o.id, n: o.n, f: o.f });
+      if (!u) {
+        warnings.push('Attached model / leader not found: "' + o.n + '"');
+        return;
+      }
+      const m = newDefenderMember();
+      applyUnitToMember(m, u);
+      m.models = Math.max(1, parseInt(o.m, 10) || m.models);
+      m.isCharacter = !!o.c;
+      m.invulnFragile = !!o.x;
+      defender.members.push(m);
+    });
+    if (st.do && defender.members.length) {
+      const ids = ["main"].concat(defender.members.map((m) => m.id));
+      defender.order = st.do.map((i) => ids[i]).filter(Boolean);
+    }
   }
 
   function buildShareState() {
@@ -6764,7 +7698,8 @@ if (typeof module !== "undefined") {
       })),
       d: Object.assign(
         { id: du ? du.id : null, n: du ? du.name : null, f: du ? du.faction : defender.faction },
-        { x: d }
+        { x: d },
+        serializeDefenderMembers()
       ),
       sc: currentScenarioId,
       lg: showLegends ? 1 : 0,
@@ -6791,6 +7726,7 @@ if (typeof module !== "undefined") {
         DEF_FIELDS.forEach((k) => {
           if (st.d.x[k] !== undefined) defender[k] = st.d.x[k];
         });
+      applyDefenderMembers(st.d, warnings);
       renderDefender();
     }
 
