@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#22303c" />
 <title>40k Mathhammer</title>
 
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-P7R76TTEHD"></script>
@@ -1310,6 +1311,151 @@ footer.app-footer a {
   margin: 18px 0 6px;
   font-size: 13px;
   color: var(--navy);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+main > section,
+.section-box {
+  min-width: 0;
+}
+#vuln-body,
+#group-compare-table,
+#eff-results,
+.rule-table-wrap {
+  overflow-x: auto;
+}
+
+@media (max-width: 700px) {
+  main {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px;
+    gap: 14px;
+  }
+  header.app-header {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 12px 14px;
+  }
+  header.app-header h1 {
+    font-size: 19px;
+  }
+  header.app-header .note {
+    margin-left: 0;
+    width: 100%;
+  }
+  .btn,
+  .group-tab,
+  .scenario-btn,
+  .icon-btn {
+    min-height: 40px;
+  }
+  .sel,
+  .num-input,
+  .combo-input,
+  input[type="text"],
+  input[type="number"] {
+    font-size: 16px;
+    min-height: 40px;
+  }
+  .picker-row {
+    flex-wrap: wrap;
+  }
+  .picker-row > .sel,
+  .picker-row > .combo {
+    flex: 1 1 100%;
+  }
+  .weapon-row-head {
+    flex-wrap: nowrap;
+  }
+  .weapon-row-head .weapon-sel {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .mini-select-row select {
+    max-width: none;
+    min-width: 120px;
+  }
+  .chk-row {
+    padding: 6px 0;
+  }
+  .scenario-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .scenario-btn {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .combo-list {
+    max-height: 50vh;
+  }
+  .combo-item,
+  .combo-empty {
+    padding: 11px 10px;
+    font-size: 15px;
+  }
+  .group-tabs {
+    flex-wrap: wrap;
+  }
+  .group-compare-table th,
+  .group-compare-table td,
+  .vuln-table th,
+  .vuln-table td {
+    padding: 6px 5px;
+    font-size: 12px;
+  }
+  .chart-box {
+    padding: 12px;
+  }
+  .chart-box h3 {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 700px) {
+  select {
+    font-size: 16px;
+    min-height: 38px;
+  }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]) {
+    font-size: 16px;
+    min-height: 38px;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 20px;
+    height: 20px;
+  }
+  .legend-opt,
+  .group-view-btn,
+  .group-tab-rename,
+  .group-tab-remove,
+  summary {
+    min-height: 40px;
+  }
+  .legend-opt,
+  .group-view-btn,
+  .group-tab-rename,
+  .group-tab-remove {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .eff-options {
+    flex-wrap: wrap;
+  }
+  .eff-options label {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .eff-options select {
+    width: 100%;
+    max-width: 100%;
+  }
 }
 
 </style>
