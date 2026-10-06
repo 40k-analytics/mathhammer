@@ -1240,6 +1240,64 @@ footer.app-footer a {
   text-decoration: underline;
 }
 
+.combo {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.combo .combo-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.combo-list {
+  display: none;
+  position: absolute;
+  z-index: 50;
+  left: 0;
+  right: 0;
+  top: 100%;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--white);
+  border: 1px solid var(--navy);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(14, 30, 60, 0.25);
+}
+.combo-item,
+.combo-empty {
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--navy);
+  cursor: pointer;
+}
+.combo-empty {
+  color: var(--gray);
+  cursor: default;
+}
+.combo-item.highlighted,
+.combo-item:hover {
+  background: var(--blue-light);
+}
+.combo-item.selected {
+  font-weight: 700;
+}
+.group-mods {
+  margin: 0 0 12px;
+  border: 1px solid var(--blue-light);
+  border-radius: 8px;
+  background: var(--white);
+}
+.group-mods > summary {
+  cursor: pointer;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.group-mods > div {
+  padding: 0 12px 12px;
+}
+
 </style>
 </head>
 <body>
@@ -1403,8 +1461,12 @@ footer.app-footer a {
         </div>
         <input type="text" id="share-link-box" class="share-link-box hidden" readonly />
         <div id="saved-msg" class="saved-msg"></div>
-        <p class="saved-hint">Saved groups live in this browser only. Use Export / Import to move them between devices. The share link contains both attacker groups, the defender and the selected range/cover scenario, and recalculates when opened.</p>
+        <p class="saved-hint">Saved groups live in this browser only. Use Export / Import to move them between devices. The share link contains both attacker groups (with their modifiers), the defender and the selected range/cover scenario, and recalculates when opened.</p>
       </div>
+    </details>
+    <details id="group-mods-panel" class="group-mods">
+      <summary><span id="group-mods-title">Modifiers for all attackers in this group</span> <span class="info-dot" title="Applies to every weapon in this group, on top of each weapon's own modifiers. Numbers add together, checkboxes switch the rule on for all weapons, and re-rolls are used on weapons that have no re-roll of their own.">?</span></summary>
+      <div id="group-mods-body"></div>
     </details>
     <div id="attackers-list"></div>
   </section>
@@ -2254,6 +2316,248 @@ if (typeof module !== "undefined") {
     return (weapon.keywords || []).find((k) => k.code === code);
   }
 
+
+  const GROUP_ADD_FIELDS = [
+    "toHit",
+    "toWound",
+    "apBonus",
+    "strengthBonus",
+    "attacksBonus",
+    "damageBonus",
+    "worsenDefenderSave",
+  ];
+  const GROUP_FLAG_FIELDS = [
+    "lethalHits",
+    "sustainedHits",
+    "devastatingWounds",
+    "twinLinked",
+    "ignoresCover",
+    "extraAttacks",
+    "fireOverwatch",
+  ];
+  const GROUP_REROLL_FIELDS = ["rerollHit", "rerollWound", "rerollDamage"];
+  const GROUP_CRIT_FIELDS = ["critHitOn", "critWoundOn"];
+
+  function newGroupModRow() {
+    return { id: "group-mods", mods: defaultMods(), antiList: [] };
+  }
+
+  function groupModRow(group) {
+    if (!group.gm) group.gm = newGroupModRow();
+    return group.gm;
+  }
+
+  function activeGroup() {
+    return groups.find((g) => g.id === activeGroupId) || groups[0];
+  }
+
+  function groupModCount(row) {
+    return Object.keys(modsDiff(row.mods)).length + (row.antiList || []).length;
+  }
+
+  function mergeGroupMods(weaponMods, groupMods) {
+    const merged = Object.assign({}, weaponMods);
+    GROUP_ADD_FIELDS.forEach((key) => {
+      merged[key] = (weaponMods[key] || 0) + (groupMods[key] || 0);
+    });
+    GROUP_FLAG_FIELDS.forEach((key) => {
+      merged[key] = !!(weaponMods[key] || groupMods[key]);
+    });
+    GROUP_REROLL_FIELDS.forEach((key) => {
+      const own = weaponMods[key];
+      merged[key] = own && own !== "none" ? own : groupMods[key] || "none";
+    });
+    GROUP_CRIT_FIELDS.forEach((key) => {
+      const values = [weaponMods[key], groupMods[key]].filter((v) => v > 0);
+      merged[key] = values.length ? Math.min.apply(null, values) : 0;
+    });
+    return merged;
+  }
+
+  function applyGroupMods(engineAttacker, groupRow) {
+    if (!groupRow || !groupModCount(groupRow)) return engineAttacker;
+    const antiKeys = new Set(engineAttacker.kw.anti.map((x) => x.keyword + x.threshold));
+    const extraAnti = (groupRow.antiList || []).filter((x) => !antiKeys.has(x.keyword + x.threshold));
+    return Object.assign({}, engineAttacker, {
+      mods: mergeGroupMods(engineAttacker.mods, groupRow.mods),
+      kw: Object.assign({}, engineAttacker.kw, {
+        anti: engineAttacker.kw.anti.concat(
+          extraAnti.map((x) => ({ keyword: x.keyword, threshold: x.threshold }))
+        ),
+      }),
+    });
+  }
+
+  function renderGroupMods() {
+    const body = document.getElementById("group-mods-body");
+    const summary = document.getElementById("group-mods-title");
+    if (!body || !summary) return;
+    const group = activeGroup();
+    const row = groupModRow(group);
+    const count = groupModCount(row);
+    summary.textContent =
+      "Modifiers for all of " + group.label + (count ? " (" + count + " active)" : "");
+    body.innerHTML = renderModifierGroups(row, null);
+    wireModifierGroups(body, row, () => {
+      renderGroupMods();
+    });
+    body.querySelectorAll("[data-mod], [data-modnum]").forEach((el) => {
+      el.addEventListener("change", () => {
+        const text = "Modifiers for all of " + group.label;
+        const n = groupModCount(row);
+        summary.textContent = text + (n ? " (" + n + " active)" : "");
+      });
+    });
+  }
+
+  function makeSearchable(select) {
+    if (!select || select.searchableCombo) return;
+    const valueProp = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+    const wrap = document.createElement("div");
+    wrap.className = "combo";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "sel combo-input";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.placeholder = "Type to search...";
+    const list = document.createElement("div");
+    list.className = "combo-list";
+    select.parentNode.insertBefore(wrap, select);
+    wrap.appendChild(input);
+    wrap.appendChild(list);
+    wrap.appendChild(select);
+    select.style.display = "none";
+    select.searchableCombo = true;
+
+    let highlighted = -1;
+    let open = false;
+
+    function selectedText() {
+      const opt = select.options[select.selectedIndex];
+      return opt ? opt.text : "";
+    }
+
+    function syncDisplay() {
+      input.disabled = select.disabled;
+      if (!open) input.value = selectedText();
+    }
+
+    function visibleOptions() {
+      const words = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const filtering = open && input.dataset.typed === "1";
+      return Array.from(select.options).filter((opt) => {
+        if (!filtering || !words.length) return true;
+        const text = opt.text.toLowerCase();
+        return words.every((w) => text.includes(w));
+      });
+    }
+
+    function renderList() {
+      const options = visibleOptions();
+      list.innerHTML = "";
+      options.forEach((opt, i) => {
+        const item = document.createElement("div");
+        item.className =
+          "combo-item" +
+          (opt.value === select.value ? " selected" : "") +
+          (i === highlighted ? " highlighted" : "");
+        item.textContent = opt.text;
+        item.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          choose(opt);
+        });
+        list.appendChild(item);
+      });
+      if (!options.length) {
+        const empty = document.createElement("div");
+        empty.className = "combo-empty";
+        empty.textContent = "No match";
+        list.appendChild(empty);
+      }
+      list.style.display = "block";
+      return options;
+    }
+
+    function openList() {
+      open = true;
+      input.dataset.typed = "0";
+      input.select();
+      highlighted = -1;
+      renderList();
+      const current = list.querySelector(".selected");
+      if (current) list.scrollTop = current.offsetTop - 40;
+    }
+
+    function closeList() {
+      open = false;
+      list.style.display = "none";
+      input.value = selectedText();
+    }
+
+    function choose(opt) {
+      closeList();
+      if (select.value !== opt.value) {
+        valueProp.set.call(select, opt.value);
+        input.value = selectedText();
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      input.blur();
+    }
+
+    input.addEventListener("focus", openList);
+    input.addEventListener("click", () => {
+      if (!open) openList();
+    });
+    input.addEventListener("input", () => {
+      open = true;
+      input.dataset.typed = "1";
+      highlighted = 0;
+      renderList();
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeList();
+        input.blur();
+        return;
+      }
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;
+      e.preventDefault();
+      const options = visibleOptions();
+      if (e.key === "Enter") {
+        const pick = options[highlighted >= 0 ? highlighted : 0];
+        if (pick) choose(pick);
+        return;
+      }
+      highlighted = Math.max(
+        0,
+        Math.min(options.length - 1, highlighted + (e.key === "ArrowDown" ? 1 : -1))
+      );
+      renderList();
+      const active = list.querySelector(".highlighted");
+      if (active) active.scrollIntoView && active.scrollIntoView({ block: "nearest" });
+    });
+    input.addEventListener("blur", closeList);
+
+    Object.defineProperty(select, "value", {
+      configurable: true,
+      get() {
+        return valueProp.get.call(this);
+      },
+      set(v) {
+        valueProp.set.call(this, v);
+        syncDisplay();
+      },
+    });
+    new MutationObserver(syncDisplay).observe(select, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["disabled"],
+    });
+    syncDisplay();
+  }
+
   function renderGroupTabs() {
     const bar = document.getElementById("group-tabs");
     if (!bar) return;
@@ -2361,6 +2665,7 @@ if (typeof module !== "undefined") {
       groups.push(b);
     }
     b.attackers = cloned;
+    b.gm = JSON.parse(JSON.stringify(groupModRow(a)));
     activeGroupId = "B";
     attackers = b.attackers;
     renderAttackers();
@@ -2395,6 +2700,7 @@ if (typeof module !== "undefined") {
 
   function renderAttackers() {
     renderGroupTabs();
+    renderGroupMods();
     const wrap = document.getElementById("attackers-list");
     wrap.innerHTML = "";
     if (!attackers.length) {
@@ -2442,6 +2748,7 @@ if (typeof module !== "undefined") {
 
     const factionSel = card.querySelector(".faction-sel");
     const unitSel = card.querySelector(".unit-sel");
+    makeSearchable(unitSel);
     const statWrap = card.querySelector(".unit-stat-line-wrap");
     const rowsWrap = card.querySelector(".weapon-rows");
     const addRowBtn = card.querySelector(".add-weapon-row");
@@ -2805,6 +3112,7 @@ if (typeof module !== "undefined") {
 
     const factionSel = wrap.querySelector(".def-faction-sel");
     const unitSel = wrap.querySelector(".def-unit-sel");
+    makeSearchable(unitSel);
 
     factionSel.addEventListener("change", (e) => {
       defender.faction = e.target.value;
@@ -2850,6 +3158,7 @@ if (typeof module !== "undefined") {
     factionSel.innerHTML = defFactionOptions(faction);
     unitSel.innerHTML = defUnitOptions(faction, defender.unitId);
     unitSel.disabled = !faction;
+    makeSearchable(unitSel);
     cardWrap.innerHTML = renderUnitCard(unit);
 
     factionSel.addEventListener("change", (e) => {
@@ -3041,7 +3350,7 @@ if (typeof module !== "undefined") {
     };
   }
 
-  function buildEngineInputs(list) {
+  function buildEngineInputs(list, groupRow) {
     const engineAttackers = [];
     const meta = [];
     (list || attackers).forEach((a) => {
@@ -3050,7 +3359,7 @@ if (typeof module !== "undefined") {
       a.weaponRows.forEach((row) => {
         const weapon = row.weaponIdx != null ? unit.weapons[row.weaponIdx] : null;
         if (!weapon) return;
-        engineAttackers.push(buildEngineAttacker(unit, weapon, row));
+        engineAttackers.push(applyGroupMods(buildEngineAttacker(unit, weapon, row), groupRow));
         meta.push({
           attackerId: a.id,
           unitId: unit.id,
@@ -3141,7 +3450,7 @@ if (typeof module !== "undefined") {
     const baseDef = buildDefenderProfile();
     const bundles = {};
     groups.forEach((g) => {
-      const { engineAttackers, meta } = buildEngineInputs(g.attackers);
+      const { engineAttackers, meta } = buildEngineInputs(g.attackers, groupModRow(g));
       if (engineAttackers.length) bundles[g.id] = computeGroup(g, engineAttackers, meta, baseDef);
     });
     if (!Object.keys(bundles).length) {
@@ -5386,6 +5695,26 @@ if (typeof module !== "undefined") {
     };
   }
 
+  function serializeGroupMods(group) {
+    const row = group && group.gm;
+    if (!row || !groupModCount(row)) return null;
+    return { m: modsDiff(row.mods), a: row.antiList || [] };
+  }
+
+  function deserializeGroupMods(data) {
+    const row = newGroupModRow();
+    if (data && typeof data === "object") {
+      row.mods = Object.assign(defaultMods(), data.m || {});
+      row.antiList = Array.isArray(data.a) ? data.a : [];
+    }
+    return row;
+  }
+
+  function currentGroupMods(gid) {
+    syncActiveGroup();
+    return serializeGroupMods(groups.find((x) => x.id === gid));
+  }
+
   function currentGroupAttackers(gid) {
     syncActiveGroup();
     const g = groups.find((x) => x.id === gid);
@@ -5396,7 +5725,7 @@ if (typeof module !== "undefined") {
     return (list || []).map((a) => a.s + "x " + a.n).join(", ") || "(empty)";
   }
 
-  function applyAttackersToGroup(gid, list, label) {
+  function applyAttackersToGroup(gid, list, label, groupMods) {
     syncActiveGroup();
     let g = groups.find((x) => x.id === gid);
     if (!g) {
@@ -5407,6 +5736,7 @@ if (typeof module !== "undefined") {
       g.label = label;
     }
     g.attackers = list.length ? list : [newAttacker()];
+    g.gm = deserializeGroupMods(groupMods);
     activeGroupId = gid;
     attackers = g.attackers;
     renderAttackers();
@@ -5439,7 +5769,7 @@ if (typeof module !== "undefined") {
           }
           const warnings = [];
           const loaded = p.attackers.map((o) => deserializeAttacker(o, warnings)).filter(Boolean);
-          applyAttackersToGroup(act, loaded);
+          applyAttackersToGroup(act, loaded, undefined, p.gm);
           savedMsg(
             warnings.length
               ? "Loaded with warnings:\n" + warnings.join("\n")
@@ -5464,7 +5794,12 @@ if (typeof module !== "undefined") {
     let finalName = name,
       n = 2;
     while (store.some((p) => p.name === finalName)) finalName = name + " (" + n++ + ")";
-    store.push({ name: finalName, savedAt: new Date().toISOString(), attackers: list });
+    store.push({
+      name: finalName,
+      savedAt: new Date().toISOString(),
+      attackers: list,
+      gm: currentGroupMods(activeGroupId),
+    });
     if (!storeSave(store)) {
       savedMsg("Could not save in this browser (storage blocked). Use Export instead.", true);
       return;
@@ -5524,6 +5859,7 @@ if (typeof module !== "undefined") {
         name: final,
         savedAt: p.savedAt || new Date().toISOString(),
         attackers: p.attackers,
+        gm: p.gm || null,
       });
       added++;
     });
@@ -5570,7 +5906,11 @@ if (typeof module !== "undefined") {
     DEF_FIELDS.forEach((k) => (d[k] = defender[k]));
     return {
       v: 1,
-      g: groups.map((g) => ({ l: g.label, a: g.attackers.map(serializeAttacker).filter(Boolean) })),
+      g: groups.map((g) => ({
+        l: g.label,
+        a: g.attackers.map(serializeAttacker).filter(Boolean),
+        gm: serializeGroupMods(g),
+      })),
       d: Object.assign(
         { id: du ? du.id : null, n: du ? du.name : null, f: du ? du.faction : defender.faction },
         { x: d }
@@ -5607,6 +5947,7 @@ if (typeof module !== "undefined") {
       id: i === 0 ? "A" : "B",
       label: g.l || (i === 0 ? "Group A" : "Group B"),
       attackers: (g.a || []).map((o) => deserializeAttacker(o, warnings)).filter(Boolean),
+      gm: deserializeGroupMods(g.gm),
     }));
     if (loaded.length) {
       loaded.forEach((g) => {
