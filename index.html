@@ -2130,6 +2130,13 @@ label.btn:active,
   }
 }
 
+.vuln-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
 </style>
 </head>
 <body>
@@ -2267,6 +2274,10 @@ label.btn:active,
   <div class="chart-box" id="vuln-box">
     <h3>Toughness × Save heatmap (expected damage)</h3>
     <div id="vuln-body"></div>
+  </div>
+  <div class="chart-box" id="durability-box" style="display:none">
+    <h3>Attacker durability heatmap (Strength × AP, % of group's wounds lost)</h3>
+    <div id="durability-body"></div>
   </div>
   <div class="chart-box" id="scaling-box">
     <h3>Unit size scaling — damage and kill chance</h3>
@@ -4738,6 +4749,100 @@ if (typeof module !== "undefined") {
     };
   }
 
+  function groupDurability(list) {
+    const parts = [];
+    (list || []).forEach((a) => {
+      const unit = a.unitId ? unitById[a.unitId] : null;
+      if (!unit || !a.weaponRows.some((r) => r.weaponIdx != null)) return;
+      const model = unit.models[0] || {};
+      const n = Math.max(1, a.unitSize || unit.modelsMin || 1);
+      parts.push({
+        label: unit.name,
+        models: n,
+        wounds: model.w || 1,
+        toughness: model.t || 4,
+        save: model.sv || 7,
+        invuln: Math.max(typeof model.inv === "number" ? model.inv : 0, unit.invR || 0, unit.invM || 0),
+        fnp: unit.fnp || 0,
+        isCharacter: isCharacterUnit(unit),
+        points: unitPointsFor(unit, n) || unit.pointsMin || 0,
+      });
+    });
+    if (!parts.length) return null;
+    const models = parts.reduce((n, p) => n + p.models, 0);
+    const pool = parts.reduce((n, p) => n + p.models * p.wounds, 0);
+    const lead = parts.slice().sort((x, y) => y.models * y.wounds - x.models * x.wounds)[0];
+    const points = parts.reduce((n, p) => n + p.points, 0);
+    return { parts, models, pool, lead, points };
+  }
+
+  function durabilityDefender(d, extra) {
+    const def = plainDefender(d.lead.toughness, d.lead.save, d.pool / d.models, d.models, d.lead.invuln);
+    def.fnp = d.lead.fnp;
+    if (d.parts.length > 1) {
+      def.groups = d.parts.map((p) => ({
+        label: p.label,
+        models: p.models,
+        wounds: p.wounds,
+        save: p.save,
+        invuln: p.invuln,
+        invulnRanged: p.invuln,
+        invulnMelee: p.invuln,
+        fnp: p.fnp,
+        invulnFragile: false,
+        isCharacter: p.isCharacter,
+      }));
+    }
+    return Object.assign(def, extra || {});
+  }
+
+  function referenceVolley(attacks, strength, ap, damage) {
+    return [
+      {
+        isMelee: false,
+        weaponsCount: 1,
+        attacksExpr: String(attacks),
+        skill: 4,
+        strength: strength,
+        ap: ap,
+        damageExpr: String(damage),
+        kw: { TORRENT: true, anti: [] },
+        mods: { critHitOn: 0, critWoundOn: 0 },
+        label: "Reference volley",
+      },
+    ];
+  }
+
+  const DURABILITY_VOLLEYS = [
+    { key: "small", label: "Small arms", desc: "30\u00d7 S4 AP0 D1", a: 30, s: 4, ap: 0, d: 1 },
+    { key: "medium", label: "Medium weapons", desc: "12\u00d7 S6 AP-1 D2", a: 12, s: 6, ap: -1, d: 2 },
+    { key: "heavy", label: "Anti-tank", desc: "4\u00d7 S10 AP-3 D6", a: 4, s: 10, ap: -3, d: 6 },
+  ];
+
+  function durabilityMetrics(gr) {
+    if (gr.durMetrics) return gr.durMetrics;
+    const d = gr.durability;
+    if (!d) return null;
+    const m = {
+      models: d.models,
+      pool: d.pool,
+      stat:
+        "T" + d.lead.toughness + " " + (d.lead.save >= 7 ? "no save" : d.lead.save + "+") +
+        (d.lead.invuln ? "/" + d.lead.invuln + "++" : "") +
+        (d.lead.fnp ? " FNP " + d.lead.fnp + "+" : "") +
+        (d.parts.length > 1 ? " (" + d.lead.label + ")" : ""),
+      per100: d.points > 0 ? (d.pool / d.points) * 100 : null,
+      points: d.points,
+    };
+    DURABILITY_VOLLEYS.forEach((v) => {
+      const r = simulate(referenceVolley(v.a, v.s, v.ap, v.d), durabilityDefender(d), 3000);
+      m[v.key] = Math.min(100, (r.meanEffectiveDamage / d.pool) * 100);
+      m[v.key + "Models"] = r.meanModelsKilled;
+    });
+    gr.durMetrics = m;
+    return m;
+  }
+
   function computeGroup(g, engineAttackers, meta, baseDef) {
     const meleeOnly = meta.length > 0 && meta.every((m) => m.isMelee);
     const toRun = meleeOnly ? [SCENARIOS[0]] : SCENARIOS;
@@ -4766,6 +4871,7 @@ if (typeof module !== "undefined") {
       engine: engineAttackers,
       meta,
       baseDef,
+      durability: groupDurability(g.attackers),
     };
   }
 
@@ -5023,6 +5129,10 @@ if (typeof module !== "undefined") {
       label: ["Terminators", "T5 2+/4++ \u00b7 5\u00d7W3"],
       def: () => plainDefender(5, 2, 3, 5, 4),
     },
+    {
+      label: ["Knight", "T11 3+/5++ \u00b7 1\u00d7W26"],
+      def: () => plainDefender(11, 3, 26, 1, 5),
+    },
     { label: ["Monster", "T9 3+ \u00b7 1\u00d7W12"], def: () => plainDefender(9, 3, 12, 1) },
     { label: ["Vehicle", "T10 2+ \u00b7 1\u00d7W16"], def: () => plainDefender(10, 2, 16, 1) },
   ];
@@ -5117,6 +5227,7 @@ if (typeof module !== "undefined") {
     renderSensitivityChart(gr, sc, entry, cache);
     renderPhaseChart(gr, sc, cache);
     renderVulnerabilityTable(gr, sc, cache);
+    renderDurabilityHeatmap(gr, cache);
   }
 
   function renderVarianceChart() {
@@ -5970,6 +6081,70 @@ if (typeof module !== "undefined") {
     document.getElementById("vuln-body").innerHTML = html + "</tbody></table>";
   }
 
+  let durMode = "wounds";
+
+  function renderDurabilityHeatmap(gr, cache) {
+    const box = document.getElementById("durability-box");
+    if (!box) return;
+    const d = gr.durability;
+    if (!d) {
+      box.style.display = "none";
+      return;
+    }
+    box.style.display = "";
+    const Ss = [3, 4, 5, 6, 8, 10, 12];
+    const APs = [0, -1, -2, -3, -4];
+    if (!cache.durGrid) {
+      cache.durGrid = Ss.map((st) =>
+        APs.map((ap) => {
+          const r = simulate(referenceVolley(12, st, ap, 2), durabilityDefender(d), 2000);
+          return {
+            wounds: Math.min(100, (r.meanEffectiveDamage / d.pool) * 100),
+            models: r.meanModelsKilled,
+          };
+        })
+      );
+    }
+    const wounds = durMode === "wounds";
+    const grid = cache.durGrid.map((row) => row.map((c) => (wounds ? c.wounds : c.models)));
+    const max = Math.max.apply(null, grid.map((r) => Math.max.apply(null, r)));
+    const m = durabilityMetrics(gr);
+    let html = '<div class="vuln-modes">';
+    [
+      ["wounds", "Wounds lost"],
+      ["models", "Models lost"],
+    ].forEach((o) => {
+      html +=
+        '<button type="button" class="legend-opt dur-mode' +
+        (o[0] === durMode ? " active" : "") +
+        '" data-mode="' + o[0] + '">' + o[1] + "</button>";
+    });
+    html +=
+      '</div><div class="chart-sub">' + esc(gr.label) + " \u00b7 " + d.models + " models, " + d.pool +
+      " wounds, " + esc(m.stat) + " \u00b7 12 hits of Damage 2</div>" +
+      '<table class="vuln-table"><thead><tr><th>Strength \\ AP</th>' +
+      APs.map((v) => "<th>" + (v === 0 ? "0" : v) + "</th>").join("") +
+      "</tr></thead><tbody>";
+    Ss.forEach((st, i) => {
+      html += "<tr><th>S" + st + "</th>";
+      grid[i].forEach((v) => {
+        const a = max > 0 ? (0.08 + 0.72 * (v / max)).toFixed(2) : 0;
+        html +=
+          '<td style="background:rgba(160,60,60,' + a + ");color:" + (a > 0.5 ? "#fff" : COLORS.navy) + '">' +
+          (wounds ? v.toFixed(0) + "%" : v.toFixed(1)) + "</td>";
+      });
+      html += "</tr>";
+    });
+    const body = document.getElementById("durability-body");
+    body.innerHTML = html + "</tbody></table>";
+    body.querySelectorAll(".dur-mode").forEach((btn) =>
+      btn.addEventListener("click", () => {
+        durMode = btn.dataset.mode;
+        renderDurabilityHeatmap(gr, cache);
+      })
+    );
+  }
+
   function groupMetrics(id) {
     const gr = groupResults[id];
     const entry = gr.scenarioResults[currentScenarioId] || gr.scenarioResults[SCENARIOS[0].id];
@@ -6227,6 +6402,64 @@ if (typeof module !== "undefined") {
           "</tr>";
       });
     });
+    const dur = {};
+    ids.forEach((id) => (dur[id] = durabilityMetrics(groupResults[id])));
+    if (ids.some((id) => dur[id])) {
+      html +=
+        '<tr class="phase-head"><td colspan="' +
+        (ids.length + 1) +
+        '">Durability of the attacking group (damage it takes from a reference volley)</td></tr>';
+      const durRows = [
+        { label: "Models", get: (x) => x.models, fmt: (v) => v },
+        { label: "Total wounds", get: (x) => x.pool, fmt: (v) => v },
+        { label: "Defensive profile", get: (x) => x.stat, fmt: (v) => v, text: true },
+        {
+          label: "Wounds per 100 pts",
+          get: (x) => x.per100,
+          fmt: (v) => (v == null ? "-" : v.toFixed(1)),
+          best: "high",
+        },
+      ];
+      DURABILITY_VOLLEYS.forEach((v) => {
+        durRows.push({
+          label: "Wounds lost \u2014 " + v.label + " (" + v.desc + ")",
+          get: (x) => x[v.key],
+          fmt: (val) => val.toFixed(1) + "%",
+          best: "low",
+        });
+        durRows.push({
+          label: "Durability per 100 pts \u2014 " + v.label + " (volleys to wipe out)",
+          get: (x) => (x.points > 0 ? (100 / Math.max(x[v.key], 0.1)) * (100 / x.points) : null),
+          fmt: (val) => val.toFixed(2),
+          best: "high",
+        });
+        durRows.push({
+          label: "Models lost \u2014 " + v.label,
+          get: (x) => x[v.key + "Models"],
+          fmt: (val) => val.toFixed(2),
+          best: "low",
+        });
+      });
+      durRows.forEach((r) => {
+        const vals = ids.map((id) => (dur[id] ? r.get(dur[id]) : null));
+        let bestIdx = -1;
+        if (r.best && vals.every((v) => v != null)) {
+          const b = r.best === "high" ? Math.max(...vals) : Math.min(...vals);
+          if (vals.filter((v) => Math.abs(v - b) < 1e-9).length === 1) bestIdx = vals.indexOf(b);
+        }
+        html +=
+          "<tr><td>" +
+          r.label +
+          "</td>" +
+          vals
+            .map(
+              (v, i) =>
+                '<td class="' + (i === bestIdx ? "best" : "") + '">' + (v == null ? "-" : r.fmt(v)) + "</td>"
+            )
+            .join("") +
+          "</tr>";
+      });
+    }
     html += "</tbody></table>";
     document.getElementById("group-compare-table").innerHTML = html;
 
