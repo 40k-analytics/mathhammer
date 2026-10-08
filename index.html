@@ -2177,6 +2177,12 @@ label.btn:active,
   background: #b91c1c;
 }
 
+.lazy-note {
+  font-size: 12.5px;
+  color: var(--slate);
+  padding: 8px 2px;
+}
+
 </style>
 </head>
 <body>
@@ -4900,7 +4906,7 @@ if (typeof module !== "undefined") {
         Object.assign({}, a, { mods: Object.assign({}, a.mods, { halfRange: sc.halfRange }) })
       );
       const defForScenario = Object.assign({}, baseDef, { coverBonus: sc.cover });
-      const result = simulate(atkForScenario, defForScenario, 20000);
+      const result = simulate(atkForScenario, defForScenario, sc === toRun[0] ? 20000 : 10000);
       results[sc.id] = { result, def: defForScenario, meta };
     });
     const seen = {};
@@ -5119,7 +5125,7 @@ if (typeof module !== "undefined") {
   }
 
   const EXTRA_TRIALS = 4000;
-  const SENS_TRIALS = 8000;
+  const SENS_TRIALS = 5000;
 
   function viewScenario(gr) {
     return gr.meleeOnly ? SCENARIOS[0] : scenarioById(currentScenarioId);
@@ -5274,6 +5280,51 @@ if (typeof module !== "undefined") {
     charts[key] = new Chart(el.getContext("2d"), cfg);
   }
 
+  let extrasGen = 0;
+  let lazyObservers = [];
+  let lazyQueue = [];
+  let lazyQueueRunning = false;
+
+  function drainLazyQueue() {
+    if (lazyQueueRunning) return;
+    lazyQueueRunning = true;
+    const step = () => {
+      const job = lazyQueue.shift();
+      if (!job) {
+        lazyQueueRunning = false;
+        return;
+      }
+      job();
+      setTimeout(step, 0);
+    };
+    setTimeout(step, 0);
+  }
+
+  function lazyRender(boxId, gen, fn) {
+    const box = document.getElementById(boxId);
+    const run = () => {
+      if (gen !== extrasGen) return;
+      fn();
+    };
+    if (!box || typeof IntersectionObserver === "undefined") {
+      lazyQueue.push(run);
+      drainLazyQueue();
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          io.disconnect();
+          lazyQueue.push(run);
+          drainLazyQueue();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+    io.observe(box);
+    lazyObservers.push(io);
+  }
+
   function renderExtras() {
     if (!groupResults || !groupResults[viewGroupId]) return;
     const gr = groupResults[viewGroupId];
@@ -5281,18 +5332,29 @@ if (typeof module !== "undefined") {
     const key = viewGroupId + "|" + sc.id;
     const cache = extrasCache[key] || (extrasCache[key] = {});
     const entry = gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id];
+    extrasGen++;
+    const gen = extrasGen;
+    lazyObservers.forEach((o) => o.disconnect());
+    lazyObservers = [];
+    lazyQueue = [];
     renderVarianceChart();
     renderWaterfallChart(entry.result);
     renderCostChart();
     renderGroupWeaponChart(sc);
     renderKillsByWeaponChart(sc);
     renderWeaponOrder(sc);
-    renderArchetypeChart(sc);
-    renderScalingChart(gr, sc, cache);
-    renderSensitivityChart(gr, sc, entry, cache);
-    renderPhaseChart(gr, sc, cache);
-    renderVulnerabilityTable(gr, sc, cache);
-    renderDurabilityHeatmap(gr, cache);
+    ["vuln-body", "durability-body"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el && !el.querySelector("table")) el.innerHTML = '<div class="lazy-note">Calculating when this section scrolls into view\u2026</div>';
+    });
+    lazyRender("archetype-box", gen, () => renderArchetypeChart(sc));
+    lazyRender("scaling-box", gen, () => renderScalingChart(gr, sc, cache));
+    lazyRender("sensitivity-box", gen, () => renderSensitivityChart(gr, sc, entry, cache));
+    lazyRender("phase-box", gen, () => renderPhaseChart(gr, sc, cache));
+    lazyRender("vuln-box", gen, () => {
+      renderVulnerabilityTable(gr, sc, cache);
+      renderDurabilityHeatmap(gr, cache);
+    });
   }
 
   function renderVarianceChart() {
@@ -6108,7 +6170,7 @@ if (typeof module !== "undefined") {
       cache.vuln = Ts.map((t) =>
         Svs.map(
           (sv) =>
-            runVariant(gr, sc, { def: plainDefender(t, sv, 1000, 1), trials: 2500 }).meanDamage
+            runVariant(gr, sc, { def: plainDefender(t, sv, 1000, 1), trials: 1500 }).meanDamage
         )
       );
     }
