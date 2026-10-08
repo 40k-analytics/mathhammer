@@ -2137,6 +2137,46 @@ label.btn:active,
   margin-bottom: 10px;
 }
 
+.stats-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--blue);
+  margin: 6px 0 6px;
+}
+.stat-tile.fnp {
+  background: #5b3a8a;
+}
+.phase-shooting .stat-tile:first-child,
+.phase-melee .stat-tile:first-child {
+  background: var(--navy);
+}
+#attackers-col.section-box {
+  background: #d3e3f4;
+  border-color: var(--blue);
+}
+#attackers-col.section-box .col-head {
+  background: var(--blue);
+}
+#attackers-col.section-box .col-head .btn {
+  background: var(--navy);
+}
+#attackers-col.section-box .col-head .btn:hover {
+  background: var(--blue-light);
+  color: var(--navy);
+}
+#defender-col.section-box {
+  background: #f4dcdc;
+  border-color: #b91c1c;
+}
+#defender-col.section-box .col-head {
+  background: #8f1d1d;
+}
+#defender-col.section-box .col-head .btn {
+  background: #b91c1c;
+}
+
 </style>
 </head>
 <body>
@@ -2190,11 +2230,13 @@ label.btn:active,
     <div class="chart-canvas-wrap" id="group-phase-wrap"><canvas id="chart-group-phase"></canvas></div>
   </div>
   <div class="group-view-bar" id="group-view-bar" style="display:none"></div>
+  <div class="stats-title" id="stats-title-total" style="display:none">All weapons</div>
   <div class="stats-grid">
     <div class="stat-tile"><div class="val" id="stat-attacks">0</div><div class="lbl">Attacks</div></div>
     <div class="stat-tile"><div class="val" id="stat-hits">0</div><div class="lbl">Hits</div></div>
     <div class="stat-tile"><div class="val" id="stat-wounds">0</div><div class="lbl">Wounds</div></div>
     <div class="stat-tile accent"><div class="val" id="stat-unsaved">0</div><div class="lbl">Unsaved</div></div>
+    <div class="stat-tile fnp" id="stat-fnp-tile" style="display:none" title="Damage removed by Feel No Pain rolls: damage before FNP minus damage after FNP."><div class="val" id="stat-fnp">0</div><div class="lbl" id="stat-fnp-lbl">Stopped by FNP</div></div>
     <div class="stat-tile accent2" title="Average total damage dealt across all simulations, including overkill (damage beyond what is needed to destroy the target). It is an average over many outcomes, so it can exceed the target's wounds."><div class="val" id="stat-damage">0</div><div class="lbl">Exp. damage <span class="info-dot" title="Average total damage dealt across all simulations, including overkill. It can exceed the target's wounds.">?</span></div></div>
     <div class="stat-tile accent2" title="Average number of models destroyed per simulation. Against a single model this equals the probability of killing it (0.83 = 83% of simulations)."><div class="val" id="stat-models-killed">0</div><div class="lbl">Models killed <span class="info-dot" title="Average models destroyed per simulation. Against a single model this equals the chance to kill it.">?</span></div></div>
     <div class="stat-tile" title="Wounds actually removed as a percentage of the defending unit's total wound pool (wounds per model × number of models). Excess damage on a model that is already dead is lost, so this can be lower than Exp. damage.">
@@ -2206,6 +2248,8 @@ label.btn:active,
       <div class="lbl">Chance to kill unit</div>
     </div>
   </div>
+
+  <div id="stats-extra-rows"></div>
 
   <div class="chart-box">
     <h3>Damage distribution (probability per outcome)</h3>
@@ -5042,6 +5086,7 @@ if (typeof module !== "undefined") {
     document.getElementById("stat-wounds").textContent = result.meanWounds.toFixed(2);
     document.getElementById("stat-unsaved").textContent = result.meanUnsaved.toFixed(2);
     document.getElementById("stat-damage").textContent = result.meanDamage.toFixed(2);
+    setFnpTile("stat-fnp-tile", "stat-fnp", "stat-fnp-lbl", result, def);
     document.getElementById("stat-models-killed").textContent = result.meanModelsKilled.toFixed(2);
 
     const totalPoolWounds = def.wounds * def.models;
@@ -5054,6 +5099,7 @@ if (typeof module !== "undefined") {
     const pctKillUnit = killSamples.length ? (fullKills / killSamples.length) * 100 : 0;
     document.getElementById("stat-kill-unit").textContent = pctKillUnit.toFixed(1) + "%";
 
+    renderPhaseStatRows(def);
     renderDamageHistogram(result.damageSamples);
     renderDamageCumulative(result.damageSamples);
     renderStageFunnel(result, def);
@@ -6786,6 +6832,85 @@ if (typeof module !== "undefined") {
         topLabel(0, "%", 3)
       ),
     });
+  }
+
+  function fnpValues(def) {
+    const list = [];
+    if (def && def.fnp) list.push(def.fnp);
+    if (def && def.groups) def.groups.forEach((g) => g.fnp && list.push(g.fnp));
+    return list;
+  }
+
+  function setFnpTile(tileId, valId, lblId, result, def) {
+    const tile = document.getElementById(tileId);
+    if (!tile) return;
+    const fnps = fnpValues(def);
+    const stopped = Math.max(0, (result.meanDamageBeforeFnp || 0) - result.meanDamage);
+    if (!fnps.length) {
+      tile.style.display = "none";
+      return;
+    }
+    tile.style.display = "";
+    document.getElementById(valId).textContent = stopped.toFixed(2);
+    const best = Math.min.apply(null, fnps);
+    document.getElementById(lblId).textContent = "Stopped by FNP " + best + "+";
+  }
+
+  function statTilesHtml(result, def) {
+    const pool = def.wounds * def.models;
+    const pct = pool > 0 ? Math.min(100, (result.meanEffectiveDamage / pool) * 100) : 0;
+    const ks = result.modelsKilledSamples || [];
+    const full = ks.filter((k) => k >= def.models).length;
+    const killUnit = ks.length ? (full / ks.length) * 100 : 0;
+    const tile = (cls, val, lbl) =>
+      '<div class="stat-tile' + (cls ? " " + cls : "") + '"><div class="val">' + val + '</div><div class="lbl">' + lbl + "</div></div>";
+    const fnps = fnpValues(def);
+    const stopped = Math.max(0, (result.meanDamageBeforeFnp || 0) - result.meanDamage);
+    return (
+      tile("", result.meanAttacks.toFixed(2), "Attacks") +
+      tile("", result.meanHits.toFixed(2), "Hits") +
+      tile("", result.meanWounds.toFixed(2), "Wounds") +
+      tile("accent", result.meanUnsaved.toFixed(2), "Unsaved") +
+      (fnps.length ? tile("fnp", stopped.toFixed(2), "Stopped by FNP " + Math.min.apply(null, fnps) + "+") : "") +
+      tile("accent2", result.meanDamage.toFixed(2), "Exp. damage") +
+      tile("accent2", result.meanModelsKilled.toFixed(2), "Models killed") +
+      tile("", pct.toFixed(1) + "%", "% of unit's wounds") +
+      tile("accent2", killUnit.toFixed(1) + "%", "Chance to kill unit")
+    );
+  }
+
+  function renderPhaseStatRows(def) {
+    const host = document.getElementById("stats-extra-rows");
+    const totalTitle = document.getElementById("stats-title-total");
+    if (!host) return;
+    const gr = groupResults && groupResults[viewGroupId];
+    const hasMelee = gr && gr.meta.some((m) => m.isMelee);
+    const hasRanged = gr && gr.meta.some((m) => !m.isMelee);
+    if (!gr || !(hasMelee && hasRanged)) {
+      host.innerHTML = "";
+      if (totalTitle) totalTitle.style.display = "none";
+      return;
+    }
+    if (totalTitle) totalTitle.style.display = "";
+    const sc = viewScenario(gr);
+    const key = "stats|" + viewGroupId + "|" + sc.id;
+    if (!extrasCache[key]) {
+      extrasCache[key] = {
+        shooting: runVariant(gr, sc, { filter: (x) => !x.melee, trials: 8000 }),
+        melee: runVariant(gr, sc, { filter: (x) => x.melee, trials: 8000 }),
+      };
+    }
+    const c = extrasCache[key];
+    const defForSc = Object.assign({}, gr.baseDef, { coverBonus: sc.cover });
+    let html = "";
+    [
+      ["shooting", "Shooting"],
+      ["melee", "Melee"],
+    ].forEach((p) => {
+      if (!c[p[0]]) return;
+      html += '<div class="stats-title">' + p[1] + '</div><div class="stats-grid phase-' + p[0] + '">' + statTilesHtml(c[p[0]], defForSc) + "</div>";
+    });
+    host.innerHTML = html;
   }
 
   function renderStageFunnel(result, def) {
