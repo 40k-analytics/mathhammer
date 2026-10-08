@@ -5647,7 +5647,7 @@ if (typeof module !== "undefined") {
   const ORDER_SEARCH_TRIALS = 1000;
   const ORDER_FINAL_TRIALS = 6000;
   const ORDER_MAX_EVALS = 30;
-  const ORDER_TIME_BUDGET_MS = 1500;
+  const ORDER_TIME_BUDGET_MS = 700;
   let orderRunId = 0;
 
   function permutations(list) {
@@ -5679,9 +5679,17 @@ if (typeof module !== "undefined") {
   }
 
   function candidateOrders(blocks) {
-    const inner = blocks.map((b) => permutations(b));
-    const total = permutations(blocks.map((_, i) => i)).length * inner.reduce((n, p) => n * p.length, 1);
+    const fact = (n) => {
+      let r = 1;
+      for (let i = 2; i <= n; i++) {
+        r *= i;
+        if (r > 1000) return r;
+      }
+      return r;
+    };
+    const total = blocks.reduce((n, b) => Math.min(1000, n * fact(b.length)), fact(blocks.length));
     if (total > 24) return null;
+    const inner = blocks.map((b) => permutations(b));
     const out = [];
     permutations(blocks.map((_, i) => i)).forEach((perm) => {
       let combos = [[]];
