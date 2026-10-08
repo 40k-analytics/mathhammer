@@ -2284,8 +2284,12 @@ label.btn:active,
     <div class="chart-canvas-wrap"><canvas id="chart-scaling"></canvas></div>
   </div>
   <div class="chart-box" id="sensitivity-box">
-    <h3>Modifier sensitivity — which buff is worth the most</h3>
+    <h3>Modifier sensitivity — buffs and debuffs, expected damage</h3>
     <div class="chart-canvas-wrap" id="sensitivity-wrap"><canvas id="chart-sensitivity"></canvas></div>
+  </div>
+  <div class="chart-box" id="sensitivity-kills-box">
+    <h3>Modifier sensitivity — buffs and debuffs, models killed</h3>
+    <div class="chart-canvas-wrap" id="sensitivity-kills-wrap"><canvas id="chart-sensitivity-kills"></canvas></div>
   </div>
   <div class="chart-box" id="phase-box">
     <h3>Shooting vs Overwatch vs Melee</h3>
@@ -5094,7 +5098,8 @@ if (typeof module !== "undefined") {
       if (opts.kw) copy.kw = opts.kw(x.a.kw);
       return copy;
     });
-    const def = Object.assign({}, opts.def || gr.baseDef, { coverBonus: sc.cover });
+    let def = Object.assign({}, opts.def || gr.baseDef, { coverBonus: sc.cover });
+    if (opts.defMod) def = Object.assign(def, opts.defMod(def));
     return simulate(list, def, opts.trials || EXTRA_TRIALS);
   }
 
@@ -5154,6 +5159,20 @@ if (typeof module !== "undefined") {
       kw: (kw) => Object.assign({}, kw, { sustainedDiceExpr: kw.sustainedDiceExpr || "1" }),
     },
     { label: "Devastating Wounds", mods: () => ({ devastatingWounds: true }) },
+    { label: "Target \u22121 Toughness", defMod: (d) => ({ toughnessBonus: (d.toughnessBonus || 0) - 1 }) },
+    { label: "Target \u22122 Toughness", defMod: (d) => ({ toughnessBonus: (d.toughnessBonus || 0) - 2 }) },
+    { label: "Target \u22121 Save", defMod: (d) => ({ saveBonus: (d.saveBonus || 0) - 1 }) },
+    { label: "Target \u22121 to hit against it", defMod: (d) => ({ hitPenalty: (d.hitPenalty || 0) + 1 }), defender: true },
+    { label: "Target \u22121 to wound against it", defMod: (d) => ({ woundPenalty: (d.woundPenalty || 0) + 1 }), defender: true },
+    { label: "Target +1 Toughness", defMod: (d) => ({ toughnessBonus: (d.toughnessBonus || 0) + 1 }), defender: true },
+    { label: "Target +1 Save", defMod: (d) => ({ saveBonus: (d.saveBonus || 0) + 1 }), defender: true },
+    { label: "Target \u22121 Damage taken", defMod: (d) => ({ damageReduction: (d.damageReduction || 0) + 1 }), defender: true },
+    {
+      label: "Target 5+ Feel No Pain",
+      defMod: (d) => ({ fnp: d.fnp && d.fnp <= 5 ? d.fnp : 5 }),
+      defender: true,
+    },
+    { label: "Target in cover", defMod: () => ({ coverBonus: true }), defender: true, afterCover: true },
   ];
 
   function LABEL_BOX(color, align, fmt) {
@@ -5926,60 +5945,59 @@ if (typeof module !== "undefined") {
     });
   }
 
-  function renderSensitivityChart(gr, sc, entry, cache) {
-    if (!cache.sens) {
-      const base = runVariant(gr, sc, { trials: SENS_TRIALS }).meanDamage;
-      const rows = SENS_VARIANTS.map((v) => {
-        const r = runVariant(gr, sc, { mods: v.mods, kw: v.kw, trials: SENS_TRIALS });
-        return {
-          label: v.label,
-          pct: base > 0 ? (r.meanDamage / base - 1) * 100 : 0,
-          dmg: r.meanDamage,
-        };
-      });
-      rows.sort((a, b) => b.pct - a.pct);
-      cache.sens = { base, rows };
-    }
-    const rows = cache.sens.rows;
-    const wrap = document.getElementById("sensitivity-wrap");
-    if (wrap) wrap.style.height = Math.max(260, rows.length * 34 + 60) + "px";
-    makeChart("sensitivity", "chart-sensitivity", {
+  function sensitivityBars(canvasKey, canvasId, wrapId, rows, field, axisTitle) {
+    const sorted = rows.slice().sort((x, y) => y[field] - x[field]);
+    const wrap = document.getElementById(wrapId);
+    if (wrap) wrap.style.height = Math.max(260, sorted.length * 34 + 60) + "px";
+    const vals = sorted.map((r) => Math.abs(r[field]));
+    const mx = Math.max.apply(null, vals.concat([0.0001]));
+    const pos = gradColors(vals, COLORS.green, { min: 0, max: mx });
+    const neg = gradColors(vals, COLORS.red, { min: 0, max: mx });
+    makeChart(canvasKey, canvasId, {
       type: "bar",
       data: {
-        labels: rows.map((r) => r.label),
+        labels: sorted.map((r) => r.label),
         datasets: [
           {
-            label: "Change in expected damage (%)",
-            data: rows.map((r) => r.pct),
-            backgroundColor: (function () {
-              const mx = Math.max.apply(
-                null,
-                rows.map((r) => Math.abs(r.pct))
-              );
-              const pos = gradColors(
-                rows.map((r) => Math.abs(r.pct)),
-                COLORS.green,
-                { min: 0, max: mx }
-              );
-              const neg = gradColors(
-                rows.map((r) => Math.abs(r.pct)),
-                COLORS.red,
-                { min: 0, max: mx }
-              );
-              return rows.map((r, i) => (r.pct >= 0 ? pos[i] : neg[i]));
-            })(),
+            label: axisTitle,
+            data: sorted.map((r) => r[field]),
+            backgroundColor: sorted.map((r, i) => (r[field] >= 0 ? pos[i] : neg[i])),
             borderRadius: 2,
           },
         ],
       },
       options: withDatalabels(
-        Object.assign(chartBaseOptions("Change in expected damage vs current (%)", ""), {
+        Object.assign(chartBaseOptions(axisTitle, ""), {
           plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } },
         }),
         endLabel(1, "%", null),
         { indexAxis: "y" }
       ),
     });
+  }
+
+  function renderSensitivityChart(gr, sc, entry, cache) {
+    if (!cache.sens) {
+      const baseRun = runVariant(gr, sc, { trials: SENS_TRIALS });
+      const base = baseRun.meanDamage;
+      const baseKills = baseRun.meanModelsKilled;
+      const rows = SENS_VARIANTS.map((v) => {
+        const r = runVariant(gr, sc, { mods: v.mods, kw: v.kw, defMod: v.defMod, trials: SENS_TRIALS });
+        return {
+          label: v.label,
+          pct: base > 0 ? (r.meanDamage / base - 1) * 100 : 0,
+          killPct: baseKills > 0.01 ? (r.meanModelsKilled / baseKills - 1) * 100 : 0,
+          dmg: r.meanDamage,
+        };
+      });
+      cache.sens = { base, baseKills, rows };
+    }
+    const rows = cache.sens.rows;
+    sensitivityBars("sensitivity", "chart-sensitivity", "sensitivity-wrap", rows, "pct", "Change in expected damage vs current (%)");
+    const box = document.getElementById("sensitivity-kills-box");
+    if (box) box.style.display = cache.sens.baseKills > 0.01 ? "" : "none";
+    if (cache.sens.baseKills > 0.01)
+      sensitivityBars("sensitivityKills", "chart-sensitivity-kills", "sensitivity-kills-wrap", rows, "killPct", "Change in expected models killed vs current (%)");
   }
 
   function renderPhaseChart(gr, sc, cache) {
