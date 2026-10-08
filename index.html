@@ -4901,12 +4901,16 @@ if (typeof module !== "undefined") {
     const meleeOnly = meta.length > 0 && meta.every((m) => m.isMelee);
     const toRun = meleeOnly ? [SCENARIOS[0]] : SCENARIOS;
     const results = {};
+    const probeStart = performance.now();
+    simulate(engineAttackers, Object.assign({}, baseDef), 300);
+    const perTrial = Math.max(0.001, (performance.now() - probeStart) / 300);
+    const mainTrials = Math.round(Math.min(20000, Math.max(4000, 450 / perTrial)));
     toRun.forEach((sc) => {
       const atkForScenario = engineAttackers.map((a) =>
         Object.assign({}, a, { mods: Object.assign({}, a.mods, { halfRange: sc.halfRange }) })
       );
       const defForScenario = Object.assign({}, baseDef, { coverBonus: sc.cover });
-      const result = simulate(atkForScenario, defForScenario, sc === toRun[0] ? 20000 : 10000);
+      const result = simulate(atkForScenario, defForScenario, sc === toRun[0] ? mainTrials : Math.round(mainTrials / 2));
       results[sc.id] = { result, def: defForScenario, meta };
     });
     const seen = {};
@@ -5105,7 +5109,6 @@ if (typeof module !== "undefined") {
     const pctKillUnit = killSamples.length ? (fullKills / killSamples.length) * 100 : 0;
     document.getElementById("stat-kill-unit").textContent = pctKillUnit.toFixed(1) + "%";
 
-    renderPhaseStatRows(def);
     renderDamageHistogram(result.damageSamples);
     renderDamageCumulative(result.damageSamples);
     renderStageFunnel(result, def);
@@ -5121,7 +5124,20 @@ if (typeof module !== "undefined") {
     renderRulesBreakdown(result.rules);
     renderRerollBreakdown(result.rerolls);
     renderCoverComparisonChart();
-    renderExtras();
+    trialScaleFactor = Math.min(1, Math.max(0.25, 40 / Math.max(1, result.meanAttacks)));
+    const token = ++resultsToken;
+    const later = (fn) =>
+      typeof requestAnimationFrame === "function"
+        ? requestAnimationFrame(() => setTimeout(fn, 0))
+        : setTimeout(fn, 0);
+    later(() => {
+      if (token !== resultsToken) return;
+      renderPhaseStatRows(def);
+      later(() => {
+        if (token !== resultsToken) return;
+        renderExtras();
+      });
+    });
   }
 
   const EXTRA_TRIALS = 4000;
@@ -5152,7 +5168,7 @@ if (typeof module !== "undefined") {
     });
     let def = Object.assign({}, opts.def || gr.baseDef, { coverBonus: sc.cover });
     if (opts.defMod) def = Object.assign(def, opts.defMod(def));
-    return simulate(list, def, opts.trials || EXTRA_TRIALS);
+    return simulate(list, def, scaledTrials(opts.trials || EXTRA_TRIALS));
   }
 
   function plainDefender(t, sv, w, models, inv) {
@@ -5280,6 +5296,30 @@ if (typeof module !== "undefined") {
     charts[key] = new Chart(el.getContext("2d"), cfg);
   }
 
+  let trialScaleFactor = 1;
+
+  function scaledTrials(n) {
+    return Math.max(1000, Math.round(n * trialScaleFactor));
+  }
+
+  function chunked(items, fn, done) {
+    const gen = extrasGen;
+    const out = [];
+    let i = 0;
+    const step = () => {
+      if (gen !== extrasGen) return;
+      if (i >= items.length) {
+        done(out);
+        return;
+      }
+      out.push(fn(items[i], i));
+      i++;
+      setTimeout(step, 0);
+    };
+    step();
+  }
+
+  let resultsToken = 0;
   let extrasGen = 0;
   let lazyObservers = [];
   let lazyQueue = [];
@@ -5342,7 +5382,7 @@ if (typeof module !== "undefined") {
     renderCostChart();
     renderGroupWeaponChart(sc);
     renderKillsByWeaponChart(sc);
-    renderWeaponOrder(sc);
+    lazyRender("kills-by-weapon-box", gen, () => renderWeaponOrder(sc));
     ["vuln-body", "durability-body"].forEach((id) => {
       const el = document.getElementById(id);
       if (el && !el.querySelector("table")) el.innerHTML = '<div class="lazy-note">Calculating when this section scrolls into view\u2026</div>';
@@ -5607,6 +5647,7 @@ if (typeof module !== "undefined") {
   const ORDER_SEARCH_TRIALS = 1000;
   const ORDER_FINAL_TRIALS = 6000;
   const ORDER_MAX_EVALS = 30;
+  const ORDER_TIME_BUDGET_MS = 1500;
   let orderRunId = 0;
 
   function permutations(list) {
@@ -5683,6 +5724,8 @@ if (typeof module !== "undefined") {
     };
     const startBlocks = weaponBlocks(idx, meta);
     const evaluated = {};
+    const deadline = performance.now() + ORDER_TIME_BUDGET_MS;
+    const timeUp = () => performance.now() > deadline;
     const record = (order, trials) => {
       const key = order.join(",");
       if (!evaluated[key]) evaluated[key] = evalOrder(order, trials);
@@ -5690,7 +5733,10 @@ if (typeof module !== "undefined") {
     };
     const all = candidateOrders(startBlocks);
     if (all) {
-      all.forEach((o) => record(o, ORDER_SEARCH_TRIALS));
+      for (const o of all) {
+        if (timeUp() && Object.keys(evaluated).length >= 2) break;
+        record(o, ORDER_SEARCH_TRIALS);
+      }
     } else {
       const heur = startBlocks
         .slice()
@@ -5702,11 +5748,11 @@ if (typeof module !== "undefined") {
         let cur = start;
         let curScore = record(flattenBlocks(cur), ORDER_SEARCH_TRIALS).dmg;
         let improved = true;
-        while (improved && Object.keys(evaluated).length < ORDER_MAX_EVALS) {
+        while (improved && !timeUp() && Object.keys(evaluated).length < ORDER_MAX_EVALS) {
           improved = false;
           const nbrs = neighbourOrders(cur);
           for (const n of nbrs) {
-            if (Object.keys(evaluated).length >= ORDER_MAX_EVALS) break;
+            if (timeUp() || Object.keys(evaluated).length >= ORDER_MAX_EVALS) break;
             const s = record(flattenBlocks(n), ORDER_SEARCH_TRIALS).dmg;
             if (s > curScore) {
               cur = n;
@@ -5730,7 +5776,8 @@ if (typeof module !== "undefined") {
       .forEach((c) => (finalists[c.order.join(",")] = c.order));
     const currentOrder = idx.slice();
     finalists[currentOrder.join(",")] = currentOrder;
-    const final = Object.values(finalists).map((o) => evalOrder(o, ORDER_FINAL_TRIALS));
+    const finalTrials = timeUp() ? ORDER_SEARCH_TRIALS * 2 : ORDER_FINAL_TRIALS;
+    const final = Object.values(finalists).map((o) => evalOrder(o, finalTrials));
     const pick = (key) => final.slice().sort((x, y) => y[key] - x[key])[0];
     return {
       count: idx.length,
@@ -5876,17 +5923,31 @@ if (typeof module !== "undefined") {
   function renderArchetypeChart(sc) {
     const ids = Object.keys(groupResults);
     const colors = [COLORS.blue, COLORS.red];
-    const res = {};
-    ids.forEach((id) => {
-      const g = groupResults[id];
-      const gsc = g.meleeOnly ? SCENARIOS[0] : sc;
-      res[id] = ARCHETYPES.map((a) => {
-        const d = a.def();
-        const r = runVariant(g, gsc, { def: d });
-        const pool = d.wounds * d.models;
-        return { dmg: r.meanEffectiveDamage, pct: Math.min(100, (r.meanEffectiveDamage / pool) * 100) };
-      });
-    });
+    const ckey = "arch|" + sc.id + "|" + ids.join(",");
+    if (!extrasCache[ckey]) {
+      const jobs = [];
+      ids.forEach((id) => ARCHETYPES.forEach((a, i) => jobs.push({ id, i, a })));
+      chunked(
+        jobs,
+        (j) => {
+          const g = groupResults[j.id];
+          const gsc = g.meleeOnly ? SCENARIOS[0] : sc;
+          const d = j.a.def();
+          const r = runVariant(g, gsc, { def: d });
+          const pool = d.wounds * d.models;
+          return { id: j.id, i: j.i, dmg: r.meanEffectiveDamage, pct: Math.min(100, (r.meanEffectiveDamage / pool) * 100) };
+        },
+        (out) => {
+          const built = {};
+          ids.forEach((id) => (built[id] = []));
+          out.forEach((o) => (built[o.id][o.i] = o));
+          extrasCache[ckey] = built;
+          renderArchetypeChart(sc);
+        }
+      );
+      return;
+    }
+    const res = extrasCache[ckey];
     makeChart("archetype", "chart-archetype", {
       type: "bar",
       data: {
@@ -5952,14 +6013,22 @@ if (typeof module !== "undefined") {
 
   function renderScalingChart(gr, sc, cache) {
     if (!cache.scaling) {
-      cache.scaling = [0.5, 1, 1.5, 2, 3].map((f) => {
-        const r = runVariant(gr, sc, { count: f });
-        const mk = r.modelsKilledSamples || [];
-        const models = (gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id]).def
-          .models;
-        const kills = mk.filter((k) => k >= models).length;
-        return { f, dmg: r.meanDamage, kill: mk.length ? (kills / mk.length) * 100 : 0 };
-      });
+      chunked(
+        [0.5, 1, 1.5, 2, 3],
+        (f) => {
+          const r = runVariant(gr, sc, { count: f });
+          const mk = r.modelsKilledSamples || [];
+          const models = (gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id]).def
+            .models;
+          const kills = mk.filter((k) => k >= models).length;
+          return { f, dmg: r.meanDamage, kill: mk.length ? (kills / mk.length) * 100 : 0 };
+        },
+        (out) => {
+          cache.scaling = out;
+          renderScalingChart(gr, sc, cache);
+        }
+      );
+      return;
     }
     const d = cache.scaling;
     const maxDmg = Math.max.apply(
@@ -6086,19 +6155,26 @@ if (typeof module !== "undefined") {
 
   function renderSensitivityChart(gr, sc, entry, cache) {
     if (!cache.sens) {
-      const baseRun = runVariant(gr, sc, { trials: SENS_TRIALS });
-      const base = baseRun.meanDamage;
-      const baseKills = baseRun.meanModelsKilled;
-      const rows = SENS_VARIANTS.map((v) => {
-        const r = runVariant(gr, sc, { mods: v.mods, kw: v.kw, defMod: v.defMod, trials: SENS_TRIALS });
-        return {
-          label: v.label,
-          pct: base > 0 ? (r.meanDamage / base - 1) * 100 : 0,
-          killPct: baseKills > 0.01 ? (r.meanModelsKilled / baseKills - 1) * 100 : 0,
-          dmg: r.meanDamage,
-        };
-      });
-      cache.sens = { base, baseKills, rows };
+      chunked(
+        [null].concat(SENS_VARIANTS),
+        (v) =>
+          v
+            ? { v, r: runVariant(gr, sc, { mods: v.mods, kw: v.kw, defMod: v.defMod, trials: SENS_TRIALS }) }
+            : { v: null, r: runVariant(gr, sc, { trials: SENS_TRIALS }) },
+        (out) => {
+          const base = out[0].r.meanDamage;
+          const baseKills = out[0].r.meanModelsKilled;
+          const rows = out.slice(1).map((o) => ({
+            label: o.v.label,
+            pct: base > 0 ? (o.r.meanDamage / base - 1) * 100 : 0,
+            killPct: baseKills > 0.01 ? (o.r.meanModelsKilled / baseKills - 1) * 100 : 0,
+            dmg: o.r.meanDamage,
+          }));
+          cache.sens = { base, baseKills, rows };
+          renderSensitivityChart(gr, sc, entry, cache);
+        }
+      );
+      return;
     }
     const rows = cache.sens.rows;
     sensitivityBars("sensitivity", "chart-sensitivity", "sensitivity-wrap", rows, "pct", "Change in expected damage vs current (%)");
@@ -6167,12 +6243,17 @@ if (typeof module !== "undefined") {
     const Ts = [3, 4, 5, 6, 8, 10, 12];
     const Svs = [2, 3, 4, 5, 6, 7];
     if (!cache.vuln) {
-      cache.vuln = Ts.map((t) =>
-        Svs.map(
-          (sv) =>
-            runVariant(gr, sc, { def: plainDefender(t, sv, 1000, 1), trials: 1500 }).meanDamage
-        )
+      const cells = [];
+      Ts.forEach((t) => Svs.forEach((sv) => cells.push([t, sv])));
+      chunked(
+        cells,
+        (c) => runVariant(gr, sc, { def: plainDefender(c[0], c[1], 1000, 1), trials: 1500 }).meanDamage,
+        (out) => {
+          cache.vuln = Ts.map((t, i) => Svs.map((sv, j) => out[i * Svs.length + j]));
+          renderVulnerabilityTable(gr, sc, cache);
+        }
       );
+      return;
     }
     const grid = cache.vuln;
     const max = Math.max.apply(
@@ -6221,15 +6302,21 @@ if (typeof module !== "undefined") {
     const Ss = [3, 4, 5, 6, 8, 10, 12];
     const APs = [0, -1, -2, -3, -4];
     if (!cache.durGrid) {
-      cache.durGrid = Ss.map((st) =>
-        APs.map((ap) => {
-          const r = simulate(referenceVolley(12, st, ap, 2), durabilityDefender(d), 2000);
-          return {
-            wounds: Math.min(100, (r.meanEffectiveDamage / d.pool) * 100),
-            models: r.meanModelsKilled,
-          };
-        })
+      const cells = [];
+      Ss.forEach((st, i) => APs.forEach((ap, j) => cells.push([st, ap, i, j])));
+      chunked(
+        cells,
+        (c) => {
+          const r = simulate(referenceVolley(12, c[0], c[1], 2), durabilityDefender(d), scaledTrials(2000));
+          return { i: c[2], j: c[3], wounds: Math.min(100, (r.meanEffectiveDamage / d.pool) * 100), models: r.meanModelsKilled };
+        },
+        (out) => {
+          cache.durGrid = Ss.map(() => APs.map(() => null));
+          out.forEach((o) => (cache.durGrid[o.i][o.j] = { wounds: o.wounds, models: o.models }));
+          renderDurabilityHeatmap(gr, cache);
+        }
       );
+      return;
     }
     const wounds = durMode === "wounds";
     const grid = cache.durGrid.map((row) => row.map((c) => (wounds ? c.wounds : c.models)));
@@ -6958,8 +7045,8 @@ if (typeof module !== "undefined") {
     const key = "stats|" + viewGroupId + "|" + sc.id;
     if (!extrasCache[key]) {
       extrasCache[key] = {
-        shooting: runVariant(gr, sc, { filter: (x) => !x.melee, trials: 8000 }),
-        melee: runVariant(gr, sc, { filter: (x) => x.melee, trials: 8000 }),
+        shooting: runVariant(gr, sc, { filter: (x) => !x.melee, trials: 4000 }),
+        melee: runVariant(gr, sc, { filter: (x) => x.melee, trials: 4000 }),
       };
     }
     const c = extrasCache[key];
