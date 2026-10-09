@@ -2299,12 +2299,6 @@ label.btn:active,
   padding-top: 8px;
   margin-top: 0;
 }
-.results-tabs-bottom {
-  border-bottom: 0;
-  border-top: 2px solid var(--blue-light);
-  padding-top: 12px;
-  margin-top: 6px;
-}
 .results-tab-title {
   display: flex;
   flex-wrap: wrap;
@@ -2355,12 +2349,6 @@ label.btn:active,
   }
 }
 
-.scenario-bar-bottom {
-  margin: 12px 0 6px;
-}
-#group-view-bar-bottom {
-  margin-top: 12px;
-}
 
 label.btn:not(.disabled) {
   box-shadow:
@@ -2390,9 +2378,90 @@ label.btn:not(.disabled):active {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+.results-sticky .group-view-bar {
+  margin: 0 0 8px;
+}
+.adv-toggle-mobile {
+  display: none;
+  margin: 0 0 10px;
+}
 @media (max-width: 700px) {
   .results-sticky {
-    position: static;
+    padding-top: 6px;
+  }
+  .results-sticky .group-view-bar {
+    margin: 0 0 6px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .results-sticky .group-view-bar .group-view-label {
+    display: none;
+  }
+  .results-sticky .group-view-btn {
+    padding: 4px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .results-sticky .scenario-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    margin: 0 0 6px;
+  }
+  .results-sticky .scenario-btn {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+  #results-tabs {
+    margin: 0 0 8px;
+    padding-bottom: 8px;
+  }
+  #results-tabs .adv-toggle {
+    display: none;
+  }
+  #results-tabs .results-tab {
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+  .adv-toggle-mobile {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 700px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+  .stat-tile {
+    padding: 6px 4px;
+    border-radius: 6px;
+  }
+  .stat-tile .val {
+    font-size: 15px;
+  }
+  .stat-tile .lbl {
+    font-size: 8.5px;
+    letter-spacing: 0;
+    margin-top: 1px;
+    line-height: 1.15;
+  }
+  .stats-title {
+    margin: 4px 0 4px;
+    font-size: 10.5px;
+  }
+}
+@media (max-width: 380px) {
+  .stat-tile .val {
+    font-size: 13.5px;
+  }
+  .stat-tile .lbl {
+    font-size: 8px;
   }
 }
 
@@ -2442,7 +2511,6 @@ label.btn:not(.disabled):active {
     <h4 class="chart-subhead">Expected damage by phase</h4>
     <div class="chart-canvas-wrap" id="group-phase-wrap"><canvas id="chart-group-phase"></canvas></div>
   </div>
-  <div class="group-view-bar" id="group-view-bar" style="display:none"></div>
   <div class="stats-title" id="stats-title-total" style="display:none">All weapons</div>
   <div class="stats-grid">
     <div class="stat-tile"><div class="val" id="stat-attacks">0</div><div class="lbl">Attacks</div></div>
@@ -2465,6 +2533,7 @@ label.btn:not(.disabled):active {
   <div id="stats-extra-rows"></div>
 
   <div class="results-sticky" id="results-sticky">
+  <div class="group-view-bar" id="group-view-bar" style="display:none"></div>
   <div class="scenario-bar" id="scenario-bar">
     <button class="scenario-btn" data-scenario="longNoCover">Long Range · No Cover</button>
     <button class="scenario-btn" data-scenario="halfNoCover">Half Range · No Cover</button>
@@ -2486,6 +2555,10 @@ label.btn:not(.disabled):active {
   </div>
 
   <div class="results-tab-title" id="results-tab-title"></div>
+  <div class="adv-toggle adv-toggle-mobile">
+    <button type="button" class="adv-opt" data-adv="off">Compact</button>
+    <button type="button" class="adv-opt active" data-adv="on">Show advanced</button>
+  </div>
   <div class="chart-box" data-tab="overview">
     <h3>Damage distribution (probability per outcome)</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-histogram"></canvas></div>
@@ -2581,21 +2654,6 @@ label.btn:not(.disabled):active {
   <div class="chart-box" id="reroll-breakdown-box" data-tab="modifiers" data-adv="1">
     <h3>Re-roll outcomes (expected per calculation)</h3>
     <div id="reroll-breakdown-body"></div>
-  </div>
-  <div class="group-view-bar" id="group-view-bar-bottom" style="display:none"></div>
-  <div class="scenario-bar scenario-bar-bottom" id="scenario-bar-bottom">
-    <button class="scenario-btn" data-scenario="longNoCover">Long Range · No Cover</button>
-    <button class="scenario-btn" data-scenario="halfNoCover">Half Range · No Cover</button>
-    <button class="scenario-btn" data-scenario="longCover">Long Range · In Cover</button>
-    <button class="scenario-btn" data-scenario="halfCover">Half Range · In Cover</button>
-  </div>
-  <div class="results-tabs results-tabs-bottom" id="results-tabs-bottom" role="tablist">
-    <div class="results-tab-list">
-      <button type="button" class="results-tab active" data-tab="overview" role="tab">Overview</button>
-      <button type="button" class="results-tab" data-tab="weapons" role="tab">Weapons</button>
-      <button type="button" class="results-tab" data-tab="defender" role="tab">Defender</button>
-      <button type="button" class="results-tab" data-tab="modifiers" role="tab">Modifiers</button>
-    </div>
   </div>
 </section>
 
@@ -5660,13 +5718,11 @@ if (typeof module !== "undefined") {
     renderGroupComparison();
     renderMatchupLabels();
     const scenarioBar = document.getElementById("scenario-bar");
-    const scenarioBarBottom = document.getElementById("scenario-bar-bottom");
     const meleeNote = document.getElementById("melee-note");
     const anyRanged = groupResults
       ? Object.values(groupResults).some((r) => !r.meleeOnly)
       : !scenarioMeleeOnly;
     if (scenarioBar) scenarioBar.style.display = anyRanged ? "" : "none";
-    if (scenarioBarBottom)
       scenarioBarBottom.style.display = anyRanged ? "" : "none";
     if (meleeNote) meleeNote.classList.toggle("hidden", !scenarioMeleeOnly);
 
@@ -6083,21 +6139,9 @@ if (typeof module !== "undefined") {
     ],
   };
 
-  function setActiveTab(tab, fromBottom) {
-    const changed = tab !== activeTab;
+  function setActiveTab(tab) {
     activeTab = tab;
     applyResultsView();
-    if (changed || fromBottom) {
-      const bar = document.getElementById("group-view-bar");
-      const anchor =
-        bar && bar.style.display !== "none"
-          ? bar
-          : document.getElementById("stats-title-total");
-      if (anchor) {
-        const y = anchor.getBoundingClientRect().top + window.pageYOffset - 8;
-        window.scrollTo({ top: Math.max(0, y), behavior: "auto" });
-      }
-    }
   }
 
   function setShowAdvanced(on) {
@@ -7487,7 +7531,7 @@ if (typeof module !== "undefined") {
 
   function renderGroupViewBar() {
     const ids = groupResults ? Object.keys(groupResults) : [];
-    ["group-view-bar", "group-view-bar-bottom"].forEach((barId) => {
+    ["group-view-bar"].forEach((barId) => {
       const bar = document.getElementById(barId);
       if (!bar) return;
       if (ids.length < 2) {
@@ -10046,7 +10090,7 @@ if (typeof module !== "undefined") {
       .querySelectorAll(".results-tab")
       .forEach((b) =>
         b.addEventListener("click", () =>
-          setActiveTab(b.dataset.tab, !!b.closest("#results-tabs-bottom")),
+          setActiveTab(b.dataset.tab),
         ),
       );
     document.querySelectorAll(".adv-opt").forEach((b) =>
