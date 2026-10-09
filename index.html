@@ -6139,8 +6139,16 @@ if (typeof module !== "undefined") {
   };
 
   function setActiveTab(tab) {
+    const title = document.getElementById("results-tab-title");
+    const sticky = document.getElementById("results-sticky");
+    const scrolledIn = title && title.getBoundingClientRect().top < 0;
     activeTab = tab;
     applyResultsView();
+    if (scrolledIn && title) {
+      const offset = sticky ? sticky.getBoundingClientRect().height : 0;
+      const y = title.getBoundingClientRect().top + window.pageYOffset - offset - 8;
+      window.scrollTo({ top: Math.max(0, y), behavior: "auto" });
+    }
   }
 
   function setShowAdvanced(on) {
