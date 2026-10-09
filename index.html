@@ -5723,7 +5723,6 @@ if (typeof module !== "undefined") {
       ? Object.values(groupResults).some((r) => !r.meleeOnly)
       : !scenarioMeleeOnly;
     if (scenarioBar) scenarioBar.style.display = anyRanged ? "" : "none";
-      scenarioBarBottom.style.display = anyRanged ? "" : "none";
     if (meleeNote) meleeNote.classList.toggle("hidden", !scenarioMeleeOnly);
 
     document.getElementById("stat-attacks").textContent =
