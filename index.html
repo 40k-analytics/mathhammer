@@ -241,11 +241,6 @@ main {
   align-items: center;
   margin-bottom: 4px;
 }
-.card-title {
-  font-weight: 700;
-  color: var(--navy);
-  font-size: 14px;
-}
 .icon-btn {
   background: none;
   border: none;
@@ -2214,6 +2209,193 @@ label.btn:active,
   cursor: not-allowed;
 }
 
+#results-panel .chart-box[data-tab] {
+  display: none;
+}
+#results-panel[data-active="overview"] .chart-box[data-tab="overview"],
+#results-panel[data-active="weapons"] .chart-box[data-tab="weapons"],
+#results-panel[data-active="defender"] .chart-box[data-tab="defender"],
+#results-panel[data-active="modifiers"] .chart-box[data-tab="modifiers"] {
+  display: block;
+}
+#results-panel[data-mode="compact"] .chart-box[data-adv] {
+  display: none !important;
+}
+.results-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 4px 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--blue-light);
+}
+.results-tab-list {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.results-tab {
+  background: var(--white);
+  color: var(--navy);
+  border: 2px solid var(--navy);
+  border-radius: 999px;
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.results-tab.active {
+  background: var(--navy);
+  color: var(--white);
+}
+.adv-toggle {
+  display: inline-flex;
+  border: 2px solid var(--navy);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.adv-opt {
+  background: var(--white);
+  color: var(--navy);
+  border: 0;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.adv-opt.active {
+  background: var(--navy);
+  color: var(--white);
+}
+.adv-opt:not(.active):hover {
+  background: var(--blue-tint);
+}
+@media (max-width: 700px) {
+  .results-tabs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .results-tab-list {
+    flex-wrap: nowrap;
+  }
+  .results-tab {
+    flex: 1 1 0;
+    padding: 9px 8px;
+  }
+  .adv-toggle {
+    align-self: flex-start;
+  }
+}
+
+#results-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--blue-tint);
+  padding-top: 8px;
+  margin-top: 0;
+}
+.results-tabs-bottom {
+  border-bottom: 0;
+  border-top: 2px solid var(--blue-light);
+  padding-top: 12px;
+  margin-top: 6px;
+}
+.results-tab-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0 0 12px;
+}
+.results-tab-title strong {
+  font-size: 18px;
+  color: var(--navy);
+}
+.results-tab-title span {
+  font-size: 13px;
+  color: var(--slate);
+}
+.results-tab-title em {
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--blue);
+  border: 1px solid var(--blue-light);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.stat-tile.muted {
+  opacity: 0.45;
+}
+
+.results-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--blue-tint);
+  padding-top: 8px;
+}
+.results-sticky .scenario-bar {
+  margin: 0 0 8px;
+}
+#results-tabs {
+  position: static;
+  padding-top: 0;
+}
+@media (max-width: 700px) {
+  .results-sticky .scenario-bar {
+    gap: 6px;
+  }
+}
+
+.scenario-bar-bottom {
+  margin: 12px 0 6px;
+}
+#group-view-bar-bottom {
+  margin-top: 12px;
+}
+
+label.btn:not(.disabled) {
+  box-shadow:
+    0 2px 0 rgba(20, 35, 50, 0.32),
+    0 4px 8px rgba(20, 35, 50, 0.14);
+  transition:
+    transform 0.09s ease,
+    box-shadow 0.09s ease,
+    filter 0.15s ease;
+}
+label.btn:not(.disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+label.btn:not(.disabled):active {
+  transform: translateY(2px) scale(0.985);
+  box-shadow: inset 0 2px 5px rgba(20, 35, 50, 0.28);
+  filter: brightness(0.96);
+}
+#group-compare-table,
+#archetype-table,
+#variance-table,
+#vuln-body,
+#durability-body,
+#def-groups-table,
+#weapon-order-body {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 700px) {
+  .results-sticky {
+    position: static;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -2248,16 +2430,10 @@ label.btn:active,
   <div class="sim-sub" id="sim-sub">Rolling to hit</div>
 </div>
 
-<section id="results-panel" class="results-full hidden">
+<section id="results-panel" class="results-full hidden" data-active="overview" data-mode="advanced">
   <div class="col-head"><h2>Results</h2></div>
   <div class="matchup-banner" id="matchup-banner"></div>
   <p class="melee-note hidden" id="melee-note">Melee attacks only: range and cover don't apply to melee weapons (cover's -1 is a Ballistic Skill penalty, and Melta / Rapid Fire are ranged rules), so a single result is shown.</p>
-  <div class="scenario-bar" id="scenario-bar">
-    <button class="scenario-btn" data-scenario="longNoCover">Long Range · No Cover</button>
-    <button class="scenario-btn" data-scenario="halfNoCover">Half Range · No Cover</button>
-    <button class="scenario-btn" data-scenario="longCover">Long Range · In Cover</button>
-    <button class="scenario-btn" data-scenario="halfCover">Half Range · In Cover</button>
-  </div>
   <div class="chart-box" id="group-compare-box" style="display:none">
     <h3 id="group-compare-title">Attacker group comparison</h3>
     <div id="group-compare-verdict" class="group-verdict"></div>
@@ -2288,101 +2464,138 @@ label.btn:active,
 
   <div id="stats-extra-rows"></div>
 
-  <div class="chart-box">
+  <div class="results-sticky" id="results-sticky">
+  <div class="scenario-bar" id="scenario-bar">
+    <button class="scenario-btn" data-scenario="longNoCover">Long Range · No Cover</button>
+    <button class="scenario-btn" data-scenario="halfNoCover">Half Range · No Cover</button>
+    <button class="scenario-btn" data-scenario="longCover">Long Range · In Cover</button>
+    <button class="scenario-btn" data-scenario="halfCover">Half Range · In Cover</button>
+  </div>
+  <div class="results-tabs" id="results-tabs" role="tablist">
+    <div class="results-tab-list">
+      <button type="button" class="results-tab active" data-tab="overview" role="tab">Overview</button>
+      <button type="button" class="results-tab" data-tab="weapons" role="tab">Weapons</button>
+      <button type="button" class="results-tab" data-tab="defender" role="tab">Defender</button>
+      <button type="button" class="results-tab" data-tab="modifiers" role="tab">Modifiers</button>
+    </div>
+    <div class="adv-toggle" title="Compact shows the main charts. Show advanced adds the heavier analyses, which are only calculated when you open them.">
+      <button type="button" class="adv-opt" data-adv="off">Compact</button>
+      <button type="button" class="adv-opt active" data-adv="on">Show advanced</button>
+    </div>
+  </div>
+  </div>
+
+  <div class="results-tab-title" id="results-tab-title"></div>
+  <div class="chart-box" data-tab="overview">
     <h3>Damage distribution (probability per outcome)</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-histogram"></canvas></div>
   </div>
-  <div class="chart-box">
+  <div class="chart-box" data-tab="overview" data-adv="1">
     <h3>Probability of dealing at least N damage</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-damage-cumulative"></canvas></div>
   </div>
-  <div class="chart-box">
+  <div class="chart-box" data-tab="overview" data-adv="1">
     <h3>Attacks → Hits → Wounds → Unsaved → Damage</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-funnel"></canvas></div>
   </div>
-  <div class="chart-box" id="cover-comparison-box">
+  <div class="chart-box" id="cover-comparison-box" data-tab="overview" data-adv="1">
     <h3>Cover vs No Cover — Expected Damage by Range</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-cover-comparison"></canvas></div>
   </div>
-  <div class="chart-box">
+  <div class="chart-box" data-tab="overview">
     <h3 id="kills-title">Probability of killing at least N models</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-kills"></canvas></div>
   </div>
-  <div class="chart-box">
+  <div class="chart-box" data-tab="weapons">
     <h3>Damage &amp; hits by unit/weapon</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-weapon-breakdown"></canvas></div>
   </div>
-  <div class="chart-box" id="kills-by-weapon-box">
+  <div class="chart-box" id="kills-by-weapon-box" data-tab="weapons">
     <h3>Models killed by unit/weapon</h3>
     <div class="chart-canvas-wrap" id="kills-by-weapon-wrap"><canvas id="chart-kills-by-weapon"></canvas></div>
   </div>
-  <div class="chart-box" id="def-groups-box" style="display:none">
+  <div class="chart-box" id="def-groups-box" data-tab="defender" style="display:none">
     <h3>Damage taken by attached models / leader</h3>
     <div id="def-groups-table" class="rule-table-wrap"></div>
   </div>
-  <div class="chart-box" id="weapon-order-box" style="display:none">
+  <div class="chart-box" id="weapon-order-box" data-tab="weapons" style="display:none">
     <h3>Suggested weapon order</h3>
     <div id="weapon-order-body"></div>
   </div>
-  <div class="chart-box" id="dmg-per-point-box">
+  <div class="chart-box" id="dmg-per-point-box" data-tab="weapons">
     <h3>Expected damage per 100 points (by attacker)</h3>
     <div class="chart-canvas-wrap" id="dmg-per-point-wrap"><canvas id="chart-dmg-per-point"></canvas></div>
     <div class="rule-empty-note" id="dmg-per-point-note" style="display:none">No points-cost data available for the selected attacker unit(s).</div>
   </div>
-  <div class="chart-box" id="group-weapon-box" style="display:none">
+  <div class="chart-box" id="group-weapon-box" data-tab="weapons" style="display:none">
     <h3>Damage by weapon — Group A vs Group B</h3>
     <div class="chart-canvas-wrap" id="group-weapon-wrap"><canvas id="chart-group-weapon"></canvas></div>
   </div>
-  <div class="chart-box" id="variance-box">
+  <div class="chart-box" id="variance-box" data-tab="overview" data-adv="1">
     <h3>Damage spread — P10 / median / P90</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-variance"></canvas></div>
     <div id="variance-table"></div>
   </div>
-  <div class="chart-box" id="waterfall-box">
+  <div class="chart-box" id="waterfall-box" data-tab="overview" data-adv="1">
     <h3>Where the attacks go (waterfall)</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-waterfall"></canvas></div>
   </div>
-  <div class="chart-box" id="cost-box">
+  <div class="chart-box" id="cost-box" data-tab="weapons" data-adv="1">
     <h3>Points efficiency — defender points destroyed per attacker point</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-cost"></canvas></div>
     <div class="rule-empty-note" id="cost-note"></div>
   </div>
-  <div class="chart-box" id="archetype-box">
+  <div class="chart-box" id="archetype-box" data-tab="defender">
     <h3>Versus typical targets (% of target's wounds destroyed)</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-archetype"></canvas></div>
     <div id="archetype-table"></div>
   </div>
-  <div class="chart-box" id="vuln-box">
+  <div class="chart-box" id="vuln-box" data-tab="defender" data-adv="1">
     <h3>Toughness × Save heatmap (expected damage)</h3>
     <div id="vuln-body"></div>
   </div>
-  <div class="chart-box" id="durability-box" style="display:none">
+  <div class="chart-box" id="durability-box" data-tab="defender" data-adv="1" style="display:none">
     <h3>Attacker durability heatmap (Strength × AP, % of group's wounds lost)</h3>
     <div id="durability-body"></div>
   </div>
-  <div class="chart-box" id="scaling-box">
+  <div class="chart-box" id="scaling-box" data-tab="weapons" data-adv="1">
     <h3>Unit size scaling — damage and kill chance</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-scaling"></canvas></div>
   </div>
-  <div class="chart-box" id="sensitivity-box">
+  <div class="chart-box" id="sensitivity-box" data-tab="modifiers">
     <h3>Modifier sensitivity — buffs and debuffs, expected damage</h3>
     <div class="chart-canvas-wrap" id="sensitivity-wrap"><canvas id="chart-sensitivity"></canvas></div>
   </div>
-  <div class="chart-box" id="sensitivity-kills-box">
+  <div class="chart-box" id="sensitivity-kills-box" data-tab="modifiers" data-adv="1">
     <h3>Modifier sensitivity — buffs and debuffs, models killed</h3>
     <div class="chart-canvas-wrap" id="sensitivity-kills-wrap"><canvas id="chart-sensitivity-kills"></canvas></div>
   </div>
-  <div class="chart-box" id="phase-box">
+  <div class="chart-box" id="phase-box" data-tab="overview" data-adv="1">
     <h3>Shooting vs Overwatch vs Melee</h3>
     <div class="chart-canvas-wrap"><canvas id="chart-phase"></canvas></div>
   </div>
-  <div class="chart-box" id="rules-breakdown-box">
+  <div class="chart-box" id="rules-breakdown-box" data-tab="modifiers" data-adv="1">
     <h3>Special rule triggers (expected per calculation)</h3>
     <div id="rules-breakdown-body"></div>
   </div>
-  <div class="chart-box" id="reroll-breakdown-box">
+  <div class="chart-box" id="reroll-breakdown-box" data-tab="modifiers" data-adv="1">
     <h3>Re-roll outcomes (expected per calculation)</h3>
     <div id="reroll-breakdown-body"></div>
+  </div>
+  <div class="group-view-bar" id="group-view-bar-bottom" style="display:none"></div>
+  <div class="scenario-bar scenario-bar-bottom" id="scenario-bar-bottom">
+    <button class="scenario-btn" data-scenario="longNoCover">Long Range · No Cover</button>
+    <button class="scenario-btn" data-scenario="halfNoCover">Half Range · No Cover</button>
+    <button class="scenario-btn" data-scenario="longCover">Long Range · In Cover</button>
+    <button class="scenario-btn" data-scenario="halfCover">Half Range · In Cover</button>
+  </div>
+  <div class="results-tabs results-tabs-bottom" id="results-tabs-bottom" role="tablist">
+    <div class="results-tab-list">
+      <button type="button" class="results-tab active" data-tab="overview" role="tab">Overview</button>
+      <button type="button" class="results-tab" data-tab="weapons" role="tab">Weapons</button>
+      <button type="button" class="results-tab" data-tab="defender" role="tab">Defender</button>
+      <button type="button" class="results-tab" data-tab="modifiers" role="tab">Modifiers</button>
+    </div>
   </div>
 </section>
 
@@ -2536,7 +2749,8 @@ function parseDiceExpr(expr) {
     const minus = m[4] ? parseInt(m[4], 10) : 0;
     return () => {
       let total = 0;
-      for (let i = 0; i < count; i++) total += 1 + Math.floor(Math.random() * faces);
+      for (let i = 0; i < count; i++)
+        total += 1 + Math.floor(Math.random() * faces);
       return total + plus - minus;
     };
   }
@@ -2593,15 +2807,6 @@ function woundThreshold(s, t) {
   if (s === t) return 4;
   if (s * 2 <= t) return 6;
   return 5;
-}
-
-function rollWithReroll(threshold, policy) {
-  let roll = d6();
-  const failed = roll < threshold;
-  const shouldReroll =
-    policy === "all" || (policy === "failed" && failed) || (policy === "ones" && roll === 1);
-  if (shouldReroll) roll = d6();
-  return roll;
 }
 
 function evalRoll(roll, threshold, critThreshold) {
@@ -2670,7 +2875,7 @@ function buildAttackerRuntime(weapon, overrides) {
       damageExpr: weapon.d,
       kw,
     },
-    overrides
+    overrides,
   );
 }
 
@@ -2746,7 +2951,8 @@ function simulate(attackers, defender, trials) {
       return (g.isCharacter ? 2 : 0) + wounded;
     };
     const alive = [];
-    for (let i = 0; i < defGroups.length; i++) if (groupAlive[i] > 0) alive.push(i);
+    for (let i = 0; i < defGroups.length; i++)
+      if (groupAlive[i] > 0) alive.push(i);
     if (!alive.length) return [defGroups.length - 1];
     return alive.sort((a, b) => rank(a) - rank(b) || a - b);
   }
@@ -2769,24 +2975,34 @@ function simulate(attackers, defender, trials) {
         pa.sumUnsaved++;
       } else {
         let effAp = ap;
-        if (defender.apReduction) effAp = Math.min(effAp + defender.apReduction, 0);
+        if (defender.apReduction)
+          effAp = Math.min(effAp + defender.apReduction, 0);
         let armorSaveNeeded =
-          (g.save || 7) - effAp + (mods.worsenDefenderSave || 0) - (defender.saveBonus || 0);
+          (g.save || 7) -
+          effAp +
+          (mods.worsenDefenderSave || 0) -
+          (defender.saveBonus || 0);
         armorSaveNeeded = clampThreshold(armorSaveNeeded, 7);
 
         const invulnLost = g.invulnFragile && groupCurWounds[gi] < g.wounds;
         const invOpts = invulnLost
           ? []
-          : [g.invuln, atk.isMelee ? g.invulnMelee : g.invulnRanged].filter((v) => v > 0);
+          : [g.invuln, atk.isMelee ? g.invulnMelee : g.invulnRanged].filter(
+              (v) => v > 0,
+            );
         const effInv = invOpts.length ? Math.min.apply(null, invOpts) : 0;
-        const saveNeeded = effInv ? Math.min(armorSaveNeeded, effInv) : armorSaveNeeded;
+        const saveNeeded = effInv
+          ? Math.min(armorSaveNeeded, effInv)
+          : armorSaveNeeded;
         const saveRerollPolicy = defender.rerollSave || "none";
         let saveRoll = it.roll;
         const saveFirstFailed = !(saveRoll !== 1 && saveRoll >= saveNeeded);
         if (
           saveRerollPolicy === "all" ||
           (saveRerollPolicy === "ones" && saveRoll === 1) ||
-          (saveRerollPolicy === "failed" && saveRoll !== 1 && saveRoll < saveNeeded)
+          (saveRerollPolicy === "failed" &&
+            saveRoll !== 1 &&
+            saveRoll < saveNeeded)
         ) {
           saveRoll = d6();
           sumSaveRerolls++;
@@ -2800,7 +3016,8 @@ function simulate(attackers, defender, trials) {
         damage = rollDamage(atk, mods);
       }
 
-      if (defender.damageReduction) damage = Math.max(1, damage - defender.damageReduction);
+      if (defender.damageReduction)
+        damage = Math.max(1, damage - defender.damageReduction);
 
       sumDamageBeforeFnp += damage;
       pa.sumDamageBeforeFnp += damage;
@@ -2853,35 +3070,56 @@ function simulate(attackers, defender, trials) {
       let totalAttacks = 0;
 
       const flatBonus = mods.attacksBonus || 0;
-      for (let w = 0; w < numWeapons; w++) totalAttacks += Math.max(0, diceAttacks() + flatBonus);
+      for (let w = 0; w < numWeapons; w++)
+        totalAttacks += Math.max(0, diceAttacks() + flatBonus);
       if (mods.extraAttacks) totalAttacks += numWeapons;
-      if (atk.kw.rapidFireN && mods.halfRange) totalAttacks += atk.kw.rapidFireN * numWeapons;
+      if (atk.kw.rapidFireN && mods.halfRange)
+        totalAttacks += atk.kw.rapidFireN * numWeapons;
 
       if (atk.kw.blastN)
-        totalAttacks += atk.kw.blastN * Math.floor(Math.max(1, groupAlive.reduce((n, m) => n + m, 0)) / 5) * numWeapons;
+        totalAttacks +=
+          atk.kw.blastN *
+          Math.floor(
+            Math.max(
+              1,
+              groupAlive.reduce((n, m) => n + m, 0),
+            ) / 5,
+          ) *
+          numWeapons;
       sumAttacks += totalAttacks;
       pa.sumAttacks += totalAttacks;
 
       const coverHitPenalty =
-        defender.coverBonus && !atk.kw.ignoresCoverWeapon && !mods.ignoresCover ? 1 : 0;
+        defender.coverBonus && !atk.kw.ignoresCoverWeapon && !mods.ignoresCover
+          ? 1
+          : 0;
       let hitThreshold = clampThreshold(
-        (atk.skill || 4) - (mods.toHit || 0) + (defender.hitPenalty || 0) + coverHitPenalty
+        (atk.skill || 4) -
+          (mods.toHit || 0) +
+          (defender.hitPenalty || 0) +
+          coverHitPenalty,
       );
       if (mods.fireOverwatch) hitThreshold = 6;
 
       const critHitThreshold = mods.fireOverwatch ? 7 : mods.critHitOn || 6;
-      const hitRerollPolicy = atk.kw.TORRENT ? "none" : mods.rerollHit || "none";
+      const hitRerollPolicy = atk.kw.TORRENT
+        ? "none"
+        : mods.rerollHit || "none";
 
       let strength = atk.strength + (mods.strengthBonus || 0);
       let ap = atk.ap - (mods.apBonus || 0);
       if (atk.kw.meltaN && mods.halfRange) strength += 0;
       const effToughness = defender.toughness + (defender.toughnessBonus || 0);
       const woundThresh = clampThreshold(
-        woundThreshold(strength, effToughness) - (mods.toWound || 0) + (defender.woundPenalty || 0)
+        woundThreshold(strength, effToughness) -
+          (mods.toWound || 0) +
+          (defender.woundPenalty || 0),
       );
       const critWoundThreshold = mods.critWoundOn || 6;
       const woundRerollPolicy =
-        mods.twinLinked || atk.kw.TWIN_LINKED ? "failed" : mods.rerollWound || "none";
+        mods.twinLinked || atk.kw.TWIN_LINKED
+          ? "failed"
+          : mods.rerollWound || "none";
 
       const pool = [];
       for (let i = 0; i < totalAttacks; i++) {
@@ -2891,7 +3129,11 @@ function simulate(attackers, defender, trials) {
           isCritHit = false;
           hitRollNatural = 0;
         } else {
-          const hr = rollEvalWithTracking(hitThreshold, critHitThreshold, hitRerollPolicy);
+          const hr = rollEvalWithTracking(
+            hitThreshold,
+            critHitThreshold,
+            hitRerollPolicy,
+          );
           if (hr.rerolled) {
             sumHitRerolls++;
             if (hr.convertedToSuccess) sumHitRerollToSuccess++;
@@ -2907,12 +3149,14 @@ function simulate(attackers, defender, trials) {
         const lethalProc = isCritHit && mods.lethalHits;
         if (lethalProc) sumLethalHitsProcs++;
         const woundAttempts = [{ autoWound: lethalProc }];
-        const sustainedDice = atk.kw.sustainedDiceExpr || (mods.sustainedHits ? "1" : null);
+        const sustainedDice =
+          atk.kw.sustainedDiceExpr || (mods.sustainedHits ? "1" : null);
         if (isCritHit && sustainedDice && mods.sustainedHits) {
           const extraRoller = parseDiceExpr(sustainedDice);
           const extra = extraRoller();
           sumSustainedExtraHits += extra;
-          for (let e = 0; e < extra; e++) woundAttempts.push({ autoWound: false });
+          for (let e = 0; e < extra; e++)
+            woundAttempts.push({ autoWound: false });
         }
         sumHits += woundAttempts.length;
         pa.sumHits += woundAttempts.length;
@@ -2941,7 +3185,11 @@ function simulate(attackers, defender, trials) {
               isCritWound = true;
               sumAntiProcs++;
             } else {
-              const wr = rollEvalWithTracking(woundThresh, critWoundThreshold, woundRerollPolicy);
+              const wr = rollEvalWithTracking(
+                woundThresh,
+                critWoundThreshold,
+                woundRerollPolicy,
+              );
               if (wr.rerolled) {
                 sumWoundRerolls++;
                 if (wr.convertedToSuccess) sumWoundRerollToSuccess++;
@@ -3085,6 +3333,8 @@ if (typeof module !== "undefined") {
 
   let showLegends = false;
   let showUnitCards = true;
+  let showAdvanced = true;
+  let activeTab = "overview";
   const PREFS_KEY = "mathhammer.prefs.v1";
 
   function loadPrefs() {
@@ -3100,7 +3350,11 @@ if (typeof module !== "undefined") {
     try {
       localStorage.setItem(
         PREFS_KEY,
-        JSON.stringify({ legends: showLegends, unitCards: showUnitCards })
+        JSON.stringify({
+          legends: showLegends,
+          unitCards: showUnitCards,
+          advanced: showAdvanced,
+        }),
       );
     } catch (e) {}
   }
@@ -3170,10 +3424,30 @@ if (typeof module !== "undefined") {
   let charts = {};
 
   const SCENARIOS = [
-    { id: "longNoCover", label: "Long Range · No Cover", halfRange: false, cover: false },
-    { id: "halfNoCover", label: "Half Range · No Cover", halfRange: true, cover: false },
-    { id: "longCover", label: "Long Range · In Cover", halfRange: false, cover: true },
-    { id: "halfCover", label: "Half Range · In Cover", halfRange: true, cover: true },
+    {
+      id: "longNoCover",
+      label: "Long Range · No Cover",
+      halfRange: false,
+      cover: false,
+    },
+    {
+      id: "halfNoCover",
+      label: "Half Range · No Cover",
+      halfRange: true,
+      cover: false,
+    },
+    {
+      id: "longCover",
+      label: "Long Range · In Cover",
+      halfRange: false,
+      cover: true,
+    },
+    {
+      id: "halfCover",
+      label: "Half Range · In Cover",
+      halfRange: true,
+      cover: true,
+    },
   ];
   let scenarioResults = null;
   let scenarioMeleeOnly = false;
@@ -3218,7 +3492,9 @@ if (typeof module !== "undefined") {
     String(unit.points || "")
       .split(";")
       .forEach((part) => {
-        const m = part.trim().match(/^(\d+)\s+models?\s*(?:\(([^)]*)\))?\s*:\s*(\d+)/i);
+        const m = part
+          .trim()
+          .match(/^(\d+)\s+models?\s*(?:\(([^)]*)\))?\s*:\s*(\d+)/i);
         if (!m) return;
         if (m[2] && /\d+(?:st|nd|rd|th)\+/i.test(m[2])) return;
         const n = parseInt(m[1], 10);
@@ -3227,7 +3503,8 @@ if (typeof module !== "undefined") {
     let tiers = Object.keys(byModels)
       .map((k) => [parseInt(k, 10), byModels[k]])
       .sort((a, b) => a[0] - b[0]);
-    if (!tiers.length && unit.pointsMin) tiers = [[unit.modelsMin || 1, unit.pointsMin]];
+    if (!tiers.length && unit.pointsMin)
+      tiers = [[unit.modelsMin || 1, unit.pointsMin]];
     unit._tiers = tiers;
     return tiers;
   }
@@ -3247,8 +3524,17 @@ if (typeof module !== "undefined") {
     const weaponIdx = unit && unit.weapons.length ? 0 : null;
 
     const count = unit && unit.modelsMin ? unit.modelsMin : 1;
-    const row = { id: uid("w"), weaponIdx, count, mods: defaultMods(), antiList: [] };
-    prefillInnate(row, unit && weaponIdx != null ? unit.weapons[weaponIdx] : null);
+    const row = {
+      id: uid("w"),
+      weaponIdx,
+      count,
+      mods: defaultMods(),
+      antiList: [],
+    };
+    prefillInnate(
+      row,
+      unit && weaponIdx != null ? unit.weapons[weaponIdx] : null,
+    );
     return row;
   }
 
@@ -3297,7 +3583,9 @@ if (typeof module !== "undefined") {
       if (typeof v !== "number") return hex;
       const t = hi > lo ? (v - lo) / (hi - lo) : 1;
       const k = 0.08 + 0.92 * Math.max(0, Math.min(1, t));
-      const c = [0, 1, 2].map((i) => Math.round(light[i] + (dark[i] - light[i]) * k));
+      const c = [0, 1, 2].map((i) =>
+        Math.round(light[i] + (dark[i] - light[i]) * k),
+      );
       return "rgb(" + c.join(",") + ")";
     });
   }
@@ -3305,7 +3593,8 @@ if (typeof module !== "undefined") {
   function factionOptions(selected) {
     return visibleFactions()
       .map(
-        (f) => `<option value="${esc(f)}" ${f === selected ? "selected" : ""}>${esc(f)}</option>`
+        (f) =>
+          `<option value="${esc(f)}" ${f === selected ? "selected" : ""}>${esc(f)}</option>`,
       )
       .join("");
   }
@@ -3323,13 +3612,16 @@ if (typeof module !== "undefined") {
 
   function unitOptions(faction, selectedId, allowBlank) {
     const list = visibleUnits(faction);
-    const blank = allowBlank && !selectedId ? '<option value="" selected>Select unit</option>' : "";
+    const blank =
+      allowBlank && !selectedId
+        ? '<option value="" selected>Select unit</option>'
+        : "";
     return (
       blank +
       list
         .map(
           (u) =>
-            `<option value="${u.id}" ${u.id === selectedId ? "selected" : ""}>${esc(unitDisplayName(u))}</option>`
+            `<option value="${u.id}" ${u.id === selectedId ? "selected" : ""}>${esc(unitDisplayName(u))}</option>`,
         )
         .join("")
     );
@@ -3340,7 +3632,7 @@ if (typeof module !== "undefined") {
     return unit.weapons
       .map(
         (w, i) =>
-          `<option value="${i}" ${i === selectedIdx ? "selected" : ""}>${esc(w.name)} (${w.type === "Melee" ? "Melee" : "Ranged " + w.range + '"'})</option>`
+          `<option value="${i}" ${i === selectedIdx ? "selected" : ""}>${esc(w.name)} (${w.type === "Melee" ? "Melee" : "Ranged " + w.range + '"'})</option>`,
       )
       .join("");
   }
@@ -3378,7 +3670,6 @@ if (typeof module !== "undefined") {
   function weaponKw(weapon, code) {
     return (weapon.keywords || []).find((k) => k.code === code);
   }
-
 
   const GROUP_ADD_FIELDS = [
     "toHit",
@@ -3439,13 +3730,20 @@ if (typeof module !== "undefined") {
 
   function applyGroupMods(engineAttacker, groupRow) {
     if (!groupRow || !groupModCount(groupRow)) return engineAttacker;
-    const antiKeys = new Set(engineAttacker.kw.anti.map((x) => x.keyword + x.threshold));
-    const extraAnti = (groupRow.antiList || []).filter((x) => !antiKeys.has(x.keyword + x.threshold));
+    const antiKeys = new Set(
+      engineAttacker.kw.anti.map((x) => x.keyword + x.threshold),
+    );
+    const extraAnti = (groupRow.antiList || []).filter(
+      (x) => !antiKeys.has(x.keyword + x.threshold),
+    );
     return Object.assign({}, engineAttacker, {
       mods: mergeGroupMods(engineAttacker.mods, groupRow.mods),
       kw: Object.assign({}, engineAttacker.kw, {
         anti: engineAttacker.kw.anti.concat(
-          extraAnti.map((x) => ({ keyword: x.keyword, threshold: x.threshold }))
+          extraAnti.map((x) => ({
+            keyword: x.keyword,
+            threshold: x.threshold,
+          })),
         ),
       }),
     });
@@ -3475,7 +3773,10 @@ if (typeof module !== "undefined") {
 
   function makeSearchable(select) {
     if (!select || select.searchableCombo) return;
-    const valueProp = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+    const valueProp = Object.getOwnPropertyDescriptor(
+      HTMLSelectElement.prototype,
+      "value",
+    );
     const wrap = document.createElement("div");
     wrap.className = "combo";
     const input = document.createElement("input");
@@ -3507,7 +3808,11 @@ if (typeof module !== "undefined") {
     }
 
     function visibleOptions() {
-      const words = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      const words = input.value
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean);
       const filtering = open && input.dataset.typed === "1";
       return Array.from(select.options).filter((opt) => {
         if (!filtering || !words.length) return true;
@@ -3584,7 +3889,8 @@ if (typeof module !== "undefined") {
         input.blur();
         return;
       }
-      if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter")
+        return;
       e.preventDefault();
       const options = visibleOptions();
       if (e.key === "Enter") {
@@ -3594,11 +3900,15 @@ if (typeof module !== "undefined") {
       }
       highlighted = Math.max(
         0,
-        Math.min(options.length - 1, highlighted + (e.key === "ArrowDown" ? 1 : -1))
+        Math.min(
+          options.length - 1,
+          highlighted + (e.key === "ArrowDown" ? 1 : -1),
+        ),
       );
       renderList();
       const active = list.querySelector(".highlighted");
-      if (active) active.scrollIntoView && active.scrollIntoView({ block: "nearest" });
+      if (active)
+        active.scrollIntoView && active.scrollIntoView({ block: "nearest" });
     });
     input.addEventListener("blur", closeList);
 
@@ -3648,7 +3958,8 @@ if (typeof module !== "undefined") {
     copy.className = "group-tab group-tab-copy";
     copy.id = "copy-to-b";
     copy.textContent = "Copy to " + (groups[1] ? groups[1].label : "Group B");
-    copy.title = "Copy all attackers, weapons and modifiers from Group A into Group B";
+    copy.title =
+      "Copy all attackers, weapons and modifiers from Group A into Group B";
     copy.addEventListener("click", copyGroupAToB);
     bar.appendChild(copy);
     if (groups.length < MAX_GROUPS) {
@@ -3664,7 +3975,8 @@ if (typeof module !== "undefined") {
       rm.type = "button";
       rm.className = "group-tab-remove";
       rm.id = "remove-group";
-      rm.textContent = "\u00d7 Remove " + (groups[1] ? groups[1].label : "Group B");
+      rm.textContent =
+        "\u00d7 Remove " + (groups[1] ? groups[1].label : "Group B");
       rm.addEventListener("click", removeAttackerGroup);
       bar.appendChild(rm);
     }
@@ -3686,7 +3998,8 @@ if (typeof module !== "undefined") {
       done = true;
       const v = inp.value.trim();
       if (save && v) g.label = v;
-      if (groupResults && groupResults[g.id]) groupResults[g.id].label = g.label;
+      if (groupResults && groupResults[g.id])
+        groupResults[g.id].label = g.label;
       renderGroupTabs();
       renderGroupMods();
       if (
@@ -3736,7 +4049,16 @@ if (typeof module !== "undefined") {
   }
 
   function clearAllAttackers() {
-    if (attackers.length > 1 && !window.confirm("Remove all " + attackers.length + " attackers from " + activeGroup().label + "?")) {
+    if (
+      attackers.length > 1 &&
+      !window.confirm(
+        "Remove all " +
+          attackers.length +
+          " attackers from " +
+          activeGroup().label +
+          "?",
+      )
+    ) {
       return;
     }
     attackers = [];
@@ -3881,20 +4203,17 @@ if (typeof module !== "undefined") {
       rowsWrap.innerHTML = "";
       const u = a.unitId ? unitById[a.unitId] : null;
       if (!u || !a.weaponRows.length) {
-        rowsWrap.innerHTML = '<div class="empty-hint small">No weapon selected.</div>';
+        rowsWrap.innerHTML =
+          '<div class="empty-hint small">No weapon selected.</div>';
         updateCalcBtnState();
         return;
       }
       a.weaponRows.forEach((row) => {
         rowsWrap.appendChild(
-          buildWeaponRowEl(
-            u,
-            row,
-            () => {
-              a.weaponRows = a.weaponRows.filter((r) => r.id !== row.id);
-              renderWeaponRows();
-            }
-          )
+          buildWeaponRowEl(u, row, () => {
+            a.weaponRows = a.weaponRows.filter((r) => r.id !== row.id);
+            renderWeaponRows();
+          }),
         );
       });
       updateCalcBtnState();
@@ -3959,20 +4278,6 @@ if (typeof module !== "undefined") {
     return t;
   }
 
-  function unitStatLine(unit) {
-    if (!unit) return "";
-    const model = (unit.models && unit.models[0]) || {};
-    return `<div class="stat-line unit-stat-line">
-      <span>M: <b>${model.m != null ? esc(String(model.m)) : "-"}</b></span>
-      <span>T: <b>${esc(String(model.t != null ? model.t : "-"))}</b></span>
-      <span>Sv: <b>${model.sv ? model.sv + "+" : "-"}</b></span>
-      <span>Inv: <b>${invText(unit, model)}</b></span>
-      <span>W: <b>${esc(String(model.w != null ? model.w : "-"))}</b></span>
-      <span>Ld: <b>${model.ld ? model.ld + "+" : "-"}</b></span>
-      <span>OC: <b>${esc(String(model.oc != null ? model.oc : "-"))}</b></span>
-    </div>`;
-  }
-
   function weaponStatLine(w) {
     return `<div class="stat-line">
       <span>A: <b>${esc(w.a)}</b></span>
@@ -3995,7 +4300,11 @@ if (typeof module !== "undefined") {
     row.antiList = weapon
       ? (weapon.keywords || [])
           .filter((k) => k.code === "ANTI")
-          .map((k) => ({ keyword: k.keyword, threshold: k.threshold, innate: true }))
+          .map((k) => ({
+            keyword: k.keyword,
+            threshold: k.threshold,
+            innate: true,
+          }))
       : [];
   }
 
@@ -4041,7 +4350,7 @@ if (typeof module !== "undefined") {
               { v: "failed", l: "All failed" },
               { v: "all", l: "All except crits" },
             ],
-            "Re-rolls every die that is not a critical hit, so failures and ordinary hits are both re-rolled. Critical hits are always kept, whatever the Critical Hit threshold is set to.\n\nWorth it when a critical hit is worth more than an ordinary hit: Lethal Hits (the critical hit skips the wound roll) or Sustained Hits. Otherwise you can turn a good hit into a miss, and All failed is the safer choice."
+            "Re-rolls every die that is not a critical hit, so failures and ordinary hits are both re-rolled. Critical hits are always kept, whatever the Critical Hit threshold is set to.\n\nWorth it when a critical hit is worth more than an ordinary hit: Lethal Hits (the critical hit skips the wound roll) or Sustained Hits. Otherwise you can turn a good hit into a miss, and All failed is the safer choice.",
           )}
           ${radioGroup(
             "rerollWound",
@@ -4052,7 +4361,7 @@ if (typeof module !== "undefined") {
               { v: "failed", l: "All failed" },
               { v: "all", l: "All except crits" },
             ],
-            "Re-rolls every die that is not a critical wound, so failures and ordinary wounds are both re-rolled. Critical wounds are always kept, whatever the Critical Wound threshold is set to.\n\nWorth it mainly with Devastating Wounds (the critical wound skips the save). Otherwise you can turn a good wound into a miss, and All failed is the safer choice."
+            "Re-rolls every die that is not a critical wound, so failures and ordinary wounds are both re-rolled. Critical wounds are always kept, whatever the Critical Wound threshold is set to.\n\nWorth it mainly with Devastating Wounds (the critical wound skips the save). Otherwise you can turn a good wound into a miss, and All failed is the safer choice.",
           )}
           ${radioGroup("rerollDamage", "Re-roll Damage", [
             { v: "none", l: "None" },
@@ -4087,7 +4396,7 @@ if (typeof module !== "undefined") {
             ${row.antiList
               .map(
                 (x, i) =>
-                  `<span class="badge anti-badge">Anti-${titleCase(x.keyword)} ${x.threshold}+ <button data-rmanti="${i}">&times;</button></span>`
+                  `<span class="badge anti-badge">Anti-${titleCase(x.keyword)} ${x.threshold}+ <button data-rmanti="${i}">&times;</button></span>`,
               )
               .join("")}
           </div>
@@ -4117,7 +4426,9 @@ if (typeof module !== "undefined") {
         else if (el.tagName === "SELECT") {
           const v = el.value;
           row.mods[key] =
-            v === "none" || v === "ones" || v === "all" || v === "failed" ? v : Number(v);
+            v === "none" || v === "ones" || v === "all" || v === "failed"
+              ? v
+              : Number(v);
         }
       });
     });
@@ -4148,12 +4459,17 @@ if (typeof module !== "undefined") {
     return (
       !!unit &&
       typeof unit.abilities !== "string" &&
-      JSON.stringify(unit.abilities || []).search(/loses a wound[^"]*no\s*(<b>)?\s*InSv/i) >= 0
+      JSON.stringify(unit.abilities || []).search(
+        /loses a wound[^"]*no\s*(<b>)?\s*InSv/i,
+      ) >= 0
     );
   }
 
   function isCharacterUnit(unit) {
-    return !!unit && (unit.keywords || []).some((k) => String(k).toUpperCase() === "CHARACTER");
+    return (
+      !!unit &&
+      (unit.keywords || []).some((k) => String(k).toUpperCase() === "CHARACTER")
+    );
   }
 
   function newDefenderMember() {
@@ -4349,13 +4665,16 @@ if (typeof module !== "undefined") {
         renderDefender();
       });
     wrap.querySelectorAll(".def-member").forEach((card) => {
-      const m = defender.members.find((x) => x.id === card.getAttribute("data-mid"));
+      const m = defender.members.find(
+        (x) => x.id === card.getAttribute("data-mid"),
+      );
       if (!m) return;
       const unitSel = card.querySelector(".dm-unit");
       makeSearchable(unitSel);
       card.querySelector(".dm-remove").addEventListener("click", () => {
         defender.members = defender.members.filter((x) => x !== m);
-        if (defender.order) defender.order = defender.order.filter((id) => id !== m.id);
+        if (defender.order)
+          defender.order = defender.order.filter((id) => id !== m.id);
         renderDefender();
       });
       card.querySelector(".dm-faction").addEventListener("change", (e) => {
@@ -4392,7 +4711,14 @@ if (typeof module !== "undefined") {
 
   function clearAllDefenders() {
     const count = 1 + defender.members.length;
-    if (count > 1 && !window.confirm("Remove the defender and all " + (count - 1) + " attached model(s) / leader(s)?"))
+    if (
+      count > 1 &&
+      !window.confirm(
+        "Remove the defender and all " +
+          (count - 1) +
+          " attached model(s) / leader(s)?",
+      )
+    )
       return;
     defender = freshDefender();
     renderDefender();
@@ -4430,7 +4756,7 @@ if (typeof module !== "undefined") {
       <div class="kw-chip-row">
         ${ANTI_KEYWORDS.map(
           (k) =>
-            `<label class="chip"><input type="checkbox" class="def-kw" value="${k}" ${defender.keywords.includes(k) ? "checked" : ""}/> ${titleCase(k)}</label>`
+            `<label class="chip"><input type="checkbox" class="def-kw" value="${k}" ${defender.keywords.includes(k) ? "checked" : ""}/> ${titleCase(k)}</label>`,
         ).join("")}
       </div>
       ${renderDefenderModifierGroups()}
@@ -4438,7 +4764,9 @@ if (typeof module !== "undefined") {
       </div>
     `;
 
-    wrap.querySelector(".clear-all-defenders").addEventListener("click", clearAllDefenders);
+    wrap
+      .querySelector(".clear-all-defenders")
+      .addEventListener("click", clearAllDefenders);
     const factionSel = wrap.querySelector(".def-faction-sel");
     const unitSel = wrap.querySelector(".def-unit-sel");
     makeSearchable(unitSel);
@@ -4571,12 +4899,11 @@ if (typeof module !== "undefined") {
     if (!candidates.length) return;
     closeSwapDialog();
 
-    const oldNames = [unitDisplayName(unitById[defender.unitId])]
-      .concat(
-        defender.members
-          .filter((m) => m.unitId && unitById[m.unitId])
-          .map((m) => unitDisplayName(unitById[m.unitId]))
-      );
+    const oldNames = [unitDisplayName(unitById[defender.unitId])].concat(
+      defender.members
+        .filter((m) => m.unitId && unitById[m.unitId])
+        .map((m) => unitDisplayName(unitById[m.unitId])),
+    );
     const picked = new Set([0]);
     let primaryIdx = 0;
     let step = 1;
@@ -4593,10 +4920,18 @@ if (typeof module !== "undefined") {
     const describe = (a) => {
       const u = unitById[a.unitId];
       const weapons = a.weaponRows
-        .map((r) => (u.weapons && u.weapons[r.weaponIdx] ? u.weapons[r.weaponIdx].name : null))
+        .map((r) =>
+          u.weapons && u.weapons[r.weaponIdx]
+            ? u.weapons[r.weaponIdx].name
+            : null,
+        )
         .filter(Boolean)
         .join(", ");
-      return { name: unitDisplayName(u), sub: (a.unitSize || 1) + " models" + (weapons ? " \u00b7 " + weapons : "") };
+      return {
+        name: unitDisplayName(u),
+        sub:
+          (a.unitSize || 1) + " models" + (weapons ? " \u00b7 " + weapons : ""),
+      };
     };
 
     const note =
@@ -4615,7 +4950,9 @@ if (typeof module !== "undefined") {
       if (step === 1) {
         overlay.innerHTML =
           '<div class="swap-box" role="dialog" aria-modal="true" aria-labelledby="swap-title">' +
-          '<div class="swap-step">Step 1 of ' + (picked.size > 1 ? 2 : 1) + "</div>" +
+          '<div class="swap-step">Step 1 of ' +
+          (picked.size > 1 ? 2 : 1) +
+          "</div>" +
           '<h3 id="swap-title">Switch attacker &amp; defender</h3>' +
           '<p class="swap-sub">' +
           (candidates.length > 1
@@ -4628,15 +4965,23 @@ if (typeof module !== "undefined") {
             .map((a, i) => {
               const d = describe(a);
               return (
-                '<label class="swap-option"><input type="checkbox" class="swap-check" value="' + i + '"' +
+                '<label class="swap-option"><input type="checkbox" class="swap-check" value="' +
+                i +
+                '"' +
                 (picked.has(i) ? " checked" : "") +
-                ' /><span class="swap-option-text"><strong>' + esc(d.name) + "</strong><small>" + esc(d.sub) + "</small></span></label>"
+                ' /><span class="swap-option-text"><strong>' +
+                esc(d.name) +
+                "</strong><small>" +
+                esc(d.sub) +
+                "</small></span></label>"
               );
             })
             .join("") +
           "</div>" +
           '<div class="swap-actions"><button type="button" class="btn btn-secondary swap-cancel">Cancel</button>' +
-          '<button type="button" class="btn swap-confirm"' + (picked.size ? "" : " disabled") + ">" +
+          '<button type="button" class="btn swap-confirm"' +
+          (picked.size ? "" : " disabled") +
+          ">" +
           (picked.size > 1 ? "Next" : "Confirm") +
           "</button></div></div>";
         overlay.querySelectorAll(".swap-check").forEach((cb) =>
@@ -4647,10 +4992,13 @@ if (typeof module !== "undefined") {
             const btn = overlay.querySelector(".swap-confirm");
             btn.disabled = !picked.size;
             btn.textContent = picked.size > 1 ? "Next" : "Confirm";
-            overlay.querySelector(".swap-step").textContent = "Step 1 of " + (picked.size > 1 ? 2 : 1);
-          })
+            overlay.querySelector(".swap-step").textContent =
+              "Step 1 of " + (picked.size > 1 ? 2 : 1);
+          }),
         );
-        overlay.querySelector(".swap-cancel").addEventListener("click", closeSwapDialog);
+        overlay
+          .querySelector(".swap-cancel")
+          .addEventListener("click", closeSwapDialog);
         overlay.querySelector(".swap-confirm").addEventListener("click", () => {
           if (!picked.size) return;
           if (picked.size === 1) {
@@ -4675,9 +5023,15 @@ if (typeof module !== "undefined") {
             .map((i) => {
               const d = describe(candidates[i]);
               return (
-                '<label class="swap-option"><input type="radio" name="swap-primary" class="swap-primary" value="' + i + '"' +
+                '<label class="swap-option"><input type="radio" name="swap-primary" class="swap-primary" value="' +
+                i +
+                '"' +
                 (i === primaryIdx ? " checked" : "") +
-                ' /><span class="swap-option-text"><strong>' + esc(d.name) + "</strong><small>" + esc(d.sub) + '</small></span><span class="swap-role">' +
+                ' /><span class="swap-option-text"><strong>' +
+                esc(d.name) +
+                "</strong><small>" +
+                esc(d.sub) +
+                '</small></span><span class="swap-role">' +
                 (i === primaryIdx ? "Primary" : "Attached") +
                 "</span></label>"
               );
@@ -4691,9 +5045,10 @@ if (typeof module !== "undefined") {
             primaryIdx = Number(r.value);
             overlay.querySelectorAll(".swap-option").forEach((lab) => {
               const inp = lab.querySelector(".swap-primary");
-              lab.querySelector(".swap-role").textContent = Number(inp.value) === primaryIdx ? "Primary" : "Attached";
+              lab.querySelector(".swap-role").textContent =
+                Number(inp.value) === primaryIdx ? "Primary" : "Attached";
             });
-          })
+          }),
         );
         overlay.querySelector(".swap-back").addEventListener("click", () => {
           step = 1;
@@ -4715,7 +5070,9 @@ if (typeof module !== "undefined") {
   function hasValidAttacker() {
     syncActiveGroup();
     return groups.some((g) =>
-      g.attackers.some((a) => a.unitId && a.weaponRows.some((r) => r.weaponIdx != null))
+      g.attackers.some(
+        (a) => a.unitId && a.weaponRows.some((r) => r.weaponIdx != null),
+      ),
     );
   }
 
@@ -4729,7 +5086,8 @@ if (typeof module !== "undefined") {
 
     let hintText = "";
     if (!validAttacker && !validDefender) {
-      hintText = "Pick an attacker (unit + weapon) and a defender unit below to enable Calculate.";
+      hintText =
+        "Pick an attacker (unit + weapon) and a defender unit below to enable Calculate.";
     } else if (!validAttacker) {
       hintText = "Pick an attacker unit + weapon below to enable Calculate.";
     } else if (!validDefender) {
@@ -4826,7 +5184,9 @@ if (typeof module !== "undefined") {
     defender.fnp = unit.fnp || 0;
     defender.wounds = model.w || defender.wounds;
     defender.models = unit.modelsMin || defender.models;
-    defender.keywords = (unit.keywords || []).filter((k) => ANTI_KEYWORDS.includes(k));
+    defender.keywords = (unit.keywords || []).filter((k) =>
+      ANTI_KEYWORDS.includes(k),
+    );
     defender.isCharacter = isCharacterUnit(unit);
     defender.invulnFragile = hasFragileInvuln(unit);
   }
@@ -4841,7 +5201,10 @@ if (typeof module !== "undefined") {
       else if (k.code === "BLAST") kw.blastN = blastNFromWeapon(weapon);
       else if (k.code === "IGNORES_COVER") kw.ignoresCoverWeapon = true;
     });
-    kw.anti = (row.antiList || []).map((x) => ({ keyword: x.keyword, threshold: x.threshold }));
+    kw.anti = (row.antiList || []).map((x) => ({
+      keyword: x.keyword,
+      threshold: x.threshold,
+    }));
 
     const mods = Object.assign({}, row.mods, {
       critHitOn: row.mods.critHitOn || 0,
@@ -4869,9 +5232,12 @@ if (typeof module !== "undefined") {
       const unit = a.unitId ? unitById[a.unitId] : null;
       if (!unit) return;
       a.weaponRows.forEach((row) => {
-        const weapon = row.weaponIdx != null ? unit.weapons[row.weaponIdx] : null;
+        const weapon =
+          row.weaponIdx != null ? unit.weapons[row.weaponIdx] : null;
         if (!weapon) return;
-        engineAttackers.push(applyGroupMods(buildEngineAttacker(unit, weapon, row), groupRow));
+        engineAttackers.push(
+          applyGroupMods(buildEngineAttacker(unit, weapon, row), groupRow),
+        );
         meta.push({
           attackerId: a.id,
           unitId: unit.id,
@@ -4888,7 +5254,9 @@ if (typeof module !== "undefined") {
     const profile = buildBaseDefenderProfile();
     const list = defenderGroupList();
     if (list.length < 2) return profile;
-    const toughnessPool = list.some((g) => !g.isCharacter) ? list.filter((g) => !g.isCharacter) : list;
+    const toughnessPool = list.some((g) => !g.isCharacter)
+      ? list.filter((g) => !g.isCharacter)
+      : list;
     const models = list.reduce((n, g) => n + g.models, 0);
     const pool = list.reduce((n, g) => n + g.models * g.wounds, 0);
     const keywords = new Set();
@@ -4896,7 +5264,7 @@ if (typeof module !== "undefined") {
     return Object.assign(profile, {
       toughness: Math.max.apply(
         null,
-        toughnessPool.map((g) => g.toughness)
+        toughnessPool.map((g) => g.toughness),
       ),
       models,
       wounds: pool / models,
@@ -4952,7 +5320,11 @@ if (typeof module !== "undefined") {
         wounds: model.w || 1,
         toughness: model.t || 4,
         save: model.sv || 7,
-        invuln: Math.max(typeof model.inv === "number" ? model.inv : 0, unit.invR || 0, unit.invM || 0),
+        invuln: Math.max(
+          typeof model.inv === "number" ? model.inv : 0,
+          unit.invR || 0,
+          unit.invM || 0,
+        ),
         fnp: unit.fnp || 0,
         isCharacter: isCharacterUnit(unit),
         points: unitPointsFor(unit, n) || unit.pointsMin || 0,
@@ -4961,13 +5333,21 @@ if (typeof module !== "undefined") {
     if (!parts.length) return null;
     const models = parts.reduce((n, p) => n + p.models, 0);
     const pool = parts.reduce((n, p) => n + p.models * p.wounds, 0);
-    const lead = parts.slice().sort((x, y) => y.models * y.wounds - x.models * x.wounds)[0];
+    const lead = parts
+      .slice()
+      .sort((x, y) => y.models * y.wounds - x.models * x.wounds)[0];
     const points = parts.reduce((n, p) => n + p.points, 0);
     return { parts, models, pool, lead, points };
   }
 
   function durabilityDefender(d, extra) {
-    const def = plainDefender(d.lead.toughness, d.lead.save, d.pool / d.models, d.models, d.lead.invuln);
+    const def = plainDefender(
+      d.lead.toughness,
+      d.lead.save,
+      d.pool / d.models,
+      d.models,
+      d.lead.invuln,
+    );
     def.fnp = d.lead.fnp;
     if (d.parts.length > 1) {
       def.groups = d.parts.map((p) => ({
@@ -5004,9 +5384,33 @@ if (typeof module !== "undefined") {
   }
 
   const DURABILITY_VOLLEYS = [
-    { key: "small", label: "Small arms", desc: "30\u00d7 S4 AP0 D1", a: 30, s: 4, ap: 0, d: 1 },
-    { key: "medium", label: "Medium weapons", desc: "12\u00d7 S6 AP-1 D2", a: 12, s: 6, ap: -1, d: 2 },
-    { key: "heavy", label: "Anti-tank", desc: "4\u00d7 S10 AP-3 D6", a: 4, s: 10, ap: -3, d: 6 },
+    {
+      key: "small",
+      label: "Small arms",
+      desc: "30\u00d7 S4 AP0 D1",
+      a: 30,
+      s: 4,
+      ap: 0,
+      d: 1,
+    },
+    {
+      key: "medium",
+      label: "Medium weapons",
+      desc: "12\u00d7 S6 AP-1 D2",
+      a: 12,
+      s: 6,
+      ap: -1,
+      d: 2,
+    },
+    {
+      key: "heavy",
+      label: "Anti-tank",
+      desc: "4\u00d7 S10 AP-3 D6",
+      a: 4,
+      s: 10,
+      ap: -3,
+      d: 6,
+    },
   ];
 
   function durabilityMetrics(gr) {
@@ -5017,7 +5421,10 @@ if (typeof module !== "undefined") {
       models: d.models,
       pool: d.pool,
       stat:
-        "T" + d.lead.toughness + " " + (d.lead.save >= 7 ? "no save" : d.lead.save + "+") +
+        "T" +
+        d.lead.toughness +
+        " " +
+        (d.lead.save >= 7 ? "no save" : d.lead.save + "+") +
         (d.lead.invuln ? "/" + d.lead.invuln + "++" : "") +
         (d.lead.fnp ? " FNP " + d.lead.fnp + "+" : "") +
         (d.parts.length > 1 ? " (" + d.lead.label + ")" : ""),
@@ -5025,7 +5432,11 @@ if (typeof module !== "undefined") {
       points: d.points,
     };
     DURABILITY_VOLLEYS.forEach((v) => {
-      const r = simulate(referenceVolley(v.a, v.s, v.ap, v.d), durabilityDefender(d), 3000);
+      const r = simulate(
+        referenceVolley(v.a, v.s, v.ap, v.d),
+        durabilityDefender(d),
+        3000,
+      );
       m[v.key] = Math.min(100, (r.meanEffectiveDamage / d.pool) * 100);
       m[v.key + "Models"] = r.meanModelsKilled;
     });
@@ -5040,13 +5451,23 @@ if (typeof module !== "undefined") {
     const probeStart = performance.now();
     simulate(engineAttackers, Object.assign({}, baseDef), 300);
     const perTrial = Math.max(0.001, (performance.now() - probeStart) / 300);
-    const mainTrials = Math.round(Math.min(20000, Math.max(4000, 450 / perTrial)));
+    const mainTrials = Math.round(
+      Math.min(20000, Math.max(4000, 450 / perTrial)),
+    );
     toRun.forEach((sc) => {
       const atkForScenario = engineAttackers.map((a) =>
-        Object.assign({}, a, { mods: Object.assign({}, a.mods, { halfRange: sc.halfRange }) })
+        Object.assign({}, a, {
+          mods: Object.assign({}, a.mods, { halfRange: sc.halfRange }),
+        }),
       );
-      const defForScenario = Object.assign({}, baseDef, { coverBonus: sc.cover });
-      const result = simulate(atkForScenario, defForScenario, sc === toRun[0] ? mainTrials : Math.round(mainTrials / 2));
+      const defForScenario = Object.assign({}, baseDef, {
+        coverBonus: sc.cover,
+      });
+      const result = simulate(
+        atkForScenario,
+        defForScenario,
+        sc === toRun[0] ? mainTrials : Math.round(mainTrials / 2),
+      );
       results[sc.id] = { result, def: defForScenario, meta };
     });
     const seen = {};
@@ -5088,7 +5509,8 @@ if (typeof module !== "undefined") {
       lastDefenderPts = unitPointsFor(du, defender.models) || null;
       defender.members.forEach((m) => {
         const mu = m.unitId ? unitById[m.unitId] : null;
-        if (mu && lastDefenderPts != null) lastDefenderPts += unitPointsFor(mu, m.models) || 0;
+        if (mu && lastDefenderPts != null)
+          lastDefenderPts += unitPointsFor(mu, m.models) || 0;
       });
     }
     lastDefenderName =
@@ -5096,17 +5518,27 @@ if (typeof module !== "undefined") {
         ? unitDisplayName(unitById[defender.unitId])
         : "Custom defender";
     const extraNames = defender.members
-      .map((m) => (m.unitId && unitById[m.unitId] ? unitDisplayName(unitById[m.unitId]) : null))
+      .map((m) =>
+        m.unitId && unitById[m.unitId]
+          ? unitDisplayName(unitById[m.unitId])
+          : null,
+      )
       .filter(Boolean);
     if (extraNames.length) lastDefenderName += " + " + extraNames.join(" + ");
     const baseDef = buildDefenderProfile();
     const bundles = {};
     groups.forEach((g) => {
-      const { engineAttackers, meta } = buildEngineInputs(g.attackers, groupModRow(g));
-      if (engineAttackers.length) bundles[g.id] = computeGroup(g, engineAttackers, meta, baseDef);
+      const { engineAttackers, meta } = buildEngineInputs(
+        g.attackers,
+        groupModRow(g),
+      );
+      if (engineAttackers.length)
+        bundles[g.id] = computeGroup(g, engineAttackers, meta, baseDef);
     });
     if (!Object.keys(bundles).length) {
-      alert("Add at least one attacker with a weapon selected before calculating.");
+      alert(
+        "Add at least one attacker with a weapon selected before calculating.",
+      );
       return false;
     }
     groupResults = bundles;
@@ -5138,7 +5570,10 @@ if (typeof module !== "undefined") {
   function dieHtml(face) {
     let cells = "";
     for (let i = 1; i <= 9; i++) {
-      cells += '<i class="pip' + (PIP_CELLS[face].indexOf(i) >= 0 ? " on" : "") + '"></i>';
+      cells +=
+        '<i class="pip' +
+        (PIP_CELLS[face].indexOf(i) >= 0 ? " on" : "") +
+        '"></i>';
     }
     return '<div class="die">' + cells + "</div>";
   }
@@ -5153,7 +5588,8 @@ if (typeof module !== "undefined") {
       dice.innerHTML = [0, 1, 2]
         .map(() => dieHtml(1 + Math.floor(Math.random() * 6)))
         .join("");
-      if (sub && step % 5 === 0) sub.textContent = SIM_STEPS[(step / 5) % SIM_STEPS.length];
+      if (sub && step % 5 === 0)
+        sub.textContent = SIM_STEPS[(step / 5) % SIM_STEPS.length];
       step++;
     };
     roll();
@@ -5185,7 +5621,10 @@ if (typeof module !== "undefined") {
         try {
           ok = runSimulation();
         } finally {
-          const wait = Math.max(0, SIM_MIN_VISIBLE_MS - (Date.now() - startedAt));
+          const wait = Math.max(
+            0,
+            SIM_MIN_VISIBLE_MS - (Date.now() - startedAt),
+          );
           setTimeout(() => {
             hideSimulating();
             panel.style.display = "";
@@ -5206,7 +5645,8 @@ if (typeof module !== "undefined") {
 
   function renderResults(scenarioId) {
     currentScenarioId = scenarioId;
-    const entry = scenarioResults[scenarioId] || scenarioResults[SCENARIOS[0].id];
+    const entry =
+      scenarioResults[scenarioId] || scenarioResults[SCENARIOS[0].id];
     const { result, def, meta } = entry;
 
     const panel = document.getElementById("results-panel");
@@ -5220,30 +5660,45 @@ if (typeof module !== "undefined") {
     renderGroupComparison();
     renderMatchupLabels();
     const scenarioBar = document.getElementById("scenario-bar");
+    const scenarioBarBottom = document.getElementById("scenario-bar-bottom");
     const meleeNote = document.getElementById("melee-note");
     const anyRanged = groupResults
       ? Object.values(groupResults).some((r) => !r.meleeOnly)
       : !scenarioMeleeOnly;
     if (scenarioBar) scenarioBar.style.display = anyRanged ? "" : "none";
+    if (scenarioBarBottom)
+      scenarioBarBottom.style.display = anyRanged ? "" : "none";
     if (meleeNote) meleeNote.classList.toggle("hidden", !scenarioMeleeOnly);
 
-    document.getElementById("stat-attacks").textContent = result.meanAttacks.toFixed(2);
-    document.getElementById("stat-hits").textContent = result.meanHits.toFixed(2);
-    document.getElementById("stat-wounds").textContent = result.meanWounds.toFixed(2);
-    document.getElementById("stat-unsaved").textContent = result.meanUnsaved.toFixed(2);
-    document.getElementById("stat-damage").textContent = result.meanDamage.toFixed(2);
+    document.getElementById("stat-attacks").textContent =
+      result.meanAttacks.toFixed(2);
+    document.getElementById("stat-hits").textContent =
+      result.meanHits.toFixed(2);
+    document.getElementById("stat-wounds").textContent =
+      result.meanWounds.toFixed(2);
+    document.getElementById("stat-unsaved").textContent =
+      result.meanUnsaved.toFixed(2);
+    document.getElementById("stat-damage").textContent =
+      result.meanDamage.toFixed(2);
     setFnpTile("stat-fnp-tile", "stat-fnp", "stat-fnp-lbl", result, def);
-    document.getElementById("stat-models-killed").textContent = result.meanModelsKilled.toFixed(2);
+    document.getElementById("stat-models-killed").textContent =
+      result.meanModelsKilled.toFixed(2);
 
     const totalPoolWounds = def.wounds * def.models;
     const pctOfUnit =
-      totalPoolWounds > 0 ? Math.min(100, (result.meanEffectiveDamage / totalPoolWounds) * 100) : 0;
-    document.getElementById("stat-pct-unit").textContent = pctOfUnit.toFixed(1) + "%";
+      totalPoolWounds > 0
+        ? Math.min(100, (result.meanEffectiveDamage / totalPoolWounds) * 100)
+        : 0;
+    document.getElementById("stat-pct-unit").textContent =
+      pctOfUnit.toFixed(1) + "%";
 
     const killSamples = result.modelsKilledSamples || [];
     const fullKills = killSamples.filter((k) => k >= def.models).length;
-    const pctKillUnit = killSamples.length ? (fullKills / killSamples.length) * 100 : 0;
-    document.getElementById("stat-kill-unit").textContent = pctKillUnit.toFixed(1) + "%";
+    const pctKillUnit = killSamples.length
+      ? (fullKills / killSamples.length) * 100
+      : 0;
+    document.getElementById("stat-kill-unit").textContent =
+      pctKillUnit.toFixed(1) + "%";
 
     renderDamageHistogram(result.damageSamples);
     renderDamageCumulative(result.damageSamples);
@@ -5252,7 +5707,7 @@ if (typeof module !== "undefined") {
       result.modelsKilledSamples,
       def.models,
       result.damageSamples,
-      def.wounds * def.models
+      def.wounds * def.models,
     );
     renderWeaponBreakdown(result.perAttacker);
     renderDefenderGroupTable(result.perGroup);
@@ -5260,7 +5715,10 @@ if (typeof module !== "undefined") {
     renderRulesBreakdown(result.rules);
     renderRerollBreakdown(result.rerolls);
     renderCoverComparisonChart();
-    trialScaleFactor = Math.min(1, Math.max(0.25, 40 / Math.max(1, result.meanAttacks)));
+    trialScaleFactor = Math.min(
+      1,
+      Math.max(0.25, 40 / Math.max(1, result.meanAttacks)),
+    );
     const token = ++resultsToken;
     const later = (fn) =>
       typeof requestAnimationFrame === "function"
@@ -5288,21 +5746,29 @@ if (typeof module !== "undefined") {
     let items = gr.engine.map((a, i) => ({ a, i, melee: gr.meta[i].isMelee }));
     if (opts.filter) items = items.filter(opts.filter);
     if (!items.length) return null;
-    if (opts.order) items = opts.order.map((i) => items.find((x) => x.i === i)).filter(Boolean);
+    if (opts.order)
+      items = opts.order
+        .map((i) => items.find((x) => x.i === i))
+        .filter(Boolean);
     const list = items.map((x) => {
       const mods = Object.assign(
         {},
         x.a.mods,
         { halfRange: sc.halfRange },
-        opts.mods ? opts.mods(x.a.mods) : {}
+        opts.mods ? opts.mods(x.a.mods) : {},
       );
       const copy = Object.assign({}, x.a, { mods });
       if (opts.count)
-        copy.weaponsCount = Math.max(1, Math.round((x.a.weaponsCount || 1) * opts.count));
+        copy.weaponsCount = Math.max(
+          1,
+          Math.round((x.a.weaponsCount || 1) * opts.count),
+        );
       if (opts.kw) copy.kw = opts.kw(x.a.kw);
       return copy;
     });
-    let def = Object.assign({}, opts.def || gr.baseDef, { coverBonus: sc.cover });
+    let def = Object.assign({}, opts.def || gr.baseDef, {
+      coverBonus: sc.cover,
+    });
     if (opts.defMod) def = Object.assign(def, opts.defMod(def));
     return simulate(list, def, scaledTrials(opts.trials || EXTRA_TRIALS));
   }
@@ -5328,12 +5794,18 @@ if (typeof module !== "undefined") {
   }
 
   const ARCHETYPES = [
-    { label: ["Horde", "T3 5+ \u00b7 20\u00d7W1"], def: () => plainDefender(3, 5, 1, 20) },
+    {
+      label: ["Horde", "T3 5+ \u00b7 20\u00d7W1"],
+      def: () => plainDefender(3, 5, 1, 20),
+    },
     {
       label: ["Medium infantry", "T4 3+ \u00b7 10\u00d7W2"],
       def: () => plainDefender(4, 3, 2, 10),
     },
-    { label: ["Elite infantry", "T5 3+ \u00b7 10\u00d7W2"], def: () => plainDefender(5, 3, 2, 10) },
+    {
+      label: ["Elite infantry", "T5 3+ \u00b7 10\u00d7W2"],
+      def: () => plainDefender(5, 3, 2, 10),
+    },
     {
       label: ["Terminators", "T5 2+/4++ \u00b7 5\u00d7W3"],
       def: () => plainDefender(5, 2, 3, 5, 4),
@@ -5342,8 +5814,14 @@ if (typeof module !== "undefined") {
       label: ["Knight", "T11 3+/5++ \u00b7 1\u00d7W26"],
       def: () => plainDefender(11, 3, 26, 1, 5),
     },
-    { label: ["Monster", "T9 3+ \u00b7 1\u00d7W12"], def: () => plainDefender(9, 3, 12, 1) },
-    { label: ["Vehicle", "T10 2+ \u00b7 1\u00d7W16"], def: () => plainDefender(10, 2, 16, 1) },
+    {
+      label: ["Monster", "T9 3+ \u00b7 1\u00d7W12"],
+      def: () => plainDefender(9, 3, 12, 1),
+    },
+    {
+      label: ["Vehicle", "T10 2+ \u00b7 1\u00d7W16"],
+      def: () => plainDefender(10, 2, 16, 1),
+    },
   ];
 
   const SENS_VARIANTS = [
@@ -5352,31 +5830,77 @@ if (typeof module !== "undefined") {
     { label: "Re-roll hit 1s", mods: () => ({ rerollHit: "ones" }) },
     { label: "Re-roll failed hits", mods: () => ({ rerollHit: "failed" }) },
     { label: "Re-roll failed wounds", mods: () => ({ rerollWound: "failed" }) },
-    { label: "+1 Strength", mods: (m) => ({ strengthBonus: (m.strengthBonus || 0) + 1 }) },
+    {
+      label: "+1 Strength",
+      mods: (m) => ({ strengthBonus: (m.strengthBonus || 0) + 1 }),
+    },
     { label: "+1 AP", mods: (m) => ({ apBonus: (m.apBonus || 0) + 1 }) },
-    { label: "+1 Damage", mods: (m) => ({ damageBonus: (m.damageBonus || 0) + 1 }) },
-    { label: "+1 Attack per model", mods: (m) => ({ attacksBonus: (m.attacksBonus || 0) + 1 }) },
+    {
+      label: "+1 Damage",
+      mods: (m) => ({ damageBonus: (m.damageBonus || 0) + 1 }),
+    },
+    {
+      label: "+1 Attack per model",
+      mods: (m) => ({ attacksBonus: (m.attacksBonus || 0) + 1 }),
+    },
     { label: "Lethal Hits", mods: () => ({ lethalHits: true }) },
     {
       label: "Sustained Hits 1",
       mods: () => ({ sustainedHits: true }),
-      kw: (kw) => Object.assign({}, kw, { sustainedDiceExpr: kw.sustainedDiceExpr || "1" }),
+      kw: (kw) =>
+        Object.assign({}, kw, {
+          sustainedDiceExpr: kw.sustainedDiceExpr || "1",
+        }),
     },
     { label: "Devastating Wounds", mods: () => ({ devastatingWounds: true }) },
-    { label: "Target \u22121 Toughness", defMod: (d) => ({ toughnessBonus: (d.toughnessBonus || 0) - 1 }) },
-    { label: "Target \u22122 Toughness", defMod: (d) => ({ toughnessBonus: (d.toughnessBonus || 0) - 2 }) },
-    { label: "Target \u22121 Save", defMod: (d) => ({ saveBonus: (d.saveBonus || 0) - 1 }) },
-    { label: "Target \u22121 to hit against it", defMod: (d) => ({ hitPenalty: (d.hitPenalty || 0) + 1 }), defender: true },
-    { label: "Target \u22121 to wound against it", defMod: (d) => ({ woundPenalty: (d.woundPenalty || 0) + 1 }), defender: true },
-    { label: "Target +1 Toughness", defMod: (d) => ({ toughnessBonus: (d.toughnessBonus || 0) + 1 }), defender: true },
-    { label: "Target +1 Save", defMod: (d) => ({ saveBonus: (d.saveBonus || 0) + 1 }), defender: true },
-    { label: "Target \u22121 Damage taken", defMod: (d) => ({ damageReduction: (d.damageReduction || 0) + 1 }), defender: true },
+    {
+      label: "Target \u22121 Toughness",
+      defMod: (d) => ({ toughnessBonus: (d.toughnessBonus || 0) - 1 }),
+    },
+    {
+      label: "Target \u22122 Toughness",
+      defMod: (d) => ({ toughnessBonus: (d.toughnessBonus || 0) - 2 }),
+    },
+    {
+      label: "Target \u22121 Save",
+      defMod: (d) => ({ saveBonus: (d.saveBonus || 0) - 1 }),
+    },
+    {
+      label: "Target \u22121 to hit against it",
+      defMod: (d) => ({ hitPenalty: (d.hitPenalty || 0) + 1 }),
+      defender: true,
+    },
+    {
+      label: "Target \u22121 to wound against it",
+      defMod: (d) => ({ woundPenalty: (d.woundPenalty || 0) + 1 }),
+      defender: true,
+    },
+    {
+      label: "Target +1 Toughness",
+      defMod: (d) => ({ toughnessBonus: (d.toughnessBonus || 0) + 1 }),
+      defender: true,
+    },
+    {
+      label: "Target +1 Save",
+      defMod: (d) => ({ saveBonus: (d.saveBonus || 0) + 1 }),
+      defender: true,
+    },
+    {
+      label: "Target \u22121 Damage taken",
+      defMod: (d) => ({ damageReduction: (d.damageReduction || 0) + 1 }),
+      defender: true,
+    },
     {
       label: "Target 5+ Feel No Pain",
       defMod: (d) => ({ fnp: d.fnp && d.fnp <= 5 ? d.fnp : 5 }),
       defender: true,
     },
-    { label: "Target in cover", defMod: () => ({ coverBonus: true }), defender: true, afterCover: true },
+    {
+      label: "Target in cover",
+      defMod: () => ({ coverBonus: true }),
+      defender: true,
+      afterCover: true,
+    },
   ];
 
   function LABEL_BOX(color, align, fmt) {
@@ -5400,7 +5924,7 @@ if (typeof module !== "undefined") {
     if (!sorted.length) return 0;
     const idx = Math.min(
       sorted.length - 1,
-      Math.max(0, Math.round((p / 100) * (sorted.length - 1)))
+      Math.max(0, Math.round((p / 100) * (sorted.length - 1))),
     );
     return sorted[idx];
   }
@@ -5417,18 +5941,30 @@ if (typeof module !== "undefined") {
 
     const o = cfg.options || (cfg.options = {});
     o.plugins = o.plugins || {};
-    o.plugins.tooltip = Object.assign({ backgroundColor: COLORS.navy }, o.plugins.tooltip, {
-      callbacks: {
-        label: (c) => {
-          const v = c.raw;
-          const f = (x) =>
-            typeof x === "number" ? (Math.abs(x) >= 100 ? x.toFixed(0) : x.toFixed(2)) : x;
-          const txt = Array.isArray(v) ? f(v[0]) + " \u2013 " + f(v[1]) : f(v);
-          const suffix = c.dataset.yAxisID === "y1" ? "%" : "";
-          return (c.dataset.label ? c.dataset.label + ": " : "") + txt + suffix;
+    o.plugins.tooltip = Object.assign(
+      { backgroundColor: COLORS.navy },
+      o.plugins.tooltip,
+      {
+        callbacks: {
+          label: (c) => {
+            const v = c.raw;
+            const f = (x) =>
+              typeof x === "number"
+                ? Math.abs(x) >= 100
+                  ? x.toFixed(0)
+                  : x.toFixed(2)
+                : x;
+            const txt = Array.isArray(v)
+              ? f(v[0]) + " \u2013 " + f(v[1])
+              : f(v);
+            const suffix = c.dataset.yAxisID === "y1" ? "%" : "";
+            return (
+              (c.dataset.label ? c.dataset.label + ": " : "") + txt + suffix
+            );
+          },
         },
       },
-    });
+    );
     charts[key] = new Chart(el.getContext("2d"), cfg);
   }
 
@@ -5476,7 +6012,104 @@ if (typeof module !== "undefined") {
     setTimeout(step, 0);
   }
 
+  const pendingLazy = [];
+
+  function isBoxActive(boxId) {
+    const box = document.getElementById(boxId);
+    if (!box) return true;
+    const tab = box.getAttribute("data-tab");
+    if (!tab) return true;
+    if (tab !== activeTab) return false;
+    if (box.hasAttribute("data-adv") && !showAdvanced) return false;
+    return true;
+  }
+
+  function applyResultsView() {
+    const panel = document.getElementById("results-panel");
+    if (!panel) return;
+    panel.setAttribute("data-active", activeTab);
+    panel.setAttribute("data-mode", showAdvanced ? "advanced" : "compact");
+    document
+      .querySelectorAll(".results-tab")
+      .forEach((b) =>
+        b.classList.toggle("active", b.dataset.tab === activeTab),
+      );
+    const info = TAB_INFO[activeTab];
+    const ttl = document.getElementById("results-tab-title");
+    if (ttl && info)
+      ttl.innerHTML =
+        "<strong>" +
+        info[0] +
+        "</strong><span>" +
+        info[1] +
+        "</span>" +
+        (showAdvanced ? "" : "<em>Compact view</em>");
+    document
+      .querySelectorAll(".adv-opt")
+      .forEach((b) =>
+        b.classList.toggle("active", (b.dataset.adv === "on") === showAdvanced),
+      );
+    const waiting = pendingLazy.splice(0);
+    waiting.forEach((p) => {
+      if (isBoxActive(p.boxId)) lazyRender(p.boxId, p.gen, p.fn);
+      else pendingLazy.push(p);
+    });
+    Object.keys(charts).forEach((k) => {
+      const c = charts[k];
+      if (c && typeof c.resize === "function") {
+        try {
+          c.resize();
+        } catch (e) {}
+      }
+    });
+  }
+
+  const TAB_INFO = {
+    overview: [
+      "Overview",
+      "How much damage the attackers deal and how often they wipe the unit out.",
+    ],
+    weapons: [
+      "Weapons",
+      "Which units and weapons do the work, and in what order to use them.",
+    ],
+    defender: [
+      "Defender",
+      "How the target holds up, what it takes damage from and what it is weak against.",
+    ],
+    modifiers: [
+      "Modifiers",
+      "Which buffs and debuffs are worth the most, and which special rules trigger.",
+    ],
+  };
+
+  function setActiveTab(tab, fromBottom) {
+    const changed = tab !== activeTab;
+    activeTab = tab;
+    applyResultsView();
+    if (changed || fromBottom) {
+      const bar = document.getElementById("group-view-bar");
+      const anchor =
+        bar && bar.style.display !== "none"
+          ? bar
+          : document.getElementById("stats-title-total");
+      if (anchor) {
+        const y = anchor.getBoundingClientRect().top + window.pageYOffset - 8;
+        window.scrollTo({ top: Math.max(0, y), behavior: "auto" });
+      }
+    }
+  }
+
+  function setShowAdvanced(on) {
+    showAdvanced = on;
+    applyResultsView();
+  }
+
   function lazyRender(boxId, gen, fn) {
+    if (!isBoxActive(boxId)) {
+      pendingLazy.push({ boxId, gen, fn });
+      return;
+    }
     const box = document.getElementById(boxId);
     const run = () => {
       if (gen !== extrasGen) return;
@@ -5495,7 +6128,7 @@ if (typeof module !== "undefined") {
           drainLazyQueue();
         }
       },
-      { rootMargin: "300px" }
+      { rootMargin: "300px" },
     );
     io.observe(box);
     lazyObservers.push(io);
@@ -5507,9 +6140,11 @@ if (typeof module !== "undefined") {
     const sc = viewScenario(gr);
     const key = viewGroupId + "|" + sc.id;
     const cache = extrasCache[key] || (extrasCache[key] = {});
-    const entry = gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id];
+    const entry =
+      gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id];
     extrasGen++;
     const gen = extrasGen;
+    pendingLazy.length = 0;
     lazyObservers.forEach((o) => o.disconnect());
     lazyObservers = [];
     lazyQueue = [];
@@ -5521,11 +6156,15 @@ if (typeof module !== "undefined") {
     lazyRender("kills-by-weapon-box", gen, () => renderWeaponOrder(sc));
     ["vuln-body", "durability-body"].forEach((id) => {
       const el = document.getElementById(id);
-      if (el && !el.querySelector("table")) el.innerHTML = '<div class="lazy-note">Calculating when this section scrolls into view\u2026</div>';
+      if (el && !el.querySelector("table"))
+        el.innerHTML =
+          '<div class="lazy-note">Calculating when this section scrolls into view\u2026</div>';
     });
     lazyRender("archetype-box", gen, () => renderArchetypeChart(sc));
     lazyRender("scaling-box", gen, () => renderScalingChart(gr, sc, cache));
-    lazyRender("sensitivity-box", gen, () => renderSensitivityChart(gr, sc, entry, cache));
+    lazyRender("sensitivity-box", gen, () =>
+      renderSensitivityChart(gr, sc, entry, cache),
+    );
     lazyRender("phase-box", gen, () => renderPhaseChart(gr, sc, cache));
     lazyRender("vuln-box", gen, () => {
       renderVulnerabilityTable(gr, sc, cache);
@@ -5535,7 +6174,9 @@ if (typeof module !== "undefined") {
 
   function renderVarianceChart() {
     const ids = Object.keys(groupResults);
-    const scs = SCENARIOS.filter((s) => ids.some((id) => groupResults[id].scenarioResults[s.id]));
+    const scs = SCENARIOS.filter((s) =>
+      ids.some((id) => groupResults[id].scenarioResults[s.id]),
+    );
     const stats = {};
     ids.forEach((id) => {
       stats[id] = scs.map((s) => {
@@ -5557,7 +6198,9 @@ if (typeof module !== "undefined") {
     ids.forEach((id, gi) => {
       datasets.push({
         type: "bar",
-        label: (ids.length > 1 ? groupResults[id].label + " " : "") + "(P10\u2013P90)",
+        label:
+          (ids.length > 1 ? groupResults[id].label + " " : "") +
+          "(P10\u2013P90)",
         data: stats[id].map((x) => [x.p10, x.p90]),
         backgroundColor: colors[gi] + "88",
         borderColor: colors[gi],
@@ -5576,13 +6219,17 @@ if (typeof module !== "undefined") {
         pointBorderColor: "#fff",
         borderColor: colors[gi],
         backgroundColor: colors[gi],
-        datalabels: LABEL_BOX(colors[gi], gi === 0 ? "left" : "right", (v) => v.toFixed(1)),
+        datalabels: LABEL_BOX(colors[gi], gi === 0 ? "left" : "right", (v) =>
+          v.toFixed(1),
+        ),
       });
     });
     makeChart("variance", "chart-variance", {
       type: "bar",
       data: { labels, datasets },
-      options: withDatalabels(chartBaseOptions("", "Damage"), { display: false }),
+      options: withDatalabels(chartBaseOptions("", "Damage"), {
+        display: false,
+      }),
     });
     let html =
       '<p class="chart-explain"><b>P10</b> = 10% of simulated runs deal this much damage or less (a bad roll). <b>P90</b> = only 10% of runs deal more (a great roll). <b>Median</b> (diamond) = the typical result. Each bar spans P10 to P90, i.e. the middle 80% of outcomes \u2014 a short bar means a reliable result.</p>' +
@@ -5605,9 +6252,10 @@ if (typeof module !== "undefined") {
           "</td><td>" +
           x.p90.toFixed(1) +
           "</td></tr>";
-      })
+      }),
     );
-    document.getElementById("variance-table").innerHTML = html + "</tbody></table>";
+    document.getElementById("variance-table").innerHTML =
+      html + "</tbody></table>";
   }
 
   function renderWaterfallChart(r) {
@@ -5625,20 +6273,30 @@ if (typeof module !== "undefined") {
       [0, U],
     ];
     const colors = deltas.map((d, i) =>
-      i === 0 || i === 4 ? COLORS.blue : d < 0 ? COLORS.red : COLORS.green
+      i === 0 || i === 4 ? COLORS.blue : d < 0 ? COLORS.red : COLORS.green,
     );
     const texts = deltas.map((d, i) =>
-      i === 0 || i === 4 ? d.toFixed(2) : (d >= 0 ? "+" : "") + d.toFixed(2)
+      i === 0 || i === 4 ? d.toFixed(2) : (d >= 0 ? "+" : "") + d.toFixed(2),
     );
     makeChart("waterfall", "chart-waterfall", {
       type: "bar",
       data: {
         labels,
-        datasets: [{ label: "Expected count", data, backgroundColor: colors, borderRadius: 2 }],
+        datasets: [
+          {
+            label: "Expected count",
+            data,
+            backgroundColor: colors,
+            borderRadius: 2,
+          },
+        ],
       },
       options: withDatalabels(
         Object.assign(chartBaseOptions("", "Expected count"), {
-          plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } },
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: COLORS.navy },
+          },
         }),
         {
           display: true,
@@ -5648,7 +6306,7 @@ if (typeof module !== "undefined") {
           offset: 4,
           font: { size: 11, weight: "700" },
           formatter: (v, ctx) => texts[ctx.dataIndex],
-        }
+        },
       ),
     });
   }
@@ -5670,7 +6328,8 @@ if (typeof module !== "undefined") {
     ids.forEach((id, gi) => {
       const gr = groupResults[id];
       const sc = viewScenario(gr);
-      const entry = gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id];
+      const entry =
+        gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id];
       const pool = entry.def.wounds * entry.def.models;
       const byId = {};
       const rows = [];
@@ -5678,14 +6337,20 @@ if (typeof module !== "undefined") {
         const m = entry.meta[i];
         if (!m || !m.unitPoints) return;
         if (!byId[m.attackerId]) {
-          byId[m.attackerId] = { name: m.unitName, points: m.unitPoints, dmg: 0 };
+          byId[m.attackerId] = {
+            name: m.unitName,
+            points: m.unitPoints,
+            dmg: 0,
+          };
           rows.push(byId[m.attackerId]);
         }
         byId[m.attackerId].dmg += p.meanEffectiveDamage;
       });
       rows.forEach((r) => {
         labels.push(
-          ids.length > 1 ? [gr.label, r.name, r.points + " pts"] : [r.name, r.points + " pts"]
+          ids.length > 1
+            ? [gr.label, r.name, r.points + " pts"]
+            : [r.name, r.points + " pts"],
         );
         vals.push((Math.min(1, r.dmg / pool) * lastDefenderPts) / r.points);
         cols.push(colors[gi]);
@@ -5695,13 +6360,20 @@ if (typeof module !== "undefined") {
       gradColors(gVals, colors[gi]).forEach((c, k) => (cols[gStart + k] = c));
       if (rows.length > 1 && gr.points) {
         labels.push(
-          ids.length > 1 ? [gr.label, "Total", gr.points + " pts"] : ["Total", gr.points + " pts"]
+          ids.length > 1
+            ? [gr.label, "Total", gr.points + " pts"]
+            : ["Total", gr.points + " pts"],
         );
-        vals.push((Math.min(1, entry.result.meanEffectiveDamage / pool) * lastDefenderPts) / gr.points);
+        vals.push(
+          (Math.min(1, entry.result.meanEffectiveDamage / pool) *
+            lastDefenderPts) /
+            gr.points,
+        );
         cols.push(colors[gi]);
       }
       const killed = entry.result.meanModelsKilled;
-      const destroyed = Math.min(1, entry.result.meanEffectiveDamage / pool) * lastDefenderPts;
+      const destroyed =
+        Math.min(1, entry.result.meanEffectiveDamage / pool) * lastDefenderPts;
       notes.push(
         gr.label +
           " (" +
@@ -5710,8 +6382,10 @@ if (typeof module !== "undefined") {
           destroyed.toFixed(0) +
           " pts" +
           (killed >= 0.5 && gr.points
-            ? ", " + (gr.points / killed).toFixed(0) + " attacker pts per defender model killed"
-            : "")
+            ? ", " +
+              (gr.points / killed).toFixed(0) +
+              " attacker pts per defender model killed"
+            : ""),
       );
     });
     note.textContent =
@@ -5735,9 +6409,12 @@ if (typeof module !== "undefined") {
       },
       options: withDatalabels(
         Object.assign(chartBaseOptions("", "Points destroyed / points spent"), {
-          plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } },
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: COLORS.navy },
+          },
         }),
-        topLabel(2, "", 0)
+        topLabel(2, "", 0),
       ),
     });
   }
@@ -5762,7 +6439,8 @@ if (typeof module !== "undefined") {
     });
     const colors = [COLORS.blue, COLORS.red];
     const wrap = document.getElementById("group-weapon-wrap");
-    if (wrap) wrap.style.height = Math.max(240, labelOrder.length * 46 + 80) + "px";
+    if (wrap)
+      wrap.style.height = Math.max(240, labelOrder.length * 46 + 80) + "px";
     makeChart("groupWeapon", "chart-group-weapon", {
       type: "bar",
       data: {
@@ -5774,9 +6452,13 @@ if (typeof module !== "undefined") {
           borderRadius: 2,
         })),
       },
-      options: withDatalabels(chartBaseOptions("Expected damage", ""), endLabel(2, "", 0.01), {
-        indexAxis: "y",
-      }),
+      options: withDatalabels(
+        chartBaseOptions("Expected damage", ""),
+        endLabel(2, "", 0.01),
+        {
+          indexAxis: "y",
+        },
+      ),
     });
   }
 
@@ -5823,7 +6505,10 @@ if (typeof module !== "undefined") {
       }
       return r;
     };
-    const total = blocks.reduce((n, b) => Math.min(1000, n * fact(b.length)), fact(blocks.length));
+    const total = blocks.reduce(
+      (n, b) => Math.min(1000, n * fact(b.length)),
+      fact(blocks.length),
+    );
     if (total > 24) return null;
     const inner = blocks.map((b) => permutations(b));
     const out = [];
@@ -5831,7 +6516,9 @@ if (typeof module !== "undefined") {
       let combos = [[]];
       perm.forEach((bi) => {
         const next = [];
-        combos.forEach((c) => inner[bi].forEach((p) => next.push(c.concat([p]))));
+        combos.forEach((c) =>
+          inner[bi].forEach((p) => next.push(c.concat([p]))),
+        );
         combos = next;
       });
       combos.forEach((c) => out.push(flattenBlocks(c)));
@@ -5861,9 +6548,15 @@ if (typeof module !== "undefined") {
   }
 
   function searchWeaponOrder(gr, sc, filter, meta) {
-    const idx = gr.engine.map((_, i) => i).filter((i) => filter({ i, melee: meta[i].isMelee }));
+    const idx = gr.engine
+      .map((_, i) => i)
+      .filter((i) => filter({ i, melee: meta[i].isMelee }));
     const evalOrder = (order, trials) => {
-      const r = runVariant(gr, sc, { filter: (x) => idx.indexOf(x.i) >= 0, order, trials });
+      const r = runVariant(gr, sc, {
+        filter: (x) => idx.indexOf(x.i) >= 0,
+        order,
+        trials,
+      });
       return { order, dmg: r.meanEffectiveDamage, kills: r.meanModelsKilled };
     };
     const startBlocks = weaponBlocks(idx, meta);
@@ -5882,21 +6575,28 @@ if (typeof module !== "undefined") {
         record(o, ORDER_SEARCH_TRIALS);
       }
     } else {
-      const heur = startBlocks
-        .slice()
-        .sort((x, y) => {
-          const score = (b) => Math.max.apply(null, b.map((i) => meanOfDiceExpr(gr.engine[i].damageExpr)));
-          return score(y) - score(x);
-        });
+      const heur = startBlocks.slice().sort((x, y) => {
+        const score = (b) =>
+          Math.max.apply(
+            null,
+            b.map((i) => meanOfDiceExpr(gr.engine[i].damageExpr)),
+          );
+        return score(y) - score(x);
+      });
       [startBlocks, heur].forEach((start) => {
         let cur = start;
         let curScore = record(flattenBlocks(cur), ORDER_SEARCH_TRIALS).dmg;
         let improved = true;
-        while (improved && !timeUp() && Object.keys(evaluated).length < ORDER_MAX_EVALS) {
+        while (
+          improved &&
+          !timeUp() &&
+          Object.keys(evaluated).length < ORDER_MAX_EVALS
+        ) {
           improved = false;
           const nbrs = neighbourOrders(cur);
           for (const n of nbrs) {
-            if (timeUp() || Object.keys(evaluated).length >= ORDER_MAX_EVALS) break;
+            if (timeUp() || Object.keys(evaluated).length >= ORDER_MAX_EVALS)
+              break;
             const s = record(flattenBlocks(n), ORDER_SEARCH_TRIALS).dmg;
             if (s > curScore) {
               cur = n;
@@ -5921,7 +6621,9 @@ if (typeof module !== "undefined") {
     const currentOrder = idx.slice();
     finalists[currentOrder.join(",")] = currentOrder;
     const finalTrials = timeUp() ? ORDER_SEARCH_TRIALS * 2 : ORDER_FINAL_TRIALS;
-    const final = Object.values(finalists).map((o) => evalOrder(o, finalTrials));
+    const final = Object.values(finalists).map((o) =>
+      evalOrder(o, finalTrials),
+    );
     const pick = (key) => final.slice().sort((x, y) => y[key] - x[key])[0];
     return {
       count: idx.length,
@@ -5945,7 +6647,8 @@ if (typeof module !== "undefined") {
     if (res.count < 2)
       return `<div class="order-phase"><h4>${title}</h4><p class="def-order-note">Only one weapon selected, so there is no order to choose.</p></div>`;
     const sameBest = res.bestDmg.order.join() === res.bestKills.order.join();
-    const gainDmg = res.current.dmg > 0 ? (res.bestDmg.dmg / res.current.dmg - 1) * 100 : 0;
+    const gainDmg =
+      res.current.dmg > 0 ? (res.bestDmg.dmg / res.current.dmg - 1) * 100 : 0;
     const gainKills = res.bestKills.kills - res.current.kills;
     const matters = gainDmg >= 1.5 || gainKills >= 0.05;
     const stats = (c) =>
@@ -5976,11 +6679,21 @@ if (typeof module !== "undefined") {
     ids.forEach((id) => {
       const gr = groupResults[id];
       const gsc = gr.meleeOnly ? SCENARIOS[0] : sc;
-      const meta = gr.meta.map((m, i) => Object.assign({}, m, { weaponsCount: gr.engine[i].weaponsCount }));
+      const meta = gr.meta.map((m, i) =>
+        Object.assign({}, m, { weaponsCount: gr.engine[i].weaponsCount }),
+      );
       ["shooting", "melee"].forEach((phase) => {
         const wantMelee = phase === "melee";
         if (meta.some((m) => m.isMelee === wantMelee))
-          tasks.push({ id, gr, gsc, meta, phase, wantMelee, key: "order|" + id + "|" + gsc.id + "|" + phase });
+          tasks.push({
+            id,
+            gr,
+            gsc,
+            meta,
+            phase,
+            wantMelee,
+            key: "order|" + id + "|" + gsc.id + "|" + phase,
+          });
       });
     });
     if (!tasks.length) {
@@ -6021,7 +6734,12 @@ if (typeof module !== "undefined") {
         paint(true);
         setTimeout(() => {
           if (runId !== orderRunId) return;
-          extrasCache[t.key] = searchWeaponOrder(t.gr, t.gsc, (x) => x.melee === t.wantMelee, t.meta);
+          extrasCache[t.key] = searchWeaponOrder(
+            t.gr,
+            t.gsc,
+            (x) => x.melee === t.wantMelee,
+            t.meta,
+          );
           step(i + 1);
         }, 20);
       } else {
@@ -6046,7 +6764,9 @@ if (typeof module !== "undefined") {
     });
     const colors = [COLORS.blue, COLORS.red, COLORS.blueLight];
     const wrap = document.getElementById("kills-by-weapon-wrap");
-    if (wrap) wrap.style.height = Math.max(240, labelOrder.length * 46 * ids.length * 0.6 + 80) + "px";
+    if (wrap)
+      wrap.style.height =
+        Math.max(240, labelOrder.length * 46 * ids.length * 0.6 + 80) + "px";
     makeChart("killsByWeapon", "chart-kills-by-weapon", {
       type: "bar",
       data: {
@@ -6058,9 +6778,13 @@ if (typeof module !== "undefined") {
           borderRadius: 2,
         })),
       },
-      options: withDatalabels(chartBaseOptions("Expected models killed", ""), endLabel(2, "", 0.01), {
-        indexAxis: "y",
-      }),
+      options: withDatalabels(
+        chartBaseOptions("Expected models killed", ""),
+        endLabel(2, "", 0.01),
+        {
+          indexAxis: "y",
+        },
+      ),
     });
   }
 
@@ -6070,7 +6794,9 @@ if (typeof module !== "undefined") {
     const ckey = "arch|" + sc.id + "|" + ids.join(",");
     if (!extrasCache[ckey]) {
       const jobs = [];
-      ids.forEach((id) => ARCHETYPES.forEach((a, i) => jobs.push({ id, i, a })));
+      ids.forEach((id) =>
+        ARCHETYPES.forEach((a, i) => jobs.push({ id, i, a })),
+      );
       chunked(
         jobs,
         (j) => {
@@ -6079,7 +6805,12 @@ if (typeof module !== "undefined") {
           const d = j.a.def();
           const r = runVariant(g, gsc, { def: d });
           const pool = d.wounds * d.models;
-          return { id: j.id, i: j.i, dmg: r.meanEffectiveDamage, pct: Math.min(100, (r.meanEffectiveDamage / pool) * 100) };
+          return {
+            id: j.id,
+            i: j.i,
+            dmg: r.meanEffectiveDamage,
+            pct: Math.min(100, (r.meanEffectiveDamage / pool) * 100),
+          };
         },
         (out) => {
           const built = {};
@@ -6087,7 +6818,7 @@ if (typeof module !== "undefined") {
           out.forEach((o) => (built[o.id][o.i] = o));
           extrasCache[ckey] = built;
           renderArchetypeChart(sc);
-        }
+        },
       );
       return;
     }
@@ -6111,14 +6842,22 @@ if (typeof module !== "undefined") {
             legend: { display: ids.length > 1, labels: { color: COLORS.navy } },
             tooltip: { backgroundColor: COLORS.navy },
           },
-          scales: Object.assign({}, chartBaseOptions("", "% of target's wounds destroyed").scales, {
-            y: Object.assign({}, chartBaseOptions("", "").scales.y, {
-              title: { display: true, text: "% of target's wounds destroyed", color: COLORS.slate },
-              max: 115,
-              grace: 0,
-            }),
-          }),
-        }
+          scales: Object.assign(
+            {},
+            chartBaseOptions("", "% of target's wounds destroyed").scales,
+            {
+              y: Object.assign({}, chartBaseOptions("", "").scales.y, {
+                title: {
+                  display: true,
+                  text: "% of target's wounds destroyed",
+                  color: COLORS.slate,
+                },
+                max: 115,
+                grace: 0,
+              }),
+            },
+          ),
+        },
       ),
     });
     let html =
@@ -6126,14 +6865,17 @@ if (typeof module !== "undefined") {
       ids
         .map(
           (id) =>
-            "<th>" + (ids.length > 1 ? esc(groupResults[id].label) : "Expected damage") + "</th>"
+            "<th>" +
+            (ids.length > 1 ? esc(groupResults[id].label) : "Expected damage") +
+            "</th>",
         )
         .join("") +
       "</tr></thead><tbody>";
     ARCHETYPES.forEach((a, i) => {
       const vals = ids.map((id) => res[id][i].dmg);
       let best = -1;
-      if (ids.length > 1 && Math.abs(vals[0] - vals[1]) > 1e-9) best = vals[0] > vals[1] ? 0 : 1;
+      if (ids.length > 1 && Math.abs(vals[0] - vals[1]) > 1e-9)
+        best = vals[0] > vals[1] ? 0 : 1;
       html +=
         "<tr><td>" +
         esc(a.label.join(" \u2014 ")) +
@@ -6147,12 +6889,13 @@ if (typeof module !== "undefined") {
               res[id][i].dmg.toFixed(1) +
               " (" +
               res[id][i].pct.toFixed(0) +
-              "%)</td>"
+              "%)</td>",
           )
           .join("") +
         "</tr>";
     });
-    document.getElementById("archetype-table").innerHTML = html + "</tbody></table>";
+    document.getElementById("archetype-table").innerHTML =
+      html + "</tbody></table>";
   }
 
   function renderScalingChart(gr, sc, cache) {
@@ -6162,29 +6905,42 @@ if (typeof module !== "undefined") {
         (f) => {
           const r = runVariant(gr, sc, { count: f });
           const mk = r.modelsKilledSamples || [];
-          const models = (gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id]).def
-            .models;
+          const models = (
+            gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id]
+          ).def.models;
           const kills = mk.filter((k) => k >= models).length;
-          return { f, dmg: r.meanDamage, kill: mk.length ? (kills / mk.length) * 100 : 0 };
+          return {
+            f,
+            dmg: r.meanDamage,
+            kill: mk.length ? (kills / mk.length) * 100 : 0,
+          };
         },
         (out) => {
           cache.scaling = out;
           renderScalingChart(gr, sc, cache);
-        }
+        },
       );
       return;
     }
     const d = cache.scaling;
     const maxDmg = Math.max.apply(
       null,
-      d.map((x) => x.dmg)
+      d.map((x) => x.dmg),
     );
     const opts = withDatalabels(
-      chartBaseOptions("Weapon copies firing (relative to current)", "Expected damage"),
-      topLabel(1, "", 0.01)
+      chartBaseOptions(
+        "Weapon copies firing (relative to current)",
+        "Expected damage",
+      ),
+      topLabel(1, "", 0.01),
     );
     opts.plugins = Object.assign({}, opts.plugins, {
-      legend: { labels: { color: COLORS.navy, filter: (item) => item.text !== "kill-label" } },
+      legend: {
+        labels: {
+          color: COLORS.navy,
+          filter: (item) => item.text !== "kill-label",
+        },
+      },
       tooltip: {
         backgroundColor: COLORS.navy,
         filter: (item) => item.dataset.label !== "kill-label",
@@ -6194,7 +6950,11 @@ if (typeof module !== "undefined") {
       position: "right",
       min: 0,
       max: 112,
-      title: { display: true, text: "Chance to kill unit (%)", color: COLORS.slate },
+      title: {
+        display: true,
+        text: "Chance to kill unit (%)",
+        color: COLORS.slate,
+      },
       ticks: { color: COLORS.slate, callback: (v) => (v <= 100 ? v : "") },
       grid: { drawOnChartArea: false },
     };
@@ -6209,7 +6969,7 @@ if (typeof module !== "undefined") {
             data: d.map((x) => x.dmg),
             backgroundColor: gradColors(
               d.map((x) => x.dmg),
-              COLORS.blue
+              COLORS.blue,
             ),
             borderRadius: 2,
             yAxisID: "y",
@@ -6253,7 +7013,9 @@ if (typeof module !== "undefined") {
               formatter: (v, ctx) => {
                 const x = d[ctx.dataIndex];
                 return (
-                  (x.dmg < maxDmg * 0.12 ? x.dmg.toFixed(1) + " dmg \u00b7 " : "") +
+                  (x.dmg < maxDmg * 0.12
+                    ? x.dmg.toFixed(1) + " dmg \u00b7 "
+                    : "") +
                   x.kill.toFixed(0) +
                   "%"
                 );
@@ -6266,7 +7028,14 @@ if (typeof module !== "undefined") {
     });
   }
 
-  function sensitivityBars(canvasKey, canvasId, wrapId, rows, field, axisTitle) {
+  function sensitivityBars(
+    canvasKey,
+    canvasId,
+    wrapId,
+    rows,
+    field,
+    axisTitle,
+  ) {
     const sorted = rows.slice().sort((x, y) => y[field] - x[field]);
     const wrap = document.getElementById(wrapId);
     if (wrap) wrap.style.height = Math.max(260, sorted.length * 34 + 60) + "px";
@@ -6282,17 +7051,22 @@ if (typeof module !== "undefined") {
           {
             label: axisTitle,
             data: sorted.map((r) => r[field]),
-            backgroundColor: sorted.map((r, i) => (r[field] >= 0 ? pos[i] : neg[i])),
+            backgroundColor: sorted.map((r, i) =>
+              r[field] >= 0 ? pos[i] : neg[i],
+            ),
             borderRadius: 2,
           },
         ],
       },
       options: withDatalabels(
         Object.assign(chartBaseOptions(axisTitle, ""), {
-          plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } },
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: COLORS.navy },
+          },
         }),
         endLabel(1, "%", null),
-        { indexAxis: "y" }
+        { indexAxis: "y" },
       ),
     });
   }
@@ -6303,7 +7077,15 @@ if (typeof module !== "undefined") {
         [null].concat(SENS_VARIANTS),
         (v) =>
           v
-            ? { v, r: runVariant(gr, sc, { mods: v.mods, kw: v.kw, defMod: v.defMod, trials: SENS_TRIALS }) }
+            ? {
+                v,
+                r: runVariant(gr, sc, {
+                  mods: v.mods,
+                  kw: v.kw,
+                  defMod: v.defMod,
+                  trials: SENS_TRIALS,
+                }),
+              }
             : { v: null, r: runVariant(gr, sc, { trials: SENS_TRIALS }) },
         (out) => {
           const base = out[0].r.meanDamage;
@@ -6311,21 +7093,38 @@ if (typeof module !== "undefined") {
           const rows = out.slice(1).map((o) => ({
             label: o.v.label,
             pct: base > 0 ? (o.r.meanDamage / base - 1) * 100 : 0,
-            killPct: baseKills > 0.01 ? (o.r.meanModelsKilled / baseKills - 1) * 100 : 0,
+            killPct:
+              baseKills > 0.01
+                ? (o.r.meanModelsKilled / baseKills - 1) * 100
+                : 0,
             dmg: o.r.meanDamage,
           }));
           cache.sens = { base, baseKills, rows };
           renderSensitivityChart(gr, sc, entry, cache);
-        }
+        },
       );
       return;
     }
     const rows = cache.sens.rows;
-    sensitivityBars("sensitivity", "chart-sensitivity", "sensitivity-wrap", rows, "pct", "Change in expected damage vs current (%)");
+    sensitivityBars(
+      "sensitivity",
+      "chart-sensitivity",
+      "sensitivity-wrap",
+      rows,
+      "pct",
+      "Change in expected damage vs current (%)",
+    );
     const box = document.getElementById("sensitivity-kills-box");
     if (box) box.style.display = cache.sens.baseKills > 0.01 ? "" : "none";
     if (cache.sens.baseKills > 0.01)
-      sensitivityBars("sensitivityKills", "chart-sensitivity-kills", "sensitivity-kills-wrap", rows, "killPct", "Change in expected models killed vs current (%)");
+      sensitivityBars(
+        "sensitivityKills",
+        "chart-sensitivity-kills",
+        "sensitivity-kills-wrap",
+        rows,
+        "killPct",
+        "Change in expected models killed vs current (%)",
+      );
   }
 
   function renderPhaseChart(gr, sc, cache) {
@@ -6333,13 +7132,19 @@ if (typeof module !== "undefined") {
       const variants = [
         {
           label: "Shooting",
-          o: { filter: (x) => !x.melee, mods: () => ({ fireOverwatch: false }) },
+          o: {
+            filter: (x) => !x.melee,
+            mods: () => ({ fireOverwatch: false }),
+          },
         },
         {
           label: "Overwatch (ranged weapons)",
           o: { filter: (x) => !x.melee, mods: () => ({ fireOverwatch: true }) },
         },
-        { label: "Melee", o: { filter: (x) => x.melee, mods: () => ({ fireOverwatch: false }) } },
+        {
+          label: "Melee",
+          o: { filter: (x) => x.melee, mods: () => ({ fireOverwatch: false }) },
+        },
       ];
       cache.phase = variants
         .map((v) => {
@@ -6351,7 +7156,8 @@ if (typeof module !== "undefined") {
     const d = cache.phase;
     setBoxVisible(
       "phase-box",
-      d.length >= 2 || (d.length === 1 && d[0].label !== "Melee" && d[0].label !== "Shooting")
+      d.length >= 2 ||
+        (d.length === 1 && d[0].label !== "Melee" && d[0].label !== "Shooting"),
     );
     const cols = {
       Shooting: COLORS.blue,
@@ -6368,7 +7174,7 @@ if (typeof module !== "undefined") {
             data: d.map((x) => x.dmg),
             backgroundColor: gradColors(
               d.map((x) => x.dmg),
-              COLORS.blue
+              COLORS.blue,
             ),
             borderRadius: 2,
           },
@@ -6376,9 +7182,12 @@ if (typeof module !== "undefined") {
       },
       options: withDatalabels(
         Object.assign(chartBaseOptions("", "Expected damage"), {
-          plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } },
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: COLORS.navy },
+          },
         }),
-        topLabel(2, "", 0.01)
+        topLabel(2, "", 0.01),
       ),
     });
   }
@@ -6391,18 +7200,24 @@ if (typeof module !== "undefined") {
       Ts.forEach((t) => Svs.forEach((sv) => cells.push([t, sv])));
       chunked(
         cells,
-        (c) => runVariant(gr, sc, { def: plainDefender(c[0], c[1], 1000, 1), trials: 1500 }).meanDamage,
+        (c) =>
+          runVariant(gr, sc, {
+            def: plainDefender(c[0], c[1], 1000, 1),
+            trials: 1500,
+          }).meanDamage,
         (out) => {
-          cache.vuln = Ts.map((t, i) => Svs.map((sv, j) => out[i * Svs.length + j]));
+          cache.vuln = Ts.map((t, i) =>
+            Svs.map((sv, j) => out[i * Svs.length + j]),
+          );
           renderVulnerabilityTable(gr, sc, cache);
-        }
+        },
       );
       return;
     }
     const grid = cache.vuln;
     const max = Math.max.apply(
       null,
-      grid.map((r) => Math.max.apply(null, r))
+      grid.map((r) => Math.max.apply(null, r)),
     );
     let html =
       '<table class="vuln-table"><thead><tr><th>Toughness \\ Save</th>' +
@@ -6451,20 +7266,40 @@ if (typeof module !== "undefined") {
       chunked(
         cells,
         (c) => {
-          const r = simulate(referenceVolley(12, c[0], c[1], 2), durabilityDefender(d), scaledTrials(2000));
-          return { i: c[2], j: c[3], wounds: Math.min(100, (r.meanEffectiveDamage / d.pool) * 100), models: r.meanModelsKilled };
+          const r = simulate(
+            referenceVolley(12, c[0], c[1], 2),
+            durabilityDefender(d),
+            scaledTrials(2000),
+          );
+          return {
+            i: c[2],
+            j: c[3],
+            wounds: Math.min(100, (r.meanEffectiveDamage / d.pool) * 100),
+            models: r.meanModelsKilled,
+          };
         },
         (out) => {
           cache.durGrid = Ss.map(() => APs.map(() => null));
-          out.forEach((o) => (cache.durGrid[o.i][o.j] = { wounds: o.wounds, models: o.models }));
+          out.forEach(
+            (o) =>
+              (cache.durGrid[o.i][o.j] = {
+                wounds: o.wounds,
+                models: o.models,
+              }),
+          );
           renderDurabilityHeatmap(gr, cache);
-        }
+        },
       );
       return;
     }
     const wounds = durMode === "wounds";
-    const grid = cache.durGrid.map((row) => row.map((c) => (wounds ? c.wounds : c.models)));
-    const max = Math.max.apply(null, grid.map((r) => Math.max.apply(null, r)));
+    const grid = cache.durGrid.map((row) =>
+      row.map((c) => (wounds ? c.wounds : c.models)),
+    );
+    const max = Math.max.apply(
+      null,
+      grid.map((r) => Math.max.apply(null, r)),
+    );
     const m = durabilityMetrics(gr);
     let html = '<div class="vuln-modes">';
     [
@@ -6474,11 +7309,22 @@ if (typeof module !== "undefined") {
       html +=
         '<button type="button" class="legend-opt dur-mode' +
         (o[0] === durMode ? " active" : "") +
-        '" data-mode="' + o[0] + '">' + o[1] + "</button>";
+        '" data-mode="' +
+        o[0] +
+        '">' +
+        o[1] +
+        "</button>";
     });
     html +=
-      '</div><div class="chart-sub">' + esc(gr.label) + " \u00b7 " + d.models + " models, " + d.pool +
-      " wounds, " + esc(m.stat) + " \u00b7 12 hits of Damage 2</div>" +
+      '</div><div class="chart-sub">' +
+      esc(gr.label) +
+      " \u00b7 " +
+      d.models +
+      " models, " +
+      d.pool +
+      " wounds, " +
+      esc(m.stat) +
+      " \u00b7 12 hits of Damage 2</div>" +
       '<table class="vuln-table"><thead><tr><th>Strength \\ AP</th>' +
       APs.map((v) => "<th>" + (v === 0 ? "0" : v) + "</th>").join("") +
       "</tr></thead><tbody>";
@@ -6487,8 +7333,13 @@ if (typeof module !== "undefined") {
       grid[i].forEach((v) => {
         const a = max > 0 ? (0.08 + 0.72 * (v / max)).toFixed(2) : 0;
         html +=
-          '<td style="background:rgba(160,60,60,' + a + ");color:" + (a > 0.5 ? "#fff" : COLORS.navy) + '">' +
-          (wounds ? v.toFixed(0) + "%" : v.toFixed(1)) + "</td>";
+          '<td style="background:rgba(160,60,60,' +
+          a +
+          ");color:" +
+          (a > 0.5 ? "#fff" : COLORS.navy) +
+          '">' +
+          (wounds ? v.toFixed(0) + "%" : v.toFixed(1)) +
+          "</td>";
       });
       html += "</tr>";
     });
@@ -6498,13 +7349,15 @@ if (typeof module !== "undefined") {
       btn.addEventListener("click", () => {
         durMode = btn.dataset.mode;
         renderDurabilityHeatmap(gr, cache);
-      })
+      }),
     );
   }
 
   function groupMetrics(id) {
     const gr = groupResults[id];
-    const entry = gr.scenarioResults[currentScenarioId] || gr.scenarioResults[SCENARIOS[0].id];
+    const entry =
+      gr.scenarioResults[currentScenarioId] ||
+      gr.scenarioResults[SCENARIOS[0].id];
     const r = entry.result;
     const def = entry.def;
     const pool = def.wounds * def.models;
@@ -6553,10 +7406,14 @@ if (typeof module !== "undefined") {
     const pool = baseDef.wounds * baseDef.models;
     const metrics = {};
     COMPARE_PHASES.forEach((phase) => {
-      const result = runVariant(gr, phase.usesScenario ? scenario : SCENARIOS[0], {
-        filter: phase.filter,
-        mods: phase.mods,
-      });
+      const result = runVariant(
+        gr,
+        phase.usesScenario ? scenario : SCENARIOS[0],
+        {
+          filter: phase.filter,
+          mods: phase.mods,
+        },
+      );
       if (!result) {
         metrics[phase.key] = null;
         return;
@@ -6566,7 +7423,10 @@ if (typeof module !== "undefined") {
       metrics[phase.key] = {
         dmg: result.meanDamage,
         killed: result.meanModelsKilled,
-        pct: pool > 0 ? Math.min(100, (result.meanEffectiveDamage / pool) * 100) : 0,
+        pct:
+          pool > 0
+            ? Math.min(100, (result.meanEffectiveDamage / pool) * 100)
+            : 0,
         killUnit: kills.length ? (fullKills / kills.length) * 100 : 0,
       };
     });
@@ -6579,7 +7439,8 @@ if (typeof module !== "undefined") {
     const first = Object.values(gr.scenarioResults)[0];
     const seen = [];
     first.meta.forEach((m) => {
-      if (m && m.unitName && seen.indexOf(m.unitName) < 0) seen.push(m.unitName);
+      if (m && m.unitName && seen.indexOf(m.unitName) < 0)
+        seen.push(m.unitName);
     });
     return seen.join(", ");
   }
@@ -6589,7 +7450,8 @@ if (typeof module !== "undefined") {
     if (!panel || !groupResults) return;
     const ids = Object.keys(groupResults);
     const multi = ids.length > 1;
-    const atkText = (id) => (multi ? groupResults[id].label + ": " : "") + groupAttackerNames(id);
+    const atkText = (id) =>
+      (multi ? groupResults[id].label + ": " : "") + groupAttackerNames(id);
     const viewText = atkText(viewGroupId);
     const sc = scenarioById(currentScenarioId);
     const scText = scenarioMeleeOnly ? "Melee" : sc.label;
@@ -6624,27 +7486,30 @@ if (typeof module !== "undefined") {
   }
 
   function renderGroupViewBar() {
-    const bar = document.getElementById("group-view-bar");
-    if (!bar) return;
     const ids = groupResults ? Object.keys(groupResults) : [];
-    if (ids.length < 2) {
-      bar.style.display = "none";
-      bar.innerHTML = "";
-      return;
-    }
-    bar.style.display = "flex";
-    bar.innerHTML = '<span class="group-view-label">Show full results for</span>';
-    ids.forEach((id) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = "group-view-btn" + (id === viewGroupId ? " active" : "");
-      b.dataset.group = id;
-      b.textContent = groupResults[id].label;
-      b.addEventListener("click", () => {
-        showGroupView(id);
-        renderResults(currentScenarioId);
+    ["group-view-bar", "group-view-bar-bottom"].forEach((barId) => {
+      const bar = document.getElementById(barId);
+      if (!bar) return;
+      if (ids.length < 2) {
+        bar.style.display = "none";
+        bar.innerHTML = "";
+        return;
+      }
+      bar.style.display = "flex";
+      bar.innerHTML =
+        '<span class="group-view-label">Show full results for</span>';
+      ids.forEach((id) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "group-view-btn" + (id === viewGroupId ? " active" : "");
+        b.dataset.group = id;
+        b.textContent = groupResults[id].label;
+        b.addEventListener("click", () => {
+          showGroupView(id);
+          renderResults(currentScenarioId);
+        });
+        bar.appendChild(b);
       });
-      bar.appendChild(b);
     });
   }
 
@@ -6668,14 +7533,30 @@ if (typeof module !== "undefined") {
     const sc = scenarioById(currentScenarioId);
     const anyRanged = Object.values(groupResults).some((r) => !r.meleeOnly);
     document.getElementById("group-compare-title").textContent =
-      "Attacker group comparison" + (anyRanged ? " \u2014 " + sc.label : " \u2014 melee");
+      "Attacker group comparison" +
+      (anyRanged ? " \u2014 " + sc.label : " \u2014 melee");
 
     const m = {};
     ids.forEach((id) => (m[id] = groupMetrics(id)));
     const rows = [
-      { key: "dmg", label: "Expected damage", fmt: (v) => v.toFixed(2), higher: true },
-      { key: "killed", label: "Models killed", fmt: (v) => v.toFixed(2), higher: true },
-      { key: "pct", label: "% of unit's wounds", fmt: (v) => v.toFixed(1) + "%", higher: true },
+      {
+        key: "dmg",
+        label: "Expected damage",
+        fmt: (v) => v.toFixed(2),
+        higher: true,
+      },
+      {
+        key: "killed",
+        label: "Models killed",
+        fmt: (v) => v.toFixed(2),
+        higher: true,
+      },
+      {
+        key: "pct",
+        label: "% of unit's wounds",
+        fmt: (v) => v.toFixed(1) + "%",
+        higher: true,
+      },
       {
         key: "killUnit",
         label: "Chance to kill unit",
@@ -6715,19 +7596,33 @@ if (typeof module !== "undefined") {
         ids
           .map(
             (id, i) =>
-              '<td class="' + (i === bestIdx ? "best" : "") + '">' + r.fmt(m[id][r.key]) + "</td>"
+              '<td class="' +
+              (i === bestIdx ? "best" : "") +
+              '">' +
+              r.fmt(m[id][r.key]) +
+              "</td>",
           )
           .join("") +
         "</tr>";
     });
     const phaseMetrics = {};
     ids.forEach((id) => (phaseMetrics[id] = groupPhaseMetrics(id, sc)));
-    const activePhases = COMPARE_PHASES.filter((p) => ids.some((id) => phaseMetrics[id][p.key]));
+    const activePhases = COMPARE_PHASES.filter((p) =>
+      ids.some((id) => phaseMetrics[id][p.key]),
+    );
     const phaseRows = [
       { key: "dmg", label: "Expected damage", fmt: (v) => v.toFixed(2) },
       { key: "killed", label: "Models killed", fmt: (v) => v.toFixed(2) },
-      { key: "pct", label: "% of unit's wounds", fmt: (v) => v.toFixed(1) + "%" },
-      { key: "killUnit", label: "Chance to kill unit", fmt: (v) => v.toFixed(1) + "%" },
+      {
+        key: "pct",
+        label: "% of unit's wounds",
+        fmt: (v) => v.toFixed(1) + "%",
+      },
+      {
+        key: "killUnit",
+        label: "Chance to kill unit",
+        fmt: (v) => v.toFixed(1) + "%",
+      },
     ];
     activePhases.forEach((phase) => {
       html +=
@@ -6735,16 +7630,28 @@ if (typeof module !== "undefined") {
         (ids.length + 1) +
         '">' +
         phase.label +
-        (phase.key === "overwatch" ? " (ranged weapons, hits only on unmodified 6)" : "") +
+        (phase.key === "overwatch"
+          ? " (ranged weapons, hits only on unmodified 6)"
+          : "") +
         "</td></tr>";
       phaseRows.forEach((r) => {
-        const vals = ids.map((id) => (phaseMetrics[id][phase.key] ? phaseMetrics[id][phase.key][r.key] : null));
+        const vals = ids.map((id) =>
+          phaseMetrics[id][phase.key]
+            ? phaseMetrics[id][phase.key][r.key]
+            : null,
+        );
         let bestIdx = -1;
         if (vals.every((v) => v != null)) {
           const best = Math.max(...vals);
-          const runnerUp = Math.max(...vals.filter((v) => v !== best), -Infinity);
-          const clearWin = best > 0 && (runnerUp === -Infinity || best - runnerUp > best * 0.02);
-          if (clearWin && vals.filter((v) => v === best).length === 1) bestIdx = vals.indexOf(best);
+          const runnerUp = Math.max(
+            ...vals.filter((v) => v !== best),
+            -Infinity,
+          );
+          const clearWin =
+            best > 0 &&
+            (runnerUp === -Infinity || best - runnerUp > best * 0.02);
+          if (clearWin && vals.filter((v) => v === best).length === 1)
+            bestIdx = vals.indexOf(best);
         }
         html +=
           "<tr><td>" +
@@ -6753,7 +7660,11 @@ if (typeof module !== "undefined") {
           vals
             .map(
               (v, i) =>
-                '<td class="' + (i === bestIdx ? "best" : "") + '">' + (v == null ? "-" : r.fmt(v)) + "</td>"
+                '<td class="' +
+                (i === bestIdx ? "best" : "") +
+                '">' +
+                (v == null ? "-" : r.fmt(v)) +
+                "</td>",
             )
             .join("") +
           "</tr>";
@@ -6769,7 +7680,12 @@ if (typeof module !== "undefined") {
       const durRows = [
         { label: "Models", get: (x) => x.models, fmt: (v) => v },
         { label: "Total wounds", get: (x) => x.pool, fmt: (v) => v },
-        { label: "Defensive profile", get: (x) => x.stat, fmt: (v) => v, text: true },
+        {
+          label: "Defensive profile",
+          get: (x) => x.stat,
+          fmt: (v) => v,
+          text: true,
+        },
         {
           label: "Wounds per 100 pts",
           get: (x) => x.per100,
@@ -6785,8 +7701,14 @@ if (typeof module !== "undefined") {
           best: "low",
         });
         durRows.push({
-          label: "Durability per 100 pts \u2014 " + v.label + " (volleys to wipe out)",
-          get: (x) => (x.points > 0 ? (100 / Math.max(x[v.key], 0.1)) * (100 / x.points) : null),
+          label:
+            "Durability per 100 pts \u2014 " +
+            v.label +
+            " (volleys to wipe out)",
+          get: (x) =>
+            x.points > 0
+              ? (100 / Math.max(x[v.key], 0.1)) * (100 / x.points)
+              : null,
           fmt: (val) => val.toFixed(2),
           best: "high",
         });
@@ -6802,7 +7724,8 @@ if (typeof module !== "undefined") {
         let bestIdx = -1;
         if (r.best && vals.every((v) => v != null)) {
           const b = r.best === "high" ? Math.max(...vals) : Math.min(...vals);
-          if (vals.filter((v) => Math.abs(v - b) < 1e-9).length === 1) bestIdx = vals.indexOf(b);
+          if (vals.filter((v) => Math.abs(v - b) < 1e-9).length === 1)
+            bestIdx = vals.indexOf(b);
         }
         html +=
           "<tr><td>" +
@@ -6811,7 +7734,11 @@ if (typeof module !== "undefined") {
           vals
             .map(
               (v, i) =>
-                '<td class="' + (i === bestIdx ? "best" : "") + '">' + (v == null ? "-" : r.fmt(v)) + "</td>"
+                '<td class="' +
+                (i === bestIdx ? "best" : "") +
+                '">' +
+                (v == null ? "-" : r.fmt(v)) +
+                "</td>",
             )
             .join("") +
           "</tr>";
@@ -6829,13 +7756,19 @@ if (typeof module !== "undefined") {
         ? "Both groups deal the same expected damage."
         : groupResults[hi].label +
           " deals " +
-          (m[lo].dmg > 0 ? ((m[hi].dmg / m[lo].dmg - 1) * 100).toFixed(0) + "% " : "") +
+          (m[lo].dmg > 0
+            ? ((m[hi].dmg / m[lo].dmg - 1) * 100).toFixed(0) + "% "
+            : "") +
           "more expected damage (" +
           m[hi].dmg.toFixed(2) +
           " vs " +
           m[lo].dmg.toFixed(2) +
           ").";
-    if (m[a].per100 != null && m[b].per100 != null && m[a].per100 !== m[b].per100) {
+    if (
+      m[a].per100 != null &&
+      m[b].per100 != null &&
+      m[a].per100 !== m[b].per100
+    ) {
       const eff = m[a].per100 > m[b].per100 ? a : b;
       text +=
         " " +
@@ -6854,11 +7787,19 @@ if (typeof module !== "undefined") {
         }
         const win = va.dmg > vb.dmg ? a : b;
         return (
-          phase.label + ": " + groupResults[win].label + " (" + va.dmg.toFixed(1) + " vs " + vb.dmg.toFixed(1) + ")"
+          phase.label +
+          ": " +
+          groupResults[win].label +
+          " (" +
+          va.dmg.toFixed(1) +
+          " vs " +
+          vb.dmg.toFixed(1) +
+          ")"
         );
       })
       .filter(Boolean);
-    if (phaseNotes.length) text += " By phase \u2014 " + phaseNotes.join("; ") + ".";
+    if (phaseNotes.length)
+      text += " By phase \u2014 " + phaseNotes.join("; ") + ".";
     verdict.textContent = text;
 
     renderGroupPhaseChart(ids, phaseMetrics, activePhases);
@@ -6882,7 +7823,10 @@ if (typeof module !== "undefined") {
           borderRadius: 2,
         })),
       },
-      options: withDatalabels(chartBaseOptions("", "Expected damage"), topLabel(2, "", 0.01)),
+      options: withDatalabels(
+        chartBaseOptions("", "Expected damage"),
+        topLabel(2, "", 0.01),
+      ),
     });
   }
 
@@ -6897,18 +7841,26 @@ if (typeof module !== "undefined") {
         labels: phases.map((p) => p.label),
         datasets: ids.map((id, i) => ({
           label: groupResults[id].label,
-          data: phases.map((p) => (phaseMetrics[id][p.key] ? phaseMetrics[id][p.key].dmg : null)),
+          data: phases.map((p) =>
+            phaseMetrics[id][p.key] ? phaseMetrics[id][p.key].dmg : null,
+          ),
           backgroundColor: colors[i],
           borderRadius: 2,
         })),
       },
-      options: withDatalabels(chartBaseOptions("", "Expected damage"), topLabel(2, "", 0.01)),
+      options: withDatalabels(
+        chartBaseOptions("", "Expected damage"),
+        topLabel(2, "", 0.01),
+      ),
     });
   }
 
   function updateScenarioButtons() {
     document.querySelectorAll(".scenario-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.scenario === currentScenarioId);
+      btn.classList.toggle(
+        "active",
+        btn.dataset.scenario === currentScenarioId,
+      );
     });
   }
 
@@ -6919,7 +7871,9 @@ if (typeof module !== "undefined") {
     const rows = perGroup
       .map((g, i) => {
         const pool = g.models * g.wounds;
-        const pct = pool ? Math.min(100, (g.meanEffectiveDamage / pool) * 100) : 0;
+        const pct = pool
+          ? Math.min(100, (g.meanEffectiveDamage / pool) * 100)
+          : 0;
         return `<tr>
           <td>${i + 1}. ${esc(g.label)}${g.isCharacter ? " (Character)" : ""}</td>
           <td>${g.models}</td>
@@ -6929,7 +7883,8 @@ if (typeof module !== "undefined") {
         </tr>`;
       })
       .join("");
-    document.getElementById("def-groups-table").innerHTML = `<table class="def-groups-table">
+    document.getElementById("def-groups-table").innerHTML =
+      `<table class="def-groups-table">
       <thead><tr><th>Attached model / unit (allocation order)</th><th>Models</th><th>Wounds lost</th><th>% of group wounds</th><th>Models killed</th></tr></thead>
       <tbody>${rows}</tbody></table>`;
   }
@@ -6968,9 +7923,13 @@ if (typeof module !== "undefined") {
           },
         ],
       },
-      options: withDatalabels(chartBaseOptions("Expected count", ""), endLabel(2, "", 0.01), {
-        indexAxis: "y",
-      }),
+      options: withDatalabels(
+        chartBaseOptions("Expected count", ""),
+        endLabel(2, "", 0.01),
+        {
+          indexAxis: "y",
+        },
+      ),
     });
   }
 
@@ -6981,7 +7940,10 @@ if (typeof module !== "undefined") {
       ["Critical Wounds", rules.meanCritWounds],
       ["Lethal Hits — auto-wounds", rules.meanLethalHitsProcs],
       ["Sustained Hits — extra hits generated", rules.meanSustainedExtraHits],
-      ["Devastating Wounds — procs (bypassed save)", rules.meanDevastatingWoundsProcs],
+      [
+        "Devastating Wounds — procs (bypassed save)",
+        rules.meanDevastatingWoundsProcs,
+      ],
       ["Anti-X — procs (auto crit wound)", rules.meanAntiProcs],
     ];
     const anyActive = rows.some(([, v]) => v > 0.0001);
@@ -6994,7 +7956,7 @@ if (typeof module !== "undefined") {
       ${rows
         .map(
           ([label, v]) =>
-            `<tr><td class="rule-label">${esc(label)}</td><td class="rule-val">${v.toFixed(2)}</td></tr>`
+            `<tr><td class="rule-label">${esc(label)}</td><td class="rule-val">${v.toFixed(2)}</td></tr>`,
         )
         .join("")}
     </table>`;
@@ -7002,7 +7964,8 @@ if (typeof module !== "undefined") {
 
   function renderRerollBreakdown(rerolls) {
     const wrap = document.getElementById("reroll-breakdown-body");
-    const totalPerformed = rerolls.hit.performed + rerolls.wound.performed + rerolls.save.performed;
+    const totalPerformed =
+      rerolls.hit.performed + rerolls.wound.performed + rerolls.save.performed;
     if (totalPerformed <= 0.0001) {
       wrap.innerHTML =
         '<div class="rule-empty-note">No re-rolls were enabled for this calculation.</div>';
@@ -7011,32 +7974,32 @@ if (typeof module !== "undefined") {
     const sections = [];
     if (rerolls.hit.performed > 0.0001) {
       sections.push(
-        `<tr><td class="rule-label">Hit re-rolls performed</td><td class="rule-val">${rerolls.hit.performed.toFixed(2)}</td></tr>`
+        `<tr><td class="rule-label">Hit re-rolls performed</td><td class="rule-val">${rerolls.hit.performed.toFixed(2)}</td></tr>`,
       );
       sections.push(
-        `<tr><td class="rule-label rule-sub">→ converted to a hit</td><td class="rule-val">${rerolls.hit.toSuccess.toFixed(2)}</td></tr>`
+        `<tr><td class="rule-label rule-sub">→ converted to a hit</td><td class="rule-val">${rerolls.hit.toSuccess.toFixed(2)}</td></tr>`,
       );
       sections.push(
-        `<tr><td class="rule-label rule-sub">→ converted to a critical hit</td><td class="rule-val">${rerolls.hit.toCrit.toFixed(2)}</td></tr>`
+        `<tr><td class="rule-label rule-sub">→ converted to a critical hit</td><td class="rule-val">${rerolls.hit.toCrit.toFixed(2)}</td></tr>`,
       );
     }
     if (rerolls.wound.performed > 0.0001) {
       sections.push(
-        `<tr><td class="rule-label">Wound re-rolls performed</td><td class="rule-val">${rerolls.wound.performed.toFixed(2)}</td></tr>`
+        `<tr><td class="rule-label">Wound re-rolls performed</td><td class="rule-val">${rerolls.wound.performed.toFixed(2)}</td></tr>`,
       );
       sections.push(
-        `<tr><td class="rule-label rule-sub">→ converted to a wound</td><td class="rule-val">${rerolls.wound.toSuccess.toFixed(2)}</td></tr>`
+        `<tr><td class="rule-label rule-sub">→ converted to a wound</td><td class="rule-val">${rerolls.wound.toSuccess.toFixed(2)}</td></tr>`,
       );
       sections.push(
-        `<tr><td class="rule-label rule-sub">→ converted to a critical wound</td><td class="rule-val">${rerolls.wound.toCrit.toFixed(2)}</td></tr>`
+        `<tr><td class="rule-label rule-sub">→ converted to a critical wound</td><td class="rule-val">${rerolls.wound.toCrit.toFixed(2)}</td></tr>`,
       );
     }
     if (rerolls.save.performed > 0.0001) {
       sections.push(
-        `<tr><td class="rule-label">Save re-rolls performed (defender)</td><td class="rule-val">${rerolls.save.performed.toFixed(2)}</td></tr>`
+        `<tr><td class="rule-label">Save re-rolls performed (defender)</td><td class="rule-val">${rerolls.save.performed.toFixed(2)}</td></tr>`,
       );
       sections.push(
-        `<tr><td class="rule-label rule-sub">→ converted to a successful save</td><td class="rule-val">${rerolls.save.toSuccess.toFixed(2)}</td></tr>`
+        `<tr><td class="rule-label rule-sub">→ converted to a successful save</td><td class="rule-val">${rerolls.save.toSuccess.toFixed(2)}</td></tr>`,
       );
     }
     wrap.innerHTML = `<table class="rule-table">${sections.join("")}</table>`;
@@ -7049,7 +8012,11 @@ if (typeof module !== "undefined") {
     const labels = [];
     const counts = [];
     for (let b = 0; b * binSize <= max; b++) {
-      labels.push(binSize === 1 ? String(b) : `${b * binSize}-${b * binSize + binSize - 1}`);
+      labels.push(
+        binSize === 1
+          ? String(b)
+          : `${b * binSize}-${b * binSize + binSize - 1}`,
+      );
       counts.push(0);
     }
     samples.forEach((v) => {
@@ -7075,7 +8042,7 @@ if (typeof module !== "undefined") {
       },
       options: withDatalabels(
         chartBaseOptions("Damage dealt", "Probability (%)"),
-        topLabel(1, "%", 1)
+        topLabel(1, "%", 1),
       ),
     });
   }
@@ -7102,7 +8069,9 @@ if (typeof module !== "undefined") {
       labels.push(b * binSize + "+");
       data.push(atLeast[b]);
     }
-    const ctx = document.getElementById("chart-damage-cumulative").getContext("2d");
+    const ctx = document
+      .getElementById("chart-damage-cumulative")
+      .getContext("2d");
     if (charts.damageCumulative) charts.damageCumulative.destroy();
     charts.damageCumulative = new Chart(ctx, {
       type: "line",
@@ -7122,7 +8091,7 @@ if (typeof module !== "undefined") {
       },
       options: withDatalabels(
         chartBaseOptions("Damage dealt", "Probability (%)"),
-        topLabel(0, "%", 3)
+        topLabel(0, "%", 3),
       ),
     });
   }
@@ -7138,33 +8107,64 @@ if (typeof module !== "undefined") {
     const tile = document.getElementById(tileId);
     if (!tile) return;
     const fnps = fnpValues(def);
-    const stopped = Math.max(0, (result.meanDamageBeforeFnp || 0) - result.meanDamage);
-    if (!fnps.length) {
-      tile.style.display = "none";
-      return;
-    }
-    tile.style.display = "";
+    tile.style.display = fnps.length ? "" : "none";
+    if (!fnps.length) return;
+    const stopped = Math.max(
+      0,
+      (result.meanDamageBeforeFnp || 0) - result.meanDamage,
+    );
     document.getElementById(valId).textContent = stopped.toFixed(2);
-    const best = Math.min.apply(null, fnps);
-    document.getElementById(lblId).textContent = "Stopped by FNP " + best + "+";
+    document.getElementById(lblId).textContent =
+      "Stopped by FNP " + Math.min.apply(null, fnps) + "+";
   }
 
   function statTilesHtml(result, def) {
+    const tile = (cls, val, lbl) =>
+      '<div class="stat-tile' +
+      (cls ? " " + cls : "") +
+      '"><div class="val">' +
+      val +
+      '</div><div class="lbl">' +
+      lbl +
+      "</div></div>";
+    const hasFnp = fnpValues(def).length > 0;
+    if (!result) {
+      const dash = "\u2013";
+      return (
+        tile("muted", dash, "Attacks") +
+        tile("muted", dash, "Hits") +
+        tile("muted", dash, "Wounds") +
+        tile("accent muted", dash, "Unsaved") +
+        (hasFnp ? tile("fnp muted", dash, "Stopped by FNP") : "") +
+        tile("accent2 muted", dash, "Exp. damage") +
+        tile("accent2 muted", dash, "Models killed") +
+        tile("muted", dash, "% of unit's wounds") +
+        tile("accent2 muted", dash, "Chance to kill unit")
+      );
+    }
     const pool = def.wounds * def.models;
-    const pct = pool > 0 ? Math.min(100, (result.meanEffectiveDamage / pool) * 100) : 0;
+    const pct =
+      pool > 0 ? Math.min(100, (result.meanEffectiveDamage / pool) * 100) : 0;
     const ks = result.modelsKilledSamples || [];
     const full = ks.filter((k) => k >= def.models).length;
     const killUnit = ks.length ? (full / ks.length) * 100 : 0;
-    const tile = (cls, val, lbl) =>
-      '<div class="stat-tile' + (cls ? " " + cls : "") + '"><div class="val">' + val + '</div><div class="lbl">' + lbl + "</div></div>";
     const fnps = fnpValues(def);
-    const stopped = Math.max(0, (result.meanDamageBeforeFnp || 0) - result.meanDamage);
+    const stopped = Math.max(
+      0,
+      (result.meanDamageBeforeFnp || 0) - result.meanDamage,
+    );
     return (
       tile("", result.meanAttacks.toFixed(2), "Attacks") +
       tile("", result.meanHits.toFixed(2), "Hits") +
       tile("", result.meanWounds.toFixed(2), "Wounds") +
       tile("accent", result.meanUnsaved.toFixed(2), "Unsaved") +
-      (fnps.length ? tile("fnp", stopped.toFixed(2), "Stopped by FNP " + Math.min.apply(null, fnps) + "+") : "") +
+      (fnps.length
+        ? tile(
+            "fnp",
+            stopped.toFixed(2),
+            "Stopped by FNP " + Math.min.apply(null, fnps) + "+",
+          )
+        : "") +
       tile("accent2", result.meanDamage.toFixed(2), "Exp. damage") +
       tile("accent2", result.meanModelsKilled.toFixed(2), "Models killed") +
       tile("", pct.toFixed(1) + "%", "% of unit's wounds") +
@@ -7176,39 +8176,58 @@ if (typeof module !== "undefined") {
     const host = document.getElementById("stats-extra-rows");
     const totalTitle = document.getElementById("stats-title-total");
     if (!host) return;
+    if (totalTitle) totalTitle.style.display = "";
     const gr = groupResults && groupResults[viewGroupId];
-    const hasMelee = gr && gr.meta.some((m) => m.isMelee);
-    const hasRanged = gr && gr.meta.some((m) => !m.isMelee);
-    if (!gr || !(hasMelee && hasRanged)) {
+    if (!gr) {
       host.innerHTML = "";
-      if (totalTitle) totalTitle.style.display = "none";
       return;
     }
-    if (totalTitle) totalTitle.style.display = "";
+    const hasMelee = gr.meta.some((m) => m.isMelee);
+    const hasRanged = gr.meta.some((m) => !m.isMelee);
     const sc = viewScenario(gr);
     const key = "stats|" + viewGroupId + "|" + sc.id;
     if (!extrasCache[key]) {
       extrasCache[key] = {
-        shooting: runVariant(gr, sc, { filter: (x) => !x.melee, trials: 4000 }),
-        melee: runVariant(gr, sc, { filter: (x) => x.melee, trials: 4000 }),
+        shooting:
+          hasRanged && hasMelee
+            ? runVariant(gr, sc, { filter: (x) => !x.melee, trials: 4000 })
+            : null,
+        melee:
+          hasRanged && hasMelee
+            ? runVariant(gr, sc, { filter: (x) => x.melee, trials: 4000 })
+            : null,
       };
     }
     const c = extrasCache[key];
     const defForSc = Object.assign({}, gr.baseDef, { coverBonus: sc.cover });
+    const mainResult = (
+      gr.scenarioResults[sc.id] || gr.scenarioResults[SCENARIOS[0].id]
+    ).result;
+    const shooting = hasRanged ? (hasMelee ? c.shooting : mainResult) : null;
+    const melee = hasMelee ? (hasRanged ? c.melee : mainResult) : null;
     let html = "";
-    [
-      ["shooting", "Shooting"],
-      ["melee", "Melee"],
-    ].forEach((p) => {
-      if (!c[p[0]]) return;
-      html += '<div class="stats-title">' + p[1] + '</div><div class="stats-grid phase-' + p[0] + '">' + statTilesHtml(c[p[0]], defForSc) + "</div>";
-    });
+    if (hasRanged)
+      html +=
+        '<div class="stats-title">Shooting</div><div class="stats-grid phase-shooting">' +
+        statTilesHtml(shooting, defForSc) +
+        "</div>";
+    if (hasMelee)
+      html +=
+        '<div class="stats-title">Melee</div><div class="stats-grid phase-melee">' +
+        statTilesHtml(melee, defForSc) +
+        "</div>";
     host.innerHTML = html;
   }
 
   function renderStageFunnel(result, def) {
     const hasFnp = !!(def && def.fnp);
-    const labels = ["Attacks", "Hits", "Wounds", "Unsaved", hasFnp ? "Damage (pre-FNP)" : "Damage"];
+    const labels = [
+      "Attacks",
+      "Hits",
+      "Wounds",
+      "Unsaved",
+      hasFnp ? "Damage (pre-FNP)" : "Damage",
+    ];
     const data = [
       result.meanAttacks,
       result.meanHits,
@@ -7216,7 +8235,13 @@ if (typeof module !== "undefined") {
       result.meanUnsaved,
       hasFnp ? result.meanDamageBeforeFnp : result.meanDamage,
     ];
-    const colors = [COLORS.slate, COLORS.blue, COLORS.blue, COLORS.navy, COLORS.red];
+    const colors = [
+      COLORS.slate,
+      COLORS.blue,
+      COLORS.blue,
+      COLORS.navy,
+      COLORS.red,
+    ];
     if (hasFnp) {
       labels.push("After FNP");
       data.push(result.meanDamage);
@@ -7237,10 +8262,14 @@ if (typeof module !== "undefined") {
           },
         ],
       },
-      options: withDatalabels(chartBaseOptions("", "Expected count"), endLabel(2), {
-        indexAxis: "y",
-        plugins: { legend: { display: false } },
-      }),
+      options: withDatalabels(
+        chartBaseOptions("", "Expected count"),
+        endLabel(2),
+        {
+          indexAxis: "y",
+          plugins: { legend: { display: false } },
+        },
+      ),
     });
   }
 
@@ -7251,8 +8280,11 @@ if (typeof module !== "undefined") {
       return;
     }
     if (box) box.style.display = "";
-    const dmg = (id) => (scenarioResults[id] ? scenarioResults[id].result.meanDamage : 0);
-    const ctx = document.getElementById("chart-cover-comparison").getContext("2d");
+    const dmg = (id) =>
+      scenarioResults[id] ? scenarioResults[id].result.meanDamage : 0;
+    const ctx = document
+      .getElementById("chart-cover-comparison")
+      .getContext("2d");
     if (charts.coverComparison) charts.coverComparison.destroy();
     charts.coverComparison = new Chart(ctx, {
       type: "bar",
@@ -7273,25 +8305,42 @@ if (typeof module !== "undefined") {
           },
         ],
       },
-      options: withDatalabels(chartBaseOptions("", "Expected damage"), topLabel(2, "", 0.01)),
+      options: withDatalabels(
+        chartBaseOptions("", "Expected damage"),
+        topLabel(2, "", 0.01),
+      ),
     });
   }
 
-  function renderKillProbability(modelsKilledSamples, maxModels, damageSamples, pool) {
+  function renderKillProbability(
+    modelsKilledSamples,
+    maxModels,
+    damageSamples,
+    pool,
+  ) {
     const title = document.getElementById("kills-title");
 
     if (maxModels <= 1 && damageSamples && pool > 0) {
-      if (title) title.textContent = "Probability of removing at least X% of the target's wounds";
+      if (title)
+        title.textContent =
+          "Probability of removing at least X% of the target's wounds";
       const labels = [],
         data = [];
       for (let pct = 10; pct <= 100; pct += 10) {
         const need = Math.ceil((pct / 100) * pool - 1e-9);
         labels.push(pct === 100 ? "100% (destroyed)" : pct + "%");
-        data.push((damageSamples.filter((d) => d >= need).length / damageSamples.length) * 100);
+        data.push(
+          (damageSamples.filter((d) => d >= need).length /
+            damageSamples.length) *
+            100,
+        );
       }
       const opts = withDatalabels(
-        chartBaseOptions("Share of the target's " + pool + " wounds removed", "Probability (%)"),
-        topLabel(0, "%", 0.5)
+        chartBaseOptions(
+          "Share of the target's " + pool + " wounds removed",
+          "Probability (%)",
+        ),
+        topLabel(0, "%", 0.5),
       );
       opts.scales.y.max = 115;
       opts.scales.y.grace = 0;
@@ -7310,7 +8359,7 @@ if (typeof module !== "undefined") {
               label: "Probability of removing at least X% of wounds (%)",
               data,
               backgroundColor: data.map((v, i) =>
-                i === data.length - 1 ? COLORS.red : COLORS.blue
+                i === data.length - 1 ? COLORS.red : COLORS.blue,
               ),
               borderRadius: 2,
             },
@@ -7359,7 +8408,7 @@ if (typeof module !== "undefined") {
       },
       options: withDatalabels(
         chartBaseOptions("Models killed", "Probability (%)"),
-        topLabel(0, "%", 3)
+        topLabel(0, "%", 3),
       ),
     });
   }
@@ -7374,7 +8423,11 @@ if (typeof module !== "undefined") {
       const m = meta && meta[i];
       if (!m || !m.unitPoints) return;
       if (!byId[m.attackerId]) {
-        byId[m.attackerId] = { unitName: m.unitName, points: m.unitPoints, items: [] };
+        byId[m.attackerId] = {
+          unitName: m.unitName,
+          points: m.unitPoints,
+          items: [],
+        };
         groups.push(byId[m.attackerId]);
       }
       byId[m.attackerId].items.push({ label: p.label, damage: p.meanDamage });
@@ -7424,7 +8477,7 @@ if (typeof module !== "undefined") {
             backgroundColor: (function () {
               const g = gradColors(
                 rows.map((r) => r.perHundred),
-                COLORS.green
+                COLORS.green,
               );
               return rows.map((r, i) => (r.total ? COLORS.navy : g[i]));
             })(),
@@ -7432,10 +8485,14 @@ if (typeof module !== "undefined") {
           },
         ],
       },
-      options: withDatalabels(chartBaseOptions("", "Damage / 100 pts"), endLabel(2), {
-        indexAxis: "y",
-        plugins: { legend: { display: false } },
-      }),
+      options: withDatalabels(
+        chartBaseOptions("", "Damage / 100 pts"),
+        endLabel(2),
+        {
+          indexAxis: "y",
+          plugins: { legend: { display: false } },
+        },
+      ),
     });
   }
 
@@ -7474,9 +8531,14 @@ if (typeof module !== "undefined") {
 
   function withDatalabels(base, datalabelsOpts, extra) {
     const merged = Object.assign({}, base, extra || {});
-    merged.plugins = Object.assign({}, base.plugins, (extra && extra.plugins) || {}, {
-      datalabels: datalabelsOpts,
-    });
+    merged.plugins = Object.assign(
+      {},
+      base.plugins,
+      (extra && extra.plugins) || {},
+      {
+        datalabels: datalabelsOpts,
+      },
+    );
     return merged;
   }
 
@@ -7515,15 +8577,34 @@ if (typeof module !== "undefined") {
   function esc(s) {
     return String(s).replace(
       /[&<>"']/g,
-      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[c],
     );
   }
 
   const EFF_METRICS = {
-    perHundred: { label: "Damage / 100 pts", higher: true, fmt: (v) => v.toFixed(2) },
+    perHundred: {
+      label: "Damage / 100 pts",
+      higher: true,
+      fmt: (v) => v.toFixed(2),
+    },
     damage: { label: "Total damage", higher: true, fmt: (v) => v.toFixed(2) },
-    kills100: { label: "Models killed / 100 pts", higher: true, fmt: (v) => v.toFixed(2) },
-    killChance: { label: "Chance to kill defender", higher: true, fmt: (v) => v.toFixed(1) + "%" },
+    kills100: {
+      label: "Models killed / 100 pts",
+      higher: true,
+      fmt: (v) => v.toFixed(2),
+    },
+    killChance: {
+      label: "Chance to kill defender",
+      higher: true,
+      fmt: (v) => v.toFixed(1) + "%",
+    },
     ptsPerKill: {
       label: "Attacker pts to destroy the defender (est.)",
       higher: false,
@@ -7551,11 +8632,14 @@ if (typeof module !== "undefined") {
     const m = groupMetrics(id);
     if (key === "perHundred") return m.per100;
     if (key === "damage") return m.dmg;
-    if (key === "kills100") return m.points ? (m.killed / m.points) * 100 : null;
+    if (key === "kills100")
+      return m.points ? (m.killed / m.points) * 100 : null;
     if (key === "killChance") return m.killUnit;
     if (key === "ptsPerKill") {
       const gr = groupResults[id];
-      const e = gr.scenarioResults[currentScenarioId] || gr.scenarioResults[SCENARIOS[0].id];
+      const e =
+        gr.scenarioResults[currentScenarioId] ||
+        gr.scenarioResults[SCENARIOS[0].id];
       const pool = e.def.wounds * e.def.models;
       return m.effDmg > 0 && m.points ? (m.points * pool) / m.effDmg : null;
     }
@@ -7565,16 +8649,23 @@ if (typeof module !== "undefined") {
   function weaponCarryCount(weapon, unitSize) {
     const carry = weapon.carry;
     if (!carry) return unitSize;
-    const fromRatios = (carry.per || []).reduce((sum, per) => sum + Math.floor(unitSize / per), 0);
+    const fromRatios = (carry.per || []).reduce(
+      (sum, per) => sum + Math.floor(unitSize / per),
+      0,
+    );
     return Math.max(1, Math.min(unitSize, (carry.n || 0) + fromRatios));
   }
 
   function runEfficiencyFinder() {
     const faction = document.getElementById("eff-faction-sel").value;
-    const rankBy = (document.getElementById("eff-rank-sel") || {}).value || "perHundred";
-    const wType = (document.getElementById("eff-wtype-sel") || {}).value || "any";
-    const modelsMode = (document.getElementById("eff-models-sel") || {}).value || "all";
-    const sizeMode = (document.getElementById("eff-size-sel") || {}).value || "min";
+    const rankBy =
+      (document.getElementById("eff-rank-sel") || {}).value || "perHundred";
+    const wType =
+      (document.getElementById("eff-wtype-sel") || {}).value || "any";
+    const modelsMode =
+      (document.getElementById("eff-models-sel") || {}).value || "all";
+    const sizeMode =
+      (document.getElementById("eff-size-sel") || {}).value || "min";
     const list = visibleUnits(faction);
     const statusEl = document.getElementById("eff-status");
     const resultsEl = document.getElementById("eff-results");
@@ -7608,10 +8699,15 @@ if (typeof module !== "undefined") {
         const unitPts = unitPointsFor(unit, size);
         const points = modelsMode === "one" ? unitPts / size : unitPts;
         (unit.weapons || []).forEach((weapon, widx) => {
-          const firing = modelsMode === "one" ? 1 : weaponCarryCount(weapon, size);
+          const firing =
+            modelsMode === "one" ? 1 : weaponCarryCount(weapon, size);
           if (wType === "ranged" && weapon.type === "Melee") return;
           if (wType === "melee" && weapon.type !== "Melee") return;
-          if (!(meanOfDiceExpr(weapon.a) > 0) || !(meanOfDiceExpr(weapon.d) > 0)) return;
+          if (
+            !(meanOfDiceExpr(weapon.a) > 0) ||
+            !(meanOfDiceExpr(weapon.d) > 0)
+          )
+            return;
           const row = { count: firing, mods: defaultMods(), antiList: [] };
           prefillInnate(row, weapon);
           row.mods.halfRange = activeScenario.halfRange;
@@ -7634,7 +8730,8 @@ if (typeof module !== "undefined") {
 
             ptsPerKill:
               res.meanEffectiveDamage > 0.0001
-                ? (points * defProfile.wounds * defProfile.models) / res.meanEffectiveDamage
+                ? (points * defProfile.wounds * defProfile.models) /
+                  res.meanEffectiveDamage
                 : Infinity,
           };
           const v = r[rankBy],
@@ -7715,13 +8812,17 @@ if (typeof module !== "undefined") {
       ["killChance", "Kill chance"],
       ["ptsPerKill", "Pts to destroy"],
     ];
-    const arrow = (k) => (effState.sortKey === k ? (effState.sortDir < 0 ? " ▼" : " ▲") : "");
+    const arrow = (k) =>
+      effState.sortKey === k ? (effState.sortDir < 0 ? " ▼" : " ▲") : "";
     const hl = (k) => (k === rankBy ? " eff-rank-col" : "");
     const diffCell = (r, ref) => {
-      if (ref.v == null || !isFinite(ref.v) || ref.v === 0) return '<td class="rule-val">-</td>';
+      if (ref.v == null || !isFinite(ref.v) || ref.v === 0)
+        return '<td class="rule-val">-</td>';
       const v = r[rankBy];
       if (!isFinite(v)) return '<td class="rule-val">-</td>';
-      const pct = EFF_METRICS[rankBy].higher ? (v / ref.v - 1) * 100 : (ref.v / v - 1) * 100;
+      const pct = EFF_METRICS[rankBy].higher
+        ? (v / ref.v - 1) * 100
+        : (ref.v / v - 1) * 100;
       return (
         '<td class="rule-val ' +
         (pct >= 0 ? "eff-up" : "eff-down") +
@@ -7739,7 +8840,10 @@ if (typeof module !== "undefined") {
           refs
             .map(
               (g) =>
-                "<b>" + esc(g.label) + "</b> " + (g.v == null ? "-" : EFF_METRICS[rankBy].fmt(g.v))
+                "<b>" +
+                esc(g.label) +
+                "</b> " +
+                (g.v == null ? "-" : EFF_METRICS[rankBy].fmt(g.v)),
             )
             .join(" · ") +
           "</div>"
@@ -7756,10 +8860,12 @@ if (typeof module !== "undefined") {
             '"><b>' +
             l +
             arrow(k) +
-            "</b></td>"
+            "</b></td>",
         )
         .join("") +
-      refs.map((g) => '<td class="rule-val"><b>vs ' + esc(g.label) + "</b></td>").join("") +
+      refs
+        .map((g) => '<td class="rule-val"><b>vs ' + esc(g.label) + "</b></td>")
+        .join("") +
       '<td class="rule-val"><b>Add</b></td></tr></thead><tbody>' +
       top
         .map(
@@ -7816,7 +8922,7 @@ if (typeof module !== "undefined") {
             EFF_METRICS.ptsPerKill.fmt(r.ptsPerKill) +
             "</td>" +
             refs.map((g) => diffCell(r, g)).join("") +
-            '<td class="rule-val eff-add"><button type="button" class="eff-add-btn" data-g="A">→ A</button><button type="button" class="eff-add-btn" data-g="B">→ B</button></td></tr>'
+            '<td class="rule-val eff-add"><button type="button" class="eff-add-btn" data-g="A">→ A</button><button type="button" class="eff-add-btn" data-g="B">→ B</button></td></tr>',
         )
         .join("") +
       "</tbody></table></div>";
@@ -7827,19 +8933,22 @@ if (typeof module !== "undefined") {
         if (effState.sortKey === k) effState.sortDir *= -1;
         else {
           effState.sortKey = k;
-          effState.sortDir = k === "unit" || k === "weapon" || k === "ptsPerKill" ? 1 : -1;
+          effState.sortDir =
+            k === "unit" || k === "weapon" || k === "ptsPerKill" ? 1 : -1;
         }
         renderEfficiencyResults();
-      })
+      }),
     );
-    document.getElementById("eff-export-btn").addEventListener("click", exportEfficiencyCsv);
+    document
+      .getElementById("eff-export-btn")
+      .addEventListener("click", exportEfficiencyCsv);
 
     resultsEl.querySelectorAll(".eff-add-btn").forEach((btn) =>
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const r = top[parseInt(btn.closest("tr").dataset.idx, 10)];
         addEfficiencyRowToGroup(btn.dataset.g, r);
-      })
+      }),
     );
 
     resultsEl.querySelectorAll("tbody tr[data-unit-id]").forEach((tr) => {
@@ -7851,10 +8960,14 @@ if (typeof module !== "undefined") {
           existingDetail.previousElementSibling === tr &&
           tr.classList.contains("active");
         if (existingDetail) existingDetail.remove();
-        tbody.querySelectorAll("tr[data-unit-id]").forEach((r) => r.classList.remove("active"));
+        tbody
+          .querySelectorAll("tr[data-unit-id]")
+          .forEach((r) => r.classList.remove("active"));
         if (reopeningSameRow) return;
         const rowData = top[parseInt(tr.dataset.idx, 10)];
-        const unit = rowData ? rowData.unit : unitById[tr.getAttribute("data-unit-id")];
+        const unit = rowData
+          ? rowData.unit
+          : unitById[tr.getAttribute("data-unit-id")];
         if (!unit) return;
         tr.classList.add("active");
         const detailTr = document.createElement("tr");
@@ -7886,7 +8999,9 @@ if (typeof module !== "undefined") {
     const m = EFF_METRICS[rankBy];
     const best = rows
       .filter((r) => isFinite(r[rankBy]))
-      .sort((a, b) => (m.higher ? b[rankBy] - a[rankBy] : a[rankBy] - b[rankBy]))
+      .sort((a, b) =>
+        m.higher ? b[rankBy] - a[rankBy] : a[rankBy] - b[rankBy],
+      )
       .slice(0, 10);
     if (!best.length) {
       setBoxVisible("eff-chart-wrap", false);
@@ -7908,14 +9023,34 @@ if (typeof module !== "undefined") {
       type: "bar",
       data: {
         labels,
-        datasets: [{ label: m.label, data: vals, backgroundColor: colorsArr, borderRadius: 2 }],
+        datasets: [
+          {
+            label: m.label,
+            data: vals,
+            backgroundColor: colorsArr,
+            borderRadius: 2,
+          },
+        ],
       },
       options: withDatalabels(
-        Object.assign(chartBaseOptions(m.label + " (top 10 of " + effState.faction + ")", ""), {
-          plugins: { legend: { display: false }, tooltip: { backgroundColor: COLORS.navy } },
-        }),
-        endLabel(rankBy === "killChance" ? 1 : 2, rankBy === "killChance" ? "%" : "", null),
-        { indexAxis: "y" }
+        Object.assign(
+          chartBaseOptions(
+            m.label + " (top 10 of " + effState.faction + ")",
+            "",
+          ),
+          {
+            plugins: {
+              legend: { display: false },
+              tooltip: { backgroundColor: COLORS.navy },
+            },
+          },
+        ),
+        endLabel(
+          rankBy === "killChance" ? 1 : 2,
+          rankBy === "killChance" ? "%" : "",
+          null,
+        ),
+        { indexAxis: "y" },
       ),
     });
   }
@@ -7950,8 +9085,8 @@ if (typeof module !== "undefined") {
           r.kills100.toFixed(3),
           r.killChance.toFixed(2),
           isFinite(r.ptsPerKill) ? r.ptsPerKill.toFixed(1) : "",
-        ].join(",")
-      )
+        ].join(","),
+      ),
     );
     const blob = new Blob([lines.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -7978,8 +9113,15 @@ if (typeof module !== "undefined") {
     row.mods = defaultMods();
     row.antiList = [];
     prefillInnate(row, r.weapon);
-    const atk = { id: uid(), unitId: r.unit.id, unitSize: r.size, weaponRows: [row] };
-    g.attackers = g.attackers.filter((a) => a.unitId || g.attackers.length > 1).concat([atk]);
+    const atk = {
+      id: uid(),
+      unitId: r.unit.id,
+      unitSize: r.size,
+      weaponRows: [row],
+    };
+    g.attackers = g.attackers
+      .filter((a) => a.unitId || g.attackers.length > 1)
+      .concat([atk]);
     activeGroupId = gid;
     attackers = g.attackers;
     renderAttackers();
@@ -8001,7 +9143,7 @@ if (typeof module !== "undefined") {
     const rows = (unit.models || [])
       .map(
         (m) =>
-          `<tr><td>${esc(m.name || "-")}</td><td>${esc(m.m || "-")}</td><td>${m.t != null ? esc(String(m.t)) : "-"}</td><td>${m.sv != null ? m.sv + "+" : "-"}</td><td>${invText(unit, m)}</td><td>${m.w != null ? esc(String(m.w)) : "-"}</td><td>${m.ld != null ? m.ld + "+" : "-"}</td><td>${m.oc != null ? esc(String(m.oc)) : "-"}</td></tr>`
+          `<tr><td>${esc(m.name || "-")}</td><td>${esc(m.m || "-")}</td><td>${m.t != null ? esc(String(m.t)) : "-"}</td><td>${m.sv != null ? m.sv + "+" : "-"}</td><td>${invText(unit, m)}</td><td>${m.w != null ? esc(String(m.w)) : "-"}</td><td>${m.ld != null ? m.ld + "+" : "-"}</td><td>${m.oc != null ? esc(String(m.oc)) : "-"}</td></tr>`,
       )
       .join("");
     return `<div class="unit-card unit-card-simple">
@@ -8017,8 +9159,12 @@ if (typeof module !== "undefined") {
     if (!unit) return "";
     opts = opts || {};
     if (!showUnitCards && !opts.forceFull) return renderUnitStatLine(unit);
-    const subtitle = unit.faction + (unit.chapterSubfaction ? " · " + unit.chapterSubfaction : "");
-    const roleBadge = unit.role ? `<span class="uc-role-badge">${esc(unit.role)}</span>` : "";
+    const subtitle =
+      unit.faction +
+      (unit.chapterSubfaction ? " · " + unit.chapterSubfaction : "");
+    const roleBadge = unit.role
+      ? `<span class="uc-role-badge">${esc(unit.role)}</span>`
+      : "";
     const pointsChip =
       unit.pointsMin != null
         ? `<span class="uc-points-chip">${esc(unit.pointsMinDesc || "Cost")}: ${unit.pointsMin} pts</span>`
@@ -8035,7 +9181,7 @@ if (typeof module !== "undefined") {
           <td>${m.w != null ? esc(String(m.w)) : "-"}</td>
           <td>${m.ld != null ? m.ld + "+" : "-"}</td>
           <td>${m.oc != null ? esc(String(m.oc)) : "-"}</td>
-        </tr>`
+        </tr>`,
       )
       .join("");
     const statsTable = `<div class="unit-card-stats-table-wrap">
@@ -8053,10 +9199,12 @@ if (typeof module !== "undefined") {
              .map(
                (a) => `<div class="unit-card-ability">
                <div class="unit-card-ability-name">${esc(a.name)}${
-                 a.type ? ` <span class="unit-card-ability-type">(${esc(a.type)})</span>` : ""
+                 a.type
+                   ? ` <span class="unit-card-ability-type">(${esc(a.type)})</span>`
+                   : ""
                }</div>
                ${a.description ? `<div class="unit-card-ability-desc">${a.description}</div>` : ""}
-             </div>`
+             </div>`,
              )
              .join("")}
          </div>`
@@ -8085,36 +9233,42 @@ if (typeof module !== "undefined") {
   }
 
   function enhanceNumberInputs(root) {
-    (root || document).querySelectorAll('input[type="number"]').forEach((inp) => {
-      if (inp.parentElement && inp.parentElement.classList.contains("num-stepper")) return;
-      const wrap = document.createElement("span");
-      wrap.className = "num-stepper";
-      const mk = (txt, dir, title) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "step-btn";
-        b.textContent = txt;
-        b.title = title;
-        b.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const step = parseFloat(inp.step) || 1;
-          const min = inp.min !== "" ? parseFloat(inp.min) : -Infinity;
-          const max = inp.max !== "" ? parseFloat(inp.max) : Infinity;
-          const cur = parseFloat(inp.value);
-          let next = (isNaN(cur) ? 0 : cur) + dir * step;
-          next = Math.min(max, Math.max(min, next));
-          inp.value = String(next);
-          inp.dispatchEvent(new Event("input", { bubbles: true }));
-          inp.dispatchEvent(new Event("change", { bubbles: true }));
-        });
-        return b;
-      };
-      inp.parentNode.insertBefore(wrap, inp);
-      wrap.appendChild(mk("−", -1, "Decrease"));
-      wrap.appendChild(inp);
-      wrap.appendChild(mk("+", 1, "Increase"));
-    });
+    (root || document)
+      .querySelectorAll('input[type="number"]')
+      .forEach((inp) => {
+        if (
+          inp.parentElement &&
+          inp.parentElement.classList.contains("num-stepper")
+        )
+          return;
+        const wrap = document.createElement("span");
+        wrap.className = "num-stepper";
+        const mk = (txt, dir, title) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "step-btn";
+          b.textContent = txt;
+          b.title = title;
+          b.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const step = parseFloat(inp.step) || 1;
+            const min = inp.min !== "" ? parseFloat(inp.min) : -Infinity;
+            const max = inp.max !== "" ? parseFloat(inp.max) : Infinity;
+            const cur = parseFloat(inp.value);
+            let next = (isNaN(cur) ? 0 : cur) + dir * step;
+            next = Math.min(max, Math.max(min, next));
+            inp.value = String(next);
+            inp.dispatchEvent(new Event("input", { bubbles: true }));
+            inp.dispatchEvent(new Event("change", { bubbles: true }));
+          });
+          return b;
+        };
+        inp.parentNode.insertBefore(wrap, inp);
+        wrap.appendChild(mk("−", -1, "Decrease"));
+        wrap.appendChild(inp);
+        wrap.appendChild(mk("+", 1, "Increase"));
+      });
   }
 
   function setShowUnitCards(on) {
@@ -8128,7 +9282,7 @@ if (typeof module !== "undefined") {
 
   function setShowLegends(on) {
     showLegends = on;
-    document.querySelectorAll(".legend-opt").forEach((b) => {
+    document.querySelectorAll(".legend-opt[data-legends]").forEach((b) => {
       b.classList.toggle("active", (b.dataset.legends === "on") === on);
     });
     if (!on) {
@@ -8144,7 +9298,7 @@ if (typeof module !== "undefined") {
             a.weaponRows = [newWeaponRow(nu)];
             a.unitSize = nu && nu.modelsMin ? nu.modelsMin : 1;
           }
-        })
+        }),
       );
       const du = defender.unitId ? unitById[defender.unitId] : null;
       if (du && du.legends) defender.unitId = null;
@@ -8211,7 +9365,13 @@ if (typeof module !== "undefined") {
         .filter((r) => r.weaponIdx != null && u.weapons[r.weaponIdx])
         .map((r) => {
           const w = u.weapons[r.weaponIdx];
-          return { w: w.name, t: w.type, c: r.count, m: modsDiff(r.mods), a: r.antiList || [] };
+          return {
+            w: w.name,
+            t: w.type,
+            c: r.count,
+            m: modsDiff(r.mods),
+            a: r.antiList || [],
+          };
         }),
     };
   }
@@ -8237,7 +9397,9 @@ if (typeof module !== "undefined") {
       let idx = u.weapons.findIndex((w) => w.name === r.w && w.type === r.t);
       if (idx < 0) idx = u.weapons.findIndex((w) => w.name === r.w);
       if (idx < 0) {
-        warnings.push("Weapon not found on " + u.name + ': "' + r.w + '" (skipped)');
+        warnings.push(
+          "Weapon not found on " + u.name + ': "' + r.w + '" (skipped)',
+        );
         return;
       }
       rows.push({
@@ -8287,23 +9449,6 @@ if (typeof module !== "undefined") {
     return (list || []).map((a) => a.s + "x " + a.n).join(", ") || "(empty)";
   }
 
-  function applyAttackersToGroup(gid, list, label, groupMods) {
-    syncActiveGroup();
-    let g = groups.find((x) => x.id === gid);
-    if (!g) {
-      if (groups.length >= MAX_GROUPS) return;
-      g = { id: gid, label: label || "Group " + gid, attackers: [] };
-      groups.push(g);
-    } else if (label) {
-      g.label = label;
-    }
-    g.attackers = list.length ? list : [newAttacker()];
-    g.gm = deserializeGroupMods(groupMods);
-    activeGroupId = gid;
-    attackers = g.attackers;
-    renderAttackers();
-  }
-
   function addAttackersToGroup(gid, list, groupMods) {
     syncActiveGroup();
     let g = groups.find((x) => x.id === gid);
@@ -8324,7 +9469,9 @@ if (typeof module !== "undefined") {
     const wrap = document.getElementById("saved-list");
     if (!wrap) return;
     const list = storeLoad();
-    wrap.innerHTML = list.length ? "" : '<div class="empty-hint small">No saved groups yet.</div>';
+    wrap.innerHTML = list.length
+      ? ""
+      : '<div class="empty-hint small">No saved groups yet.</div>';
     list.forEach((p, i) => {
       const row = document.createElement("div");
       row.className = "saved-item";
@@ -8346,15 +9493,17 @@ if (typeof module !== "undefined") {
             return;
           }
           const warnings = [];
-          const loaded = p.attackers.map((o) => deserializeAttacker(o, warnings)).filter(Boolean);
+          const loaded = p.attackers
+            .map((o) => deserializeAttacker(o, warnings))
+            .filter(Boolean);
           addAttackersToGroup(act, loaded, p.gm);
           savedMsg(
             warnings.length
               ? "Added with warnings:\n" + warnings.join("\n")
               : 'Added "' + p.name + '" to Group ' + act + ".",
-            warnings.length > 0
+            warnings.length > 0,
           );
-        })
+        }),
       );
       wrap.appendChild(row);
     });
@@ -8371,7 +9520,8 @@ if (typeof module !== "undefined") {
     const store = storeLoad();
     let finalName = name,
       n = 2;
-    while (store.some((p) => p.name === finalName)) finalName = name + " (" + n++ + ")";
+    while (store.some((p) => p.name === finalName))
+      finalName = name + " (" + n++ + ")";
     store.push({
       name: finalName,
       savedAt: new Date().toISOString(),
@@ -8379,7 +9529,10 @@ if (typeof module !== "undefined") {
       gm: currentGroupMods(activeGroupId),
     });
     if (!storeSave(store)) {
-      savedMsg("Could not save in this browser (storage blocked). Use Export instead.", true);
+      savedMsg(
+        "Could not save in this browser (storage blocked). Use Export instead.",
+        true,
+      );
       return;
     }
     nameEl.value = "";
@@ -8394,8 +9547,14 @@ if (typeof module !== "undefined") {
       return;
     }
     const blob = new Blob(
-      [JSON.stringify({ app: "mathhammer", version: 1, groups: store }, null, 1)],
-      { type: "application/json" }
+      [
+        JSON.stringify(
+          { app: "mathhammer", version: 1, groups: store },
+          null,
+          1,
+        ),
+      ],
+      { type: "application/json" },
     );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -8432,7 +9591,8 @@ if (typeof module !== "undefined") {
       let name = String(p.name || "Imported group").slice(0, 60),
         final = name,
         n = 2;
-      while (store.some((x) => x.name === final)) final = name + " (" + n++ + ")";
+      while (store.some((x) => x.name === final))
+        final = name + " (" + n++ + ")";
       store.push({
         name: final,
         savedAt: p.savedAt || new Date().toISOString(),
@@ -8480,7 +9640,9 @@ if (typeof module !== "undefined") {
   }
 
   function serializeDefenderMembers() {
-    const members = defender.members.filter((m) => m.unitId && unitById[m.unitId]);
+    const members = defender.members.filter(
+      (m) => m.unitId && unitById[m.unitId],
+    );
     if (!members.length) return {};
     const ids = ["main"].concat(members.map((m) => m.id));
     const out = {
@@ -8496,7 +9658,10 @@ if (typeof module !== "undefined") {
         };
       }),
     };
-    if (defender.order) out.do = defender.order.map((id) => ids.indexOf(id)).filter((i) => i >= 0);
+    if (defender.order)
+      out.do = defender.order
+        .map((id) => ids.indexOf(id))
+        .filter((i) => i >= 0);
     return out;
   }
 
@@ -8527,9 +9692,13 @@ if (typeof module !== "undefined") {
     const x = {};
     DEF_FIELDS.forEach((k) => (x[k] = defender[k]));
     return Object.assign(
-      { id: du ? du.id : null, n: du ? du.name : null, f: du ? du.faction : defender.faction },
+      {
+        id: du ? du.id : null,
+        n: du ? du.name : null,
+        f: du ? du.faction : defender.faction,
+      },
       { x },
-      serializeDefenderMembers()
+      serializeDefenderMembers(),
     );
   }
 
@@ -8577,7 +9746,9 @@ if (typeof module !== "undefined") {
     const loaded = (st.g || []).slice(0, MAX_GROUPS).map((g, i) => ({
       id: i === 0 ? "A" : "B",
       label: g.l || (i === 0 ? "Group A" : "Group B"),
-      attackers: (g.a || []).map((o) => deserializeAttacker(o, warnings)).filter(Boolean),
+      attackers: (g.a || [])
+        .map((o) => deserializeAttacker(o, warnings))
+        .filter(Boolean),
       gm: deserializeGroupMods(g.gm),
     }));
     if (loaded.length) {
@@ -8589,7 +9760,8 @@ if (typeof module !== "undefined") {
       attackers = groups[0].attackers;
       renderAttackers();
     }
-    if (st.sc && SCENARIOS.some((s) => s.id === st.sc)) currentScenarioId = st.sc;
+    if (st.sc && SCENARIOS.some((s) => s.id === st.sc))
+      currentScenarioId = st.sc;
   }
 
   function copyShareLink() {
@@ -8609,7 +9781,9 @@ if (typeof module !== "undefined") {
       }
     } catch (e) {}
     savedMsg(
-      ok ? "Share link copied to the clipboard." : "Share link ready below. Copy it with Ctrl+C."
+      ok
+        ? "Share link copied to the clipboard."
+        : "Share link ready below. Copy it with Ctrl+C.",
     );
   }
 
@@ -8672,7 +9846,9 @@ if (typeof module !== "undefined") {
     const wrap = document.getElementById("saved-def-list");
     if (!wrap) return;
     const list = defStoreLoad();
-    wrap.innerHTML = list.length ? "" : '<div class="empty-hint small">No saved defenders yet.</div>';
+    wrap.innerHTML = list.length
+      ? ""
+      : '<div class="empty-hint small">No saved defenders yet.</div>';
     list.forEach((p, i) => {
       const row = document.createElement("div");
       row.className = "saved-item";
@@ -8700,9 +9876,9 @@ if (typeof module !== "undefined") {
             warnings.length
               ? "Loaded with warnings:\n" + warnings.join("\n")
               : 'Loaded "' + p.name + '".',
-            warnings.length > 0
+            warnings.length > 0,
           );
-        })
+        }),
       );
       wrap.appendChild(row);
     });
@@ -8715,14 +9891,23 @@ if (typeof module !== "undefined") {
       return;
     }
     const state = serializeDefenderState();
-    const name = (nameEl.value || "").trim() || summarizeDefender(state).slice(0, 40);
+    const name =
+      (nameEl.value || "").trim() || summarizeDefender(state).slice(0, 40);
     const store = defStoreLoad();
     let finalName = name,
       n = 2;
-    while (store.some((p) => p.name === finalName)) finalName = name + " (" + n++ + ")";
-    store.push({ name: finalName, savedAt: new Date().toISOString(), d: state });
+    while (store.some((p) => p.name === finalName))
+      finalName = name + " (" + n++ + ")";
+    store.push({
+      name: finalName,
+      savedAt: new Date().toISOString(),
+      d: state,
+    });
     if (!defStoreSave(store)) {
-      defSavedMsg("Could not save in this browser (storage blocked). Use Export instead.", true);
+      defSavedMsg(
+        "Could not save in this browser (storage blocked). Use Export instead.",
+        true,
+      );
       return;
     }
     nameEl.value = "";
@@ -8737,8 +9922,14 @@ if (typeof module !== "undefined") {
       return;
     }
     const blob = new Blob(
-      [JSON.stringify({ app: "mathhammer", version: 1, defenders: store }, null, 1)],
-      { type: "application/json" }
+      [
+        JSON.stringify(
+          { app: "mathhammer", version: 1, defenders: store },
+          null,
+          1,
+        ),
+      ],
+      { type: "application/json" },
     );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -8775,8 +9966,13 @@ if (typeof module !== "undefined") {
       const name = String(p.name || "Imported defender").slice(0, 60);
       let final = name,
         n = 2;
-      while (store.some((x) => x.name === final)) final = name + " (" + n++ + ")";
-      store.push({ name: final, savedAt: p.savedAt || new Date().toISOString(), d: p.d });
+      while (store.some((x) => x.name === final))
+        final = name + " (" + n++ + ")";
+      store.push({
+        name: final,
+        savedAt: p.savedAt || new Date().toISOString(),
+        d: p.d,
+      });
       added++;
     });
     defStoreSave(store);
@@ -8826,7 +10022,7 @@ if (typeof module !== "undefined") {
   function init() {
     const prefs = loadPrefs();
     if (prefs.unitCards === false) showUnitCards = false;
-    document.querySelectorAll(".legend-opt").forEach((btn) => {
+    document.querySelectorAll(".legend-opt[data-legends]").forEach((btn) => {
       btn.addEventListener("click", () => {
         setShowLegends(btn.dataset.legends === "on");
         savePrefs();
@@ -8839,19 +10035,43 @@ if (typeof module !== "undefined") {
       });
     });
     document.querySelectorAll(".card-opt").forEach((b) => {
-      b.classList.toggle("active", (b.dataset.cards === "on") === showUnitCards);
+      b.classList.toggle(
+        "active",
+        (b.dataset.cards === "on") === showUnitCards,
+      );
     });
     if (prefs.legends === true) setShowLegends(true);
-    new MutationObserver(() => enhanceNumberInputs(document)).observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    if (prefs.advanced === false) showAdvanced = false;
+    document
+      .querySelectorAll(".results-tab")
+      .forEach((b) =>
+        b.addEventListener("click", () =>
+          setActiveTab(b.dataset.tab, !!b.closest("#results-tabs-bottom")),
+        ),
+      );
+    document.querySelectorAll(".adv-opt").forEach((b) =>
+      b.addEventListener("click", () => {
+        setShowAdvanced(b.dataset.adv === "on");
+        savePrefs();
+      }),
+    );
+    applyResultsView();
+    new MutationObserver(() => enhanceNumberInputs(document)).observe(
+      document.body,
+      {
+        childList: true,
+        subtree: true,
+      },
+    );
     document.getElementById("add-attacker").addEventListener("click", () => {
       const first = attackers.find((x) => x.unitId && unitById[x.unitId]);
       attackers.push(
         first
-          ? newAttacker({ faction: unitById[first.unitId].faction, blankUnit: true })
-          : newAttacker()
+          ? newAttacker({
+              faction: unitById[first.unitId].faction,
+              blankUnit: true,
+            })
+          : newAttacker(),
       );
       renderAttackers();
 
@@ -8882,7 +10102,10 @@ if (typeof module !== "undefined") {
     initSavedDefenders();
     initButtonFeedback();
     document.getElementById("unit-count-note").textContent =
-      DATA.unitCount + " units across " + DATA.factions.length + " factions (11th ed.)";
+      DATA.unitCount +
+      " units across " +
+      DATA.factions.length +
+      " factions (11th ed.)";
 
     const effFactionSel = document.getElementById("eff-faction-sel");
     if (effFactionSel) {
