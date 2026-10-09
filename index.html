@@ -2992,7 +2992,11 @@ button.card-opt[data-cards="off"].active {
         (cover's -1 is a Ballistic Skill penalty, and Melta / Rapid Fire are
         ranged rules), so a single result is shown.
       </p>
-      <div class="stats-title st-total" id="stats-title-total" style="display: none">
+      <div
+        class="stats-title st-total"
+        id="stats-title-total"
+        style="display: none"
+      >
         All weapons
       </div>
       <div class="stats-grid">
@@ -3602,6 +3606,13 @@ button.card-opt[data-cards="off"].active {
               <option value="any">Best weapon (any type)</option>
               <option value="ranged">Best ranged weapon</option>
               <option value="melee">Best melee weapon</option>
+            </select>
+          </label>
+          <label
+            >Rows
+            <select class="sel" id="eff-rows-sel">
+              <option value="unit">One row per unit (best weapon)</option>
+              <option value="weapon">One row per weapon (units repeat)</option>
             </select>
           </label>
           <label
@@ -10236,6 +10247,8 @@ function clampThreshold(v, max) {
       (document.getElementById("eff-models-sel") || {}).value || "all";
     const sizeMode =
       (document.getElementById("eff-size-sel") || {}).value || "min";
+    const rowMode =
+      (document.getElementById("eff-rows-sel") || {}).value || "unit";
     const list = visibleUnits(faction);
     const statusEl = document.getElementById("eff-status");
     const resultsEl = document.getElementById("eff-results");
@@ -10265,6 +10278,7 @@ function clampThreshold(v, max) {
             ? tiers.map((t) => t[0])
             : [tiers[0][0]];
       let best = null;
+      const bestByWeapon = {};
       sizes.forEach((size) => {
         const unitPts = unitPointsFor(unit, size);
         const points = modelsMode === "one" ? unitPts / size : unitPts;
@@ -10307,9 +10321,14 @@ function clampThreshold(v, max) {
           const v = r[rankBy],
             bv = best ? best[rankBy] : null;
           if (!best || (higher ? v > bv : v < bv)) best = r;
+          const wv = bestByWeapon[widx];
+          if (!wv || (higher ? v > wv[rankBy] : v < wv[rankBy]))
+            bestByWeapon[widx] = r;
         });
       });
-      if (best) rows.push(best);
+      if (rowMode === "weapon")
+        Object.keys(bestByWeapon).forEach((k) => rows.push(bestByWeapon[k]));
+      else if (best) rows.push(best);
     });
 
     effState = {
@@ -10325,7 +10344,9 @@ function clampThreshold(v, max) {
     statusEl.textContent =
       "Analyzed " +
       rows.length +
-      " units in " +
+      (rowMode === "weapon"
+        ? " unit and weapon combinations in "
+        : " units in ") +
       faction +
       ". " +
       (modelsMode === "one"
@@ -10377,6 +10398,7 @@ function clampThreshold(v, max) {
       ["weapon", "Weapon"],
       ["points", "Pts"],
       ["damage", "Damage"],
+      ["killed", "Models killed"],
       ["perHundred", "Dmg / 100 pts"],
       ["kills100", "Kills / 100 pts"],
       ["killChance", "Kill chance"],
@@ -10470,6 +10492,11 @@ function clampThreshold(v, max) {
             hl("damage") +
             '">' +
             r.damage.toFixed(2) +
+            "</td>" +
+            '<td class="rule-val' +
+            hl("killed") +
+            '">' +
+            r.killed.toFixed(2) +
             "</td>" +
             '<td class="rule-val' +
             hl("perHundred") +
