@@ -2641,6 +2641,70 @@ details.mods-details summary:active {
   }
 }
 
+.imp-box {
+  max-width: 640px;
+}
+.imp-text {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 10px;
+  border: 1.5px solid var(--blue-light);
+  border-radius: 8px;
+  resize: vertical;
+  min-height: 160px;
+}
+.imp-error {
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 8px 0 0;
+}
+.imp-links {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.imp-links button {
+  background: none;
+  border: 0;
+  color: var(--blue);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 0;
+  box-shadow: none;
+}
+.imp-hint {
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--slate);
+  margin: 8px 0 0;
+}
+.imp-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+.imp-targets .btn.imp-a {
+  background: var(--blue);
+  color: var(--white);
+}
+.imp-targets .btn.imp-d {
+  background: #8f1d1d;
+  color: var(--white);
+}
+.imp-targets .btn:disabled {
+  opacity: 0.45;
+}
+@media (max-width: 700px) {
+  .imp-targets .btn {
+    flex: 1 1 45%;
+  }
+}
+
     </style>
   </head>
   <body>
@@ -3124,6 +3188,9 @@ details.mods-details summary:active {
             </div>
             <div id="saved-list" class="saved-list"></div>
             <div class="saved-actions">
+              <button type="button" class="btn btn-secondary import-list-btn">
+                Import army list
+              </button>
               <button type="button" class="btn btn-secondary" id="saved-export">
                 Export saved groups (file)
               </button>
@@ -3198,6 +3265,9 @@ details.mods-details summary:active {
             </div>
             <div id="saved-def-list" class="saved-list"></div>
             <div class="saved-actions">
+              <button type="button" class="btn btn-secondary import-list-btn">
+                Import army list
+              </button>
               <button
                 type="button"
                 class="btn btn-secondary"
@@ -11317,7 +11387,597 @@ if (typeof module !== "undefined") {
     renderSavedList();
   }
 
+  function impNorm(s) {
+    return String(s || "")
+      .toLowerCase()
+      .replace(/\[\d+\]/g, "")
+      .replace(/[’']/g, "")
+      .replace(/[^a-z0-9]+/g, "")
+      .replace(/s$/, "");
+  }
+
+  function impNum(s) {
+    return parseInt(String(s).replace(/[^\d]/g, ""), 10) || 0;
+  }
+
+  function impToken(raw) {
+    const t = String(raw)
+      .replace(/\s*\[[^\]]*\]/g, "")
+      .trim();
+    if (!t) return null;
+    let m = /\((\d+)x\s+([^)]+)\)\s*$/.exec(t);
+    if (m) return { name: m[2].trim(), count: parseInt(m[1], 10) };
+    m = /^(\d+)x\s+(.+)$/.exec(t);
+    if (m) return { name: m[2].trim(), count: parseInt(m[1], 10) };
+    return { name: t, count: 1 };
+  }
+
+  function impNewUnit(name, points) {
+    return {
+      name: String(name)
+        .replace(/\s*\[[^\]]*\]/g, "")
+        .trim(),
+      points: points || 0,
+      models: 0,
+      weapons: {},
+      role: "",
+      attach: [],
+      block: null,
+    };
+  }
+
+  function impAddWeapon(unit, name, count) {
+    const key = impNorm(name);
+    if (!key || /^(warlord|enhancement)/.test(key)) return;
+    if (unit.weapons[key]) unit.weapons[key].count += count;
+    else unit.weapons[key] = { name, count };
+  }
+
+  function impAddCsv(unit, csv, mult) {
+    String(csv || "")
+      .split(",")
+      .forEach((raw) => {
+        if (/\[\d+\s*pts\]/i.test(raw) && !/^\s*\d+x\s/.test(raw)) return;
+        const tk = impToken(raw);
+        if (tk) impAddWeapon(unit, tk.name, tk.count * mult);
+      });
+  }
+
+  function impParseGW(lines) {
+    const out = { format: "GW app export", title: "", faction: "", units: [] };
+    let titleDone = false;
+    let inRoster = false;
+    let block = null;
+    let cur = null;
+    let lastTop = null;
+    lines.forEach((line) => {
+      const t = line.trim();
+      if (!t) return;
+      const bullet = /^\s*([•◦])\s*(.*)$/.exec(line);
+      if (bullet) {
+        if (!cur) return;
+        const body = bullet[2].trim();
+        if (bullet[1] === "•") {
+          const am = /^Attached as:\s*(\w+)/i.exec(body);
+          if (am) {
+            cur.role = /leader/i.test(am[1]) ? "leader" : "bodyguard";
+            lastTop = null;
+            return;
+          }
+          if (/^(warlord|enhancements?:)/i.test(body)) {
+            lastTop = null;
+            return;
+          }
+          lastTop = { tk: impToken(body), children: 0 };
+          if (lastTop.tk) cur.tops.push(lastTop);
+        } else if (lastTop) {
+          lastTop.children++;
+          const tk = impToken(body);
+          if (tk) impAddWeapon(cur, tk.name, tk.count);
+        }
+        return;
+      }
+      const hm = /^(.+?)\s*\(([\d,]+)\s*Points\)\s*$/i.exec(t);
+      if (hm && !titleDone) {
+        out.title = hm[1];
+        titleDone = true;
+        return;
+      }
+      const bm = /^Attached unit\s+(\d+)/i.exec(t);
+      if (bm) {
+        inRoster = true;
+        block = bm[1];
+        cur = null;
+        return;
+      }
+      if (/^[A-Z][A-Z \/&]+$/.test(t)) {
+        inRoster = true;
+        block = null;
+        cur = null;
+        return;
+      }
+      if (hm && inRoster) {
+        cur = impNewUnit(hm[1], impNum(hm[2]));
+        cur.tops = [];
+        cur.block = block;
+        out.units.push(cur);
+        lastTop = null;
+        return;
+      }
+      if (titleDone && !out.faction && !inRoster) out.faction = t;
+    });
+    out.units.forEach((u) => {
+      u.tops.forEach((tp) => {
+        if (tp.children > 0) u.models += tp.tk.count;
+        else impAddWeapon(u, tp.tk.name, tp.tk.count);
+      });
+      if (!u.models) u.models = 1;
+    });
+    return out;
+  }
+
+  function impParseTournament(lines) {
+    const out = {
+      format: "New Recruit tournament format",
+      title: "",
+      faction: "",
+      units: [],
+    };
+    let cur = null;
+    lines.forEach((line) => {
+      const t = line.trim();
+      if (!t) return;
+      const hdr = /^\+\s*([A-Z ]+):\s*(.*)$/.exec(t);
+      if (hdr) {
+        if (hdr[1] === "FACTION KEYWORD") out.faction = hdr[2];
+        return;
+      }
+      if (/^\+/.test(t) || /^Created with/i.test(t)) return;
+      let m = /^Char\d+:\s*(\d+)x\s+(.+?)\s*\((\d+)\s*pts\)\s*:?\s*(.*)$/i.exec(
+        t,
+      );
+      if (m) {
+        cur = impNewUnit(m[2], parseInt(m[3], 10));
+        cur.models = parseInt(m[1], 10);
+        cur.role = "leader";
+        impAddCsv(cur, m[4], 1);
+        out.units.push(cur);
+        return;
+      }
+      if (/^Enhancement:/i.test(t) || /^Leading\s/i.test(t)) return;
+      m = /^(\d+)x\s+(.+?)\s*\((\d+)\s*pts\)\s*(?::\s*(.*))?$/i.exec(t);
+      if (m) {
+        cur = impNewUnit(m[2], parseInt(m[3], 10));
+        cur.hdrModels = parseInt(m[1], 10);
+        cur.bulletModels = 0;
+        out.units.push(cur);
+        const rest = m[4] || "";
+        const w = /^(\d+)\s+with\s+(.+)$/i.exec(rest);
+        if (w) impAddCsv(cur, w[2], parseInt(w[1], 10));
+        else impAddCsv(cur, rest, 1);
+        return;
+      }
+      if (!cur) return;
+      m = /^•\s*(\d+)x\s+([^:]+?)\s*(?::\s*(.*))?$/.exec(t);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        cur.bulletModels = (cur.bulletModels || 0) + n;
+        impAddCsv(cur, m[3], n);
+        return;
+      }
+      m = /^(\d+)\s+with\s+(.+)$/i.exec(t);
+      if (m) {
+        impAddCsv(cur, m[2], parseInt(m[1], 10));
+        return;
+      }
+      m = /^Attached to\s+(.+)$/i.exec(t);
+      if (m) cur.attach.push(m[1].trim());
+    });
+    out.units.forEach((u) => {
+      if (u.hdrModels !== undefined)
+        u.models = u.bulletModels || u.hdrModels || 1;
+      if (!u.models) u.models = 1;
+    });
+    return out;
+  }
+
+  function impParseNR(lines) {
+    const out = { format: "New Recruit", title: "", faction: "", units: [] };
+    let inRoster = false;
+    let cur = null;
+    let first = true;
+    lines.forEach((line) => {
+      const t = line.trim();
+      if (!t) return;
+      if (first) {
+        first = false;
+        out.title = t;
+        out.faction = t.replace(/\s*-\s*\[.*$/, "");
+        return;
+      }
+      const sec = /^##\s+(.+)$/.exec(t);
+      if (sec) {
+        cur = null;
+        inRoster = /\[\d+\s*pts\]/i.test(sec[1]);
+        return;
+      }
+      if (!inRoster || /^#/.test(t) || /^Created with/i.test(t)) return;
+      let m;
+      if (/^\s+•/.test(line)) {
+        if (!cur) return;
+        const body = t.replace(/^•\s*/, "");
+        if (/^Leading:/i.test(body)) return;
+        const name = body.split(":").pop().trim();
+        if (name) cur.attach.push(name);
+        return;
+      }
+      if (/^•/.test(t)) {
+        if (!cur) return;
+        m = /^•\s*(\d+)x\s+([^:]+?)\s*(?::\s*(.*))?$/.exec(t);
+        if (m) {
+          const n = parseInt(m[1], 10);
+          cur.models += n;
+          impAddCsv(cur, m[3], n);
+        }
+        return;
+      }
+      m = /^(.+?)\s*\[(\d+)\s*pts\]\s*(?::\s*(.*))?$/i.exec(t);
+      if (m) {
+        cur = impNewUnit(m[1], parseInt(m[2], 10));
+        impAddCsv(cur, m[3], 1);
+        out.units.push(cur);
+      }
+    });
+    out.units.forEach((u) => {
+      if (!u.models) u.models = 1;
+    });
+    return out;
+  }
+
+  function impParse(text) {
+    const lines = String(text || "")
+      .replace(/\t/g, "    ")
+      .split(/\r?\n/);
+    let res;
+    if (/FACTION KEYWORD:/i.test(text) || /^\+{5,}/m.test(text))
+      res = impParseTournament(lines);
+    else if (/^##\s+/m.test(text)) res = impParseNR(lines);
+    else if (/\([\d,]+\s*Points\)/i.test(text)) res = impParseGW(lines);
+    else return null;
+    return res.units.length ? res : null;
+  }
+
+  function impFindUnit(name, hints) {
+    const key = impNorm(name);
+    const all = DATA.units.filter((u) => impNorm(u.name) === key);
+    if (!all.length) return null;
+    const hintKeys = hints.map(impNorm).filter(Boolean);
+    const score = (u) =>
+      (hintKeys.indexOf(impNorm(u.faction)) >= 0 ? 2 : 0) +
+      (hintKeys.indexOf(impNorm(u.chapterSubfaction || "")) >= 0 ? 1 : 0) +
+      (u.legends ? -1 : 0);
+    return all.slice().sort((a, b) => score(b) - score(a))[0];
+  }
+
+  function impBuildFormations(parsed) {
+    const units = parsed.units;
+    const used = new Set();
+    const forms = [];
+    const byName = (n) => {
+      const key = impNorm(n);
+      return units.find((u) => !used.has(u) && impNorm(u.name) === key);
+    };
+    const blocks = {};
+    units.forEach((u) => {
+      if (u.block) (blocks[u.block] = blocks[u.block] || []).push(u);
+    });
+    Object.keys(blocks).forEach((b) => {
+      const list = blocks[b];
+      const body = list.find((u) => u.role === "bodyguard") || list[0];
+      const leaders = list.filter((u) => u !== body);
+      list.forEach((u) => used.add(u));
+      forms.push({ body, leaders });
+    });
+    units.forEach((u) => {
+      if (used.has(u) || !u.attach.length) return;
+      used.add(u);
+      const leaders = [];
+      u.attach.forEach((n) => {
+        const l = byName(n);
+        if (l) {
+          used.add(l);
+          leaders.push(l);
+        }
+      });
+      forms.push({ body: u, leaders });
+    });
+    units.forEach((u) => {
+      if (!used.has(u)) {
+        used.add(u);
+        forms.push({ body: u, leaders: [] });
+      }
+    });
+    return forms;
+  }
+
+  function impResolve(form, hints) {
+    const members = [form.body].concat(form.leaders).map((pu) => {
+      const unit = impFindUnit(pu.name, hints);
+      return { pu, unit };
+    });
+    return members;
+  }
+
+  function impWeaponRows(unit, wmap) {
+    const rows = [];
+    const ignored = [];
+    const seen = {};
+    Object.keys(wmap).forEach((k) => {
+      const w = wmap[k];
+      const n = impNorm(w.name);
+      let idx = unit.weapons.findIndex((x) => impNorm(x.name) === n);
+      if (idx < 0)
+        idx = unit.weapons.findIndex((x) => impNorm(x.name).startsWith(n));
+      if (idx < 0) {
+        ignored.push(w.name);
+        return;
+      }
+      if (seen[idx] !== undefined) {
+        rows[seen[idx]].count += w.count;
+        return;
+      }
+      const row = {
+        id: uid("w"),
+        weaponIdx: idx,
+        count: w.count,
+        mods: defaultMods(),
+        antiList: [],
+      };
+      prefillInnate(row, unit.weapons[idx]);
+      seen[idx] = rows.length;
+      rows.push(row);
+    });
+    if (!rows.length) rows.push(newWeaponRow(unit));
+    return { rows, ignored };
+  }
+
+  function impAttackerFrom(member) {
+    const { rows } = impWeaponRows(member.unit, member.pu.weapons);
+    return {
+      id: uid(),
+      unitId: member.unit.id,
+      unitSize: Math.max(1, member.pu.models || member.unit.modelsMin || 1),
+      weaponRows: rows,
+    };
+  }
+
+  function impApplyDefender(gid, members) {
+    const found = members.filter((m) => m.unit);
+    if (!found.length) return false;
+    syncActiveDef();
+    let g = defGroups.find((x) => x.id === gid);
+    if (!g) {
+      if (defGroups.length >= MAX_DEF_GROUPS) return false;
+      g = { id: gid, label: "D" + (gid === "B" ? 2 : 1), def: freshDefender() };
+      defGroups.push(g);
+    }
+    g.def = freshDefender();
+    activeDefId = gid;
+    defender = g.def;
+    const main = found[0];
+    defender.unitId = main.unit.id;
+    defender.faction = main.unit.faction;
+    applyUnitToDefender(main.unit);
+    defender.models = Math.max(1, main.pu.models || main.unit.modelsMin || 1);
+    defender.members = found.slice(1).map((m) => {
+      const mem = newDefenderMember();
+      applyUnitToMember(mem, m.unit);
+      mem.models = Math.max(1, m.pu.models || m.unit.modelsMin || 1);
+      return mem;
+    });
+    defender.order = null;
+    renderDefender();
+    updateCalcBtnState();
+    return true;
+  }
+
+  function closeImportDialog() {
+    const d = document.getElementById("import-dialog");
+    if (d) d.remove();
+    document.removeEventListener("keydown", onImportKey);
+  }
+
+  function onImportKey(e) {
+    if (e.key === "Escape") closeImportDialog();
+  }
+
+  function openArmyImport() {
+    closeImportDialog();
+    closeSwapDialog();
+    const overlay = document.createElement("div");
+    overlay.id = "import-dialog";
+    overlay.className = "swap-overlay";
+    document.body.appendChild(overlay);
+    document.addEventListener("keydown", onImportKey);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeImportDialog();
+    });
+    let pasted = "";
+
+    const drawPaste = (error) => {
+      overlay.innerHTML =
+        '<div class="swap-box imp-box" role="dialog" aria-modal="true">' +
+        "<h3>Import army list</h3>" +
+        '<p class="swap-sub">Paste a list from New Recruit (standard or tournament format) or the official GW app export. Pick which units to bring in next.</p>' +
+        '<textarea class="imp-text" id="imp-text" rows="12" placeholder="Paste your army list here"></textarea>' +
+        (error ? '<p class="imp-error">' + esc(error) + "</p>" : "") +
+        '<div class="swap-actions"><button type="button" class="btn btn-secondary imp-cancel">Cancel</button>' +
+        '<button type="button" class="btn imp-read">Read list</button></div></div>';
+      const ta = overlay.querySelector("#imp-text");
+      ta.value = pasted;
+      ta.focus();
+      overlay
+        .querySelector(".imp-cancel")
+        .addEventListener("click", closeImportDialog);
+      overlay.querySelector(".imp-read").addEventListener("click", () => {
+        pasted = ta.value;
+        const parsed = impParse(pasted);
+        if (!parsed) {
+          drawPaste(
+            "Could not read this list. Supported: New Recruit (standard and tournament format) and the GW app export.",
+          );
+          return;
+        }
+        drawPreview(parsed);
+      });
+    };
+
+    const drawPreview = (parsed) => {
+      const hints = parsed.faction
+        .split(/\s+-\s+/)
+        .concat(parsed.title.split(/\s+-\s+/));
+      const forms = impBuildFormations(parsed).map((f) => {
+        const members = impResolve(f, hints);
+        return { f, members };
+      });
+      const rowsHtml = forms
+        .map((x, i) => {
+          const names = x.members.map((m) => m.pu.name).join(" + ");
+          const pts = x.members.reduce((n, m) => n + (m.pu.points || 0), 0);
+          const missing = x.members.filter((m) => !m.unit);
+          const ignored = [];
+          x.members.forEach((m) => {
+            if (!m.unit) return;
+            impWeaponRows(m.unit, m.pu.weapons).ignored.forEach((n) =>
+              ignored.push(n),
+            );
+          });
+          const sub =
+            (() => {
+              const n = x.members.reduce((a, m) => a + (m.pu.models || 0), 0);
+              return n + (n === 1 ? " model" : " models");
+            })() +
+            " · " +
+            pts +
+            " pts" +
+            (missing.length
+              ? " · not found: " + missing.map((m) => m.pu.name).join(", ")
+              : "") +
+            (ignored.length ? " · ignored: " + ignored.join(", ") : "");
+          const ok = x.members.some((m) => m.unit);
+          return (
+            '<label class="swap-option"><input type="checkbox" class="imp-check" value="' +
+            i +
+            '"' +
+            (ok ? " checked" : " disabled") +
+            ' /><span class="swap-option-text"><strong>' +
+            esc(names) +
+            "</strong><small>" +
+            esc(sub) +
+            "</small></span></label>"
+          );
+        })
+        .join("");
+      const totalPts = parsed.units.reduce((n, u) => n + (u.points || 0), 0);
+      overlay.innerHTML =
+        '<div class="swap-box imp-box" role="dialog" aria-modal="true">' +
+        "<h3>" +
+        esc(parsed.title || "Army list") +
+        "</h3>" +
+        '<p class="swap-sub">' +
+        esc(parsed.format) +
+        " · " +
+        parsed.units.length +
+        " units · " +
+        totalPts +
+        " pts. Each row is a unit with its attached leaders.</p>" +
+        '<div class="imp-links"><button type="button" class="imp-all">Select all</button><button type="button" class="imp-none">Select none</button></div>' +
+        '<div class="swap-options">' +
+        rowsHtml +
+        "</div>" +
+        '<p class="imp-hint"></p>' +
+        '<div class="imp-targets">' +
+        '<button type="button" class="btn imp-add imp-a" data-gid="A">Add to A1</button>' +
+        '<button type="button" class="btn imp-add imp-a" data-gid="B">Add to A2</button>' +
+        '<button type="button" class="btn imp-add imp-d" data-gid="A" data-def="1">Add to D1</button>' +
+        '<button type="button" class="btn imp-add imp-d" data-gid="B" data-def="1">Add to D2</button>' +
+        "</div>" +
+        '<div class="swap-actions"><button type="button" class="btn btn-secondary imp-back">Back</button></div></div>';
+
+      const checks = () => [...overlay.querySelectorAll(".imp-check")];
+      const chosen = () =>
+        checks()
+          .filter((c) => c.checked)
+          .map((c) => forms[Number(c.value)]);
+      const refresh = () => {
+        const n = chosen().length;
+        overlay.querySelectorAll(".imp-a").forEach((b) => (b.disabled = !n));
+        overlay
+          .querySelectorAll(".imp-d")
+          .forEach((b) => (b.disabled = n !== 1));
+        overlay.querySelector(".imp-hint").textContent =
+          n > 1
+            ? "Defender groups take one unit (with its leaders) at a time. Select a single row to enable D1 / D2."
+            : "";
+      };
+      checks().forEach((c) => c.addEventListener("change", refresh));
+      overlay.querySelector(".imp-all").addEventListener("click", () => {
+        checks().forEach((c) => {
+          if (!c.disabled) c.checked = true;
+        });
+        refresh();
+      });
+      overlay.querySelector(".imp-none").addEventListener("click", () => {
+        checks().forEach((c) => (c.checked = false));
+        refresh();
+      });
+      overlay
+        .querySelector(".imp-back")
+        .addEventListener("click", () => drawPaste());
+      overlay.querySelectorAll(".imp-add").forEach((btn) =>
+        btn.addEventListener("click", () => {
+          const sel = chosen();
+          if (!sel.length) return;
+          const gid = btn.dataset.gid;
+          if (btn.dataset.def) {
+            const members = sel[0].members;
+            closeImportDialog();
+            if (impApplyDefender(gid, members))
+              defSavedMsg(
+                "Added " +
+                  members.map((m) => m.pu.name).join(" + ") +
+                  " to D" +
+                  (gid === "B" ? 2 : 1) +
+                  ".",
+              );
+            return;
+          }
+          const list = [];
+          sel.forEach((x) =>
+            x.members.forEach((m) => {
+              if (m.unit) list.push(impAttackerFrom(m));
+            }),
+          );
+          closeImportDialog();
+          addAttackersToGroup(gid, list, null);
+          savedMsg(
+            "Added " +
+              list.length +
+              " units to A" +
+              (gid === "B" ? 2 : 1) +
+              ".",
+          );
+        }),
+      );
+      refresh();
+    };
+    drawPaste();
+  }
+
   function init() {
+    document
+      .querySelectorAll(".import-list-btn")
+      .forEach((b) => b.addEventListener("click", openArmyImport));
     document
       .getElementById("clear-attackers")
       .addEventListener("click", clearAllAttackers);
