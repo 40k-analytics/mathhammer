@@ -2364,10 +2364,6 @@ label.btn:not(.disabled):active {
 .results-sticky .group-view-bar {
   margin: 0 0 8px;
 }
-.adv-toggle-mobile {
-  display: none;
-  margin: 0 0 10px;
-}
 @media (max-width: 700px) {
   .results-sticky {
     padding-top: 6px;
@@ -2402,15 +2398,9 @@ label.btn:not(.disabled):active {
     margin: 0 0 8px;
     padding-bottom: 8px;
   }
-  #results-tabs .adv-toggle {
-    display: none;
-  }
   #results-tabs .results-tab {
     padding: 6px 4px;
     font-size: 12px;
-  }
-  .adv-toggle-mobile {
-    display: inline-flex;
   }
 }
 
@@ -2825,6 +2815,39 @@ button.card-opt[data-cards="off"].active {
   }
 }
 
+@media (max-width: 700px) {
+  #results-tabs .adv-toggle {
+    align-self: flex-end;
+  }
+  #results-tabs .adv-opt {
+    padding: 4px 12px;
+    font-size: 11.5px;
+  }
+}
+
+@media (min-width: 701px) and (max-width: 1100px) {
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .stat-tile {
+    padding: 8px 4px;
+    border-radius: 7px;
+  }
+  .stat-tile .val {
+    font-size: 17px;
+  }
+  .stat-tile .lbl {
+    font-size: 8.5px;
+    letter-spacing: 0;
+    line-height: 1.15;
+  }
+  .stat-tile .info-dot {
+    display: none;
+  }
+}
+
     </style>
   </head>
   <body>
@@ -3099,12 +3122,6 @@ button.card-opt[data-cards="off"].active {
         <div class="chart-canvas-wrap" id="group-phase-wrap">
           <canvas id="chart-group-phase"></canvas>
         </div>
-      </div>
-      <div class="adv-toggle adv-toggle-mobile">
-        <button type="button" class="adv-opt" data-adv="off">Compact</button>
-        <button type="button" class="adv-opt active" data-adv="on">
-          Advanced
-        </button>
       </div>
       <div class="chart-box" data-tab="overview">
         <h3>Damage distribution (probability per outcome)</h3>
