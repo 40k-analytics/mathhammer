@@ -1465,21 +1465,6 @@ main > section,
   }
 }
 
-.btn-clear-all {
-  margin-right: auto;
-  background: var(--white);
-  color: #a32020;
-  border: 1px solid #d9a3a3;
-  border-radius: 6px;
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.btn-clear-all:hover {
-  background: #fbeaea;
-}
-
 button:not(:disabled):not(.legend-opt):not(.combo-input) {
   box-shadow:
     0 2px 0 rgba(20, 35, 50, 0.32),
@@ -1645,9 +1630,6 @@ button:not(:disabled):not(.combo-input):active {
   .card-head {
     flex-wrap: wrap;
     gap: 6px;
-  }
-  .btn-clear-all {
-    min-height: 36px;
   }
   .sim-loading {
     padding: 20px 12px;
@@ -2091,11 +2073,6 @@ label.btn:active,
   box-shadow: inset 0 2px 5px rgba(20, 35, 50, 0.28);
   filter: brightness(0.96);
 }
-.btn-clear-all:not(:disabled) {
-  box-shadow:
-    0 2px 0 rgba(120, 30, 30, 0.35),
-    0 4px 8px rgba(20, 35, 50, 0.14);
-}
 @media (hover: none) {
   label.btn:hover,
   .saved-panel summary:hover {
@@ -2220,7 +2197,8 @@ label.btn:active,
 #results-panel[data-active="overview"] .chart-box[data-tab="overview"],
 #results-panel[data-active="weapons"] .chart-box[data-tab="weapons"],
 #results-panel[data-active="defender"] .chart-box[data-tab="defender"],
-#results-panel[data-active="modifiers"] .chart-box[data-tab="modifiers"] {
+#results-panel[data-active="modifiers"] .chart-box[data-tab="modifiers"],
+#results-panel[data-active="compare"] .chart-box[data-tab="compare"] {
   display: block;
 }
 #results-panel[data-mode="compact"] .chart-box[data-adv] {
@@ -2476,9 +2454,6 @@ label.btn:not(.disabled):active {
 .matchup-matrix th {
   text-align: center;
 }
-.mm-main {
-  font-weight: 700;
-}
 .mm-sub {
   font-size: 11px;
   font-weight: 400;
@@ -2705,6 +2680,151 @@ details.mods-details summary:active {
   }
 }
 
+@media (max-width: 700px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .stat-tile {
+    padding: 5px 2px;
+    border-radius: 5px;
+  }
+  .stat-tile .val {
+    font-size: 13.5px;
+  }
+  .stat-tile .lbl {
+    font-size: 7.5px;
+    line-height: 1.1;
+  }
+  .stat-tile .info-dot {
+    display: none;
+  }
+  .results-tab {
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+}
+
+.results-tab {
+  border: 1px solid var(--blue-light);
+  padding: 8px 16px;
+  font-size: 12.5px;
+}
+.results-tab:hover {
+  background: var(--blue-tint);
+}
+.results-tab.active {
+  border-color: var(--navy);
+}
+.results-tab.active:hover {
+  background: var(--navy);
+}
+
+.legend-toggle,
+.adv-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--white);
+  border: 1px solid var(--blue-light);
+  border-radius: 999px;
+  overflow: visible;
+  box-shadow: inset 0 1px 3px rgba(20, 35, 50, 0.14);
+}
+button.legend-opt,
+button.card-opt,
+button.adv-opt {
+  background: transparent;
+  color: var(--slate);
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 12.5px;
+  font-weight: 700;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
+}
+button.legend-opt:not(.active):hover,
+button.card-opt:not(.active):hover,
+button.adv-opt:not(.active):hover {
+  background: var(--blue-tint);
+  color: var(--navy);
+}
+button.legend-opt.active,
+button.card-opt.active,
+button.adv-opt.active {
+  background: var(--navy);
+  color: var(--white);
+  box-shadow: 0 2px 5px rgba(20, 35, 50, 0.35) !important;
+}
+button.legend-opt:active,
+button.card-opt:active,
+button.adv-opt:active {
+  transform: scale(0.96) !important;
+}
+.vuln-modes {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 3px;
+  background: var(--white);
+  border: 1px solid var(--blue-light);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 3px rgba(20, 35, 50, 0.14);
+}
+
+.results-tab-list {
+  padding: 2px 3px 7px;
+  margin-bottom: -4px;
+}
+.results-sticky .group-view-bar,
+.results-sticky .scenario-bar {
+  padding-bottom: 6px;
+}
+button.legend-opt[data-legends="on"].active,
+button.card-opt[data-cards="on"].active {
+  background: var(--blue);
+}
+button.legend-opt[data-legends="off"].active,
+button.card-opt[data-cards="off"].active {
+  background: var(--red);
+}
+
+#results-panel:not(.hidden) ~ .calc-bar-bottom {
+  position: relative;
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 3px solid var(--blue-light);
+}
+#results-panel:not(.hidden) ~ .calc-bar-bottom::before {
+  content: "Attackers & defenders";
+  position: absolute;
+  top: -11px;
+  left: 20px;
+  padding: 0 12px;
+  background: var(--blue-tint);
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+@media (max-width: 700px) {
+  #results-panel:not(.hidden) ~ .calc-bar-bottom {
+    margin-top: 28px;
+    padding-top: 26px;
+  }
+  #results-panel:not(.hidden) ~ .calc-bar-bottom::before {
+    left: 12px;
+  }
+}
+
     </style>
   </head>
   <body>
@@ -2779,22 +2899,6 @@ details.mods-details summary:active {
         (cover's -1 is a Ballistic Skill penalty, and Melta / Rapid Fire are
         ranged rules), so a single result is shown.
       </p>
-      <div class="chart-box" id="matchup-matrix-box" style="display: none">
-        <h3 id="matchup-matrix-title">Matchup matrix</h3>
-        <div id="matchup-matrix-table"></div>
-      </div>
-      <div class="chart-box" id="group-compare-box" style="display: none">
-        <h3 id="group-compare-title">Attacker group comparison</h3>
-        <div id="group-compare-verdict" class="group-verdict"></div>
-        <div id="group-compare-table"></div>
-        <div class="chart-canvas-wrap">
-          <canvas id="chart-group-compare"></canvas>
-        </div>
-        <h4 class="chart-subhead">Expected damage by phase</h4>
-        <div class="chart-canvas-wrap" id="group-phase-wrap">
-          <canvas id="chart-group-phase"></canvas>
-        </div>
-      </div>
       <div class="stats-title" id="stats-title-total" style="display: none">
         All weapons
       </div>
@@ -2910,7 +3014,7 @@ details.mods-details summary:active {
               data-tab="overview"
               role="tab"
             >
-              Overview
+              Damage
             </button>
             <button
               type="button"
@@ -2936,26 +3040,70 @@ details.mods-details summary:active {
             >
               Modifiers
             </button>
+            <button
+              type="button"
+              class="results-tab"
+              data-tab="compare"
+              id="tab-compare"
+              role="tab"
+              style="display: none"
+            >
+              Compare
+            </button>
           </div>
           <div
             class="adv-toggle"
-            title="Compact shows the main charts. Show advanced adds the heavier analyses, which are only calculated when you open them."
+            title="Compact shows the main charts. Advanced adds the heavier analyses, which are only calculated when you open them."
           >
             <button type="button" class="adv-opt" data-adv="off">
               Compact
             </button>
             <button type="button" class="adv-opt active" data-adv="on">
-              Show advanced
+              Advanced
             </button>
           </div>
         </div>
       </div>
 
       <div class="results-tab-title" id="results-tab-title"></div>
+      <div
+        class="chart-box"
+        id="matchup-matrix-box"
+        data-tab="compare"
+        style="display: none"
+      >
+        <h3 id="matchup-matrix-title">Matchup matrix</h3>
+        <div id="matchup-matrix-table"></div>
+      </div>
+      <div
+        class="chart-box"
+        id="group-compare-box"
+        data-tab="compare"
+        style="display: none"
+      >
+        <h3 id="group-table-title">Attacker group comparison</h3>
+        <div id="group-compare-verdict" class="group-verdict"></div>
+        <div id="group-compare-table"></div>
+      </div>
+      <div
+        class="chart-box"
+        id="group-charts-box"
+        data-tab="compare"
+        style="display: none"
+      >
+        <h3 id="group-compare-title">Attacker group comparison</h3>
+        <div class="chart-canvas-wrap">
+          <canvas id="chart-group-compare"></canvas>
+        </div>
+        <h4 class="chart-subhead">Expected damage by phase</h4>
+        <div class="chart-canvas-wrap" id="group-phase-wrap">
+          <canvas id="chart-group-phase"></canvas>
+        </div>
+      </div>
       <div class="adv-toggle adv-toggle-mobile">
         <button type="button" class="adv-opt" data-adv="off">Compact</button>
         <button type="button" class="adv-opt active" data-adv="on">
-          Show advanced
+          Advanced
         </button>
       </div>
       <div class="chart-box" data-tab="overview">
@@ -7169,21 +7317,22 @@ if (typeof module !== "undefined") {
 
   const TAB_INFO = {
     overview: [
-      "Overview",
-      "How much damage the attackers deal and how often they wipe the unit out.",
+      "Damage",
+      "How much damage the attackers deal, how much it varies, and how often the unit is wiped out.",
     ],
     weapons: [
       "Weapons",
-      "Which units and weapons do the work, and in what order to use them.",
+      "Which units and weapons do the work, what they cost per point, and the best firing order.",
     ],
     defender: [
       "Defender",
-      "How the target holds up, what it takes damage from and what it is weak against.",
+      "How the target holds up, what it is weak against, and how durable your attackers are.",
     ],
     modifiers: [
       "Modifiers",
-      "Which buffs and debuffs are worth the most, and which special rules trigger.",
+      "What buffs and debuffs are worth, and which special rules and re-rolls trigger.",
     ],
+    compare: ["Compare", "Attacker groups and defenders side by side."],
   };
 
   function setActiveTab(tab) {
@@ -7192,6 +7341,11 @@ if (typeof module !== "undefined") {
     const scrolledIn = title && title.getBoundingClientRect().top < 0;
     activeTab = tab;
     applyResultsView();
+    if (tab === "compare") {
+      renderMatchupMatrix();
+      if (charts.groupCompare) charts.groupCompare.resize();
+      if (charts.groupPhase) charts.groupPhase.resize();
+    }
     if (scrolledIn && title) {
       const offset = sticky ? sticky.getBoundingClientRect().height : 0;
       const y =
@@ -8618,7 +8772,8 @@ if (typeof module !== "undefined") {
         sub.className = "chart-sub";
         h.parentNode.insertBefore(sub, h.nextSibling);
       }
-      const isCompare = h.id === "group-compare-title";
+      const isCompare =
+        h.id === "group-compare-title" || h.id === "group-table-title";
       sub.textContent =
         (isCompare ? ids.map(atkText).join("  |  ") : viewText) +
         " vs " +
@@ -8773,7 +8928,7 @@ if (typeof module !== "undefined") {
     });
     fill("total", total);
     const phases = sections.filter((x) => x.key !== "total").map((x) => x.key);
-    if (!phases.length) return;
+    if (!phases.length || activeTab !== "compare") return;
     const jobs = [];
     gids.forEach((g) => dids.forEach((d) => jobs.push([g, d])));
     const cells = { shooting: {}, melee: {} };
@@ -8803,9 +8958,23 @@ if (typeof module !== "undefined") {
     setTimeout(step, 30);
   }
 
+  function updateCompareTab() {
+    const btn = document.getElementById("tab-compare");
+    if (!btn) return;
+    const multi =
+      (groupResults && Object.keys(groupResults).length > 1) ||
+      (defResults && Object.keys(defResults).length > 1);
+    btn.style.display = multi ? "" : "none";
+    if (!multi && activeTab === "compare") {
+      activeTab = "overview";
+      applyResultsView();
+    }
+  }
+
   function renderGroupViewBar() {
     renderDefViewBar();
     renderMatchupMatrix();
+    updateCompareTab();
     const ids = groupResults ? Object.keys(groupResults) : [];
     ["group-view-bar"].forEach((barId) => {
       const bar = document.getElementById(barId);
@@ -8834,10 +9003,12 @@ if (typeof module !== "undefined") {
 
   function renderGroupComparison() {
     const box = document.getElementById("group-compare-box");
-    if (!box) return;
+    const chartsBox = document.getElementById("group-charts-box");
+    if (!box || !chartsBox) return;
     const ids = groupResults ? Object.keys(groupResults) : [];
     if (ids.length < 2) {
       box.style.display = "none";
+      chartsBox.style.display = "none";
       if (charts.groupCompare) {
         charts.groupCompare.destroy();
         charts.groupCompare = null;
@@ -8849,8 +9020,12 @@ if (typeof module !== "undefined") {
       return;
     }
     box.style.display = "";
+    chartsBox.style.display = "";
     const sc = scenarioById(currentScenarioId);
     const anyRanged = Object.values(groupResults).some((r) => !r.meleeOnly);
+    document.getElementById("group-table-title").textContent =
+      "Attacker group comparison" +
+      (anyRanged ? " \u2014 " + sc.label : " \u2014 melee");
     document.getElementById("group-compare-title").textContent =
       "Attacker group comparison" +
       (anyRanged ? " \u2014 " + sc.label : " \u2014 melee");
