@@ -2183,6 +2183,37 @@ label.btn:active,
   padding: 8px 2px;
 }
 
+.swap-step {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--blue);
+  margin-bottom: 4px;
+}
+.swap-role {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--slate);
+  background: var(--white);
+  border: 1px solid var(--blue-light);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.swap-option:has(input:checked) .swap-role {
+  color: var(--white);
+  background: var(--blue);
+  border-color: var(--blue);
+}
+.swap-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 </style>
 </head>
 <body>
@@ -4486,26 +4517,38 @@ if (typeof module !== "undefined") {
     });
   }
 
-  function swapAttackerWithDefender(atk) {
-    const oldAttackerUnit = unitById[atk.unitId];
-    const oldDefenderUnit = unitById[defender.unitId];
-    if (!oldAttackerUnit || !oldDefenderUnit) return;
+  function swapAttackersWithDefender(chosen, primary) {
+    const oldMain = defender.unitId ? unitById[defender.unitId] : null;
+    if (!oldMain || !chosen.length) return;
+    const oldMainModels = defender.models || oldMain.modelsMin || 1;
+    const oldUnits = [{ unit: oldMain, models: oldMainModels }];
+    defender.members.forEach((m) => {
+      const u = m.unitId ? unitById[m.unitId] : null;
+      if (u) oldUnits.push({ unit: u, models: m.models || u.modelsMin || 1 });
+    });
 
-    const oldDefenderModels = defender.models || oldDefenderUnit.modelsMin || 1;
-    defender.unitId = oldAttackerUnit.id;
-    defender.faction = oldAttackerUnit.faction;
-    applyUnitToDefender(oldAttackerUnit);
-    defender.models = atk.unitSize || oldAttackerUnit.modelsMin || 1;
-
-    const replacement = {
-      id: uid(),
-      unitId: oldDefenderUnit.id,
-      unitSize: oldDefenderModels,
-      weaponRows: [newWeaponRow(oldDefenderUnit)],
-    };
-    attackers = [replacement];
-    defender.members = [];
+    const pUnit = unitById[primary.unitId];
+    defender.unitId = pUnit.id;
+    defender.faction = pUnit.faction;
+    applyUnitToDefender(pUnit);
+    defender.models = primary.unitSize || pUnit.modelsMin || 1;
+    defender.members = chosen
+      .filter((a) => a !== primary)
+      .map((a) => {
+        const u = unitById[a.unitId];
+        const m = newDefenderMember();
+        applyUnitToMember(m, u);
+        m.models = a.unitSize || u.modelsMin || 1;
+        return m;
+      });
     defender.order = null;
+
+    attackers = oldUnits.map((o) => ({
+      id: uid(),
+      unitId: o.unit.id,
+      unitSize: o.models,
+      weaponRows: [newWeaponRow(o.unit)],
+    }));
     const group = activeGroup();
     if (group) group.attackers = attackers;
     renderAttackers();
@@ -4528,52 +4571,145 @@ if (typeof module !== "undefined") {
     if (!candidates.length) return;
     closeSwapDialog();
 
-    const defUnit = unitById[defender.unitId];
+    const oldNames = [unitDisplayName(unitById[defender.unitId])]
+      .concat(
+        defender.members
+          .filter((m) => m.unitId && unitById[m.unitId])
+          .map((m) => unitDisplayName(unitById[m.unitId]))
+      );
+    const picked = new Set([0]);
+    let primaryIdx = 0;
+    let step = 1;
+
     const overlay = document.createElement("div");
     overlay.id = "swap-dialog";
     overlay.className = "swap-overlay";
-    overlay.innerHTML = `
-      <div class="swap-box" role="dialog" aria-modal="true" aria-labelledby="swap-title">
-        <h3 id="swap-title">Switch attacker &amp; defender</h3>
-        <p class="swap-sub">${
-          candidates.length > 1 ? "Choose the attacker that becomes the defender." : "This attacker becomes the defender."
-        }</p>
-        <p class="swap-note">The current defender, <strong>${esc(unitDisplayName(defUnit))}</strong>, becomes the only attacker. All other attackers in this group are removed.</p>
-        <div class="swap-options">
-          ${candidates
-            .map((a, i) => {
-              const u = unitById[a.unitId];
-              const weapons = a.weaponRows
-                .map((r) => (u.weapons && u.weapons[r.weaponIdx] ? u.weapons[r.weaponIdx].name : null))
-                .filter(Boolean)
-                .join(", ");
-              return `<label class="swap-option">
-                <input type="radio" name="swap-pick" value="${i}" ${i === 0 ? "checked" : ""} />
-                <span class="swap-option-text"><strong>${esc(unitDisplayName(u))}</strong>
-                <small>${a.unitSize || 1} models${weapons ? " · " + esc(weapons) : ""}</small></span>
-              </label>`;
-            })
-            .join("")}
-        </div>
-        <div class="swap-actions">
-          <button type="button" class="btn btn-secondary swap-cancel">Cancel</button>
-          <button type="button" class="btn swap-confirm">Confirm</button>
-        </div>
-      </div>`;
     document.body.appendChild(overlay);
     document.addEventListener("keydown", onSwapDialogKey);
-
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) closeSwapDialog();
     });
-    overlay.querySelector(".swap-cancel").addEventListener("click", closeSwapDialog);
-    overlay.querySelector(".swap-confirm").addEventListener("click", () => {
-      const picked = overlay.querySelector('input[name="swap-pick"]:checked');
-      const atk = candidates[picked ? Number(picked.value) : 0];
-      closeSwapDialog();
-      swapAttackerWithDefender(atk);
-    });
-    overlay.querySelector(".swap-confirm").focus();
+
+    const describe = (a) => {
+      const u = unitById[a.unitId];
+      const weapons = a.weaponRows
+        .map((r) => (u.weapons && u.weapons[r.weaponIdx] ? u.weapons[r.weaponIdx].name : null))
+        .filter(Boolean)
+        .join(", ");
+      return { name: unitDisplayName(u), sub: (a.unitSize || 1) + " models" + (weapons ? " \u00b7 " + weapons : "") };
+    };
+
+    const note =
+      '<p class="swap-note">The current defender' +
+      (oldNames.length > 1 ? " and its attached units" : "") +
+      ", <strong>" +
+      esc(oldNames.join(" + ")) +
+      "</strong>, become" +
+      (oldNames.length > 1 ? "" : "s") +
+      " the attacker" +
+      (oldNames.length > 1 ? "s" : "") +
+      ". All other attackers in this group are removed.</p>";
+
+    const draw = () => {
+      const chosenList = candidates.filter((_, i) => picked.has(i));
+      if (step === 1) {
+        overlay.innerHTML =
+          '<div class="swap-box" role="dialog" aria-modal="true" aria-labelledby="swap-title">' +
+          '<div class="swap-step">Step 1 of ' + (picked.size > 1 ? 2 : 1) + "</div>" +
+          '<h3 id="swap-title">Switch attacker &amp; defender</h3>' +
+          '<p class="swap-sub">' +
+          (candidates.length > 1
+            ? "Choose one or more attackers that become the defender. Pick several to build a unit with attached models."
+            : "This attacker becomes the defender.") +
+          "</p>" +
+          note +
+          '<div class="swap-options">' +
+          candidates
+            .map((a, i) => {
+              const d = describe(a);
+              return (
+                '<label class="swap-option"><input type="checkbox" class="swap-check" value="' + i + '"' +
+                (picked.has(i) ? " checked" : "") +
+                ' /><span class="swap-option-text"><strong>' + esc(d.name) + "</strong><small>" + esc(d.sub) + "</small></span></label>"
+              );
+            })
+            .join("") +
+          "</div>" +
+          '<div class="swap-actions"><button type="button" class="btn btn-secondary swap-cancel">Cancel</button>' +
+          '<button type="button" class="btn swap-confirm"' + (picked.size ? "" : " disabled") + ">" +
+          (picked.size > 1 ? "Next" : "Confirm") +
+          "</button></div></div>";
+        overlay.querySelectorAll(".swap-check").forEach((cb) =>
+          cb.addEventListener("change", () => {
+            const i = Number(cb.value);
+            if (cb.checked) picked.add(i);
+            else picked.delete(i);
+            const btn = overlay.querySelector(".swap-confirm");
+            btn.disabled = !picked.size;
+            btn.textContent = picked.size > 1 ? "Next" : "Confirm";
+            overlay.querySelector(".swap-step").textContent = "Step 1 of " + (picked.size > 1 ? 2 : 1);
+          })
+        );
+        overlay.querySelector(".swap-cancel").addEventListener("click", closeSwapDialog);
+        overlay.querySelector(".swap-confirm").addEventListener("click", () => {
+          if (!picked.size) return;
+          if (picked.size === 1) {
+            const only = candidates[Array.from(picked)[0]];
+            closeSwapDialog();
+            swapAttackersWithDefender([only], only);
+            return;
+          }
+          if (!picked.has(primaryIdx)) primaryIdx = Array.from(picked)[0];
+          step = 2;
+          draw();
+        });
+      } else {
+        const idxs = candidates.map((_, i) => i).filter((i) => picked.has(i));
+        overlay.innerHTML =
+          '<div class="swap-box" role="dialog" aria-modal="true" aria-labelledby="swap-title">' +
+          '<div class="swap-step">Step 2 of 2</div>' +
+          '<h3 id="swap-title">Primary and attached</h3>' +
+          '<p class="swap-sub">Choose the primary unit. The others become attached units, such as leaders, and take wounds according to the allocation order.</p>' +
+          '<div class="swap-options">' +
+          idxs
+            .map((i) => {
+              const d = describe(candidates[i]);
+              return (
+                '<label class="swap-option"><input type="radio" name="swap-primary" class="swap-primary" value="' + i + '"' +
+                (i === primaryIdx ? " checked" : "") +
+                ' /><span class="swap-option-text"><strong>' + esc(d.name) + "</strong><small>" + esc(d.sub) + '</small></span><span class="swap-role">' +
+                (i === primaryIdx ? "Primary" : "Attached") +
+                "</span></label>"
+              );
+            })
+            .join("") +
+          "</div>" +
+          '<div class="swap-actions"><button type="button" class="btn btn-secondary swap-back">Back</button>' +
+          '<button type="button" class="btn swap-confirm">Confirm</button></div></div>';
+        overlay.querySelectorAll(".swap-primary").forEach((r) =>
+          r.addEventListener("change", () => {
+            primaryIdx = Number(r.value);
+            overlay.querySelectorAll(".swap-option").forEach((lab) => {
+              const inp = lab.querySelector(".swap-primary");
+              lab.querySelector(".swap-role").textContent = Number(inp.value) === primaryIdx ? "Primary" : "Attached";
+            });
+          })
+        );
+        overlay.querySelector(".swap-back").addEventListener("click", () => {
+          step = 1;
+          draw();
+        });
+        overlay.querySelector(".swap-confirm").addEventListener("click", () => {
+          const primary = candidates[primaryIdx];
+          const chosen = candidates.filter((_, i) => picked.has(i));
+          closeSwapDialog();
+          swapAttackersWithDefender(chosen, primary);
+        });
+      }
+      const focusBtn = overlay.querySelector(".swap-confirm");
+      if (focusBtn) focusBtn.focus();
+    };
+    draw();
   }
 
   function hasValidAttacker() {
