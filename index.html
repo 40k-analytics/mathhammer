@@ -2859,7 +2859,7 @@ button.card-opt[data-cards="off"].active {
   }
 }
 
-    .stats-title {
+.stats-title {
   --sec: #1f3a5f;
   --sec-bg: #e3ebf5;
   font-size: 12.5px;
@@ -2899,7 +2899,8 @@ button.card-opt[data-cards="off"].active {
     padding: 6px;
   }
 }
-</style>
+
+    </style>
   </head>
   <body>
     <header class="app-header">
@@ -4194,17 +4195,6 @@ function clampThreshold(v, max) {
   return v;
 }
 
-if (typeof module !== "undefined") {
-  module.exports = {
-    parseDiceExpr,
-    meanOfDiceExpr,
-    woundThreshold,
-    simulate,
-    buildAttackerRuntime,
-    d6,
-    rollDiceExprWithReroll,
-  };
-}
 ;
     </script>
     <script>
@@ -11314,9 +11304,50 @@ if (typeof module !== "undefined") {
     };
   }
 
-  function buildShareLink() {
+  function bytesToB64url(bytes) {
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000)
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function b64urlToBytes(s) {
+    s = s.replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    const bin = atob(s);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+  async function streamBytes(bytes, stream) {
+    const out = new Blob([bytes]).stream().pipeThrough(stream);
+    return new Uint8Array(await new Response(out).arrayBuffer());
+  }
+  async function packShareState(st) {
+    const json = JSON.stringify(st);
+    if (typeof CompressionStream === "function") {
+      try {
+        const raw = new TextEncoder().encode(json);
+        const z = await streamBytes(raw, new CompressionStream("deflate-raw"));
+        const packed = "z=" + bytesToB64url(z);
+        const plain = "s=" + b64enc(json);
+        return packed.length < plain.length ? packed : plain;
+      } catch (e) {}
+    }
+    return "s=" + b64enc(json);
+  }
+  async function unpackShareState(hash) {
+    const m = /^#([sz])=(.+)$/.exec(hash || "");
+    if (!m) return null;
+    if (m[1] === "s") return JSON.parse(b64dec(m[2]));
+    const raw = await streamBytes(
+      b64urlToBytes(m[2]),
+      new DecompressionStream("deflate-raw"),
+    );
+    return JSON.parse(new TextDecoder().decode(raw));
+  }
+  async function buildShareLink() {
     const base = location.href.split("#")[0];
-    return base + "#s=" + b64enc(JSON.stringify(buildShareState()));
+    return base + "#" + (await packShareState(buildShareState()));
   }
 
   function applyShareState(st, warnings) {
@@ -11360,8 +11391,8 @@ if (typeof module !== "undefined") {
       currentScenarioId = st.sc;
   }
 
-  function copyShareLink() {
-    const link = buildShareLink();
+  async function copyShareLink() {
+    const link = await buildShareLink();
     const box = document.getElementById("share-link-box");
     box.classList.remove("hidden");
     box.value = link;
@@ -11383,12 +11414,11 @@ if (typeof module !== "undefined") {
     );
   }
 
-  function loadFromHash() {
-    const m = /^#s=(.+)$/.exec(location.hash || "");
-    if (!m) return;
+  async function loadFromHash() {
+    if (!/^#[sz]=./.test(location.hash || "")) return;
     const warnings = [];
     try {
-      applyShareState(JSON.parse(b64dec(m[1])), warnings);
+      applyShareState(await unpackShareState(location.hash), warnings);
     } catch (e) {
       savedMsg("The share link could not be read.", true);
       const p = document.getElementById("saved-panel");
