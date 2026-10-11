@@ -2918,6 +2918,24 @@ button.card-opt[data-cards="off"].active {
   }
 }
 
+.add-attacker-bottom {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+.btn-dup {
+  font-size: 12px;
+  padding: 4px 10px;
+  margin-right: auto;
+}
+#attackers-col.section-box #add-attacker-bottom-btn {
+  background: var(--navy);
+}
+#attackers-col.section-box #add-attacker-bottom-btn:hover {
+  background: var(--blue-light);
+  color: var(--navy);
+}
+
     </style>
   </head>
   <body>
@@ -3471,6 +3489,15 @@ button.card-opt[data-cards="off"].active {
           <div id="group-mods-body"></div>
         </details>
         <div id="attackers-list"></div>
+        <div
+          class="add-attacker-bottom"
+          id="add-attacker-bottom"
+          style="display: none"
+        >
+          <button class="btn" id="add-attacker-bottom-btn">
+            + Add attacker
+          </button>
+        </div>
       </section>
 
       <section id="defender-col" class="section-box">
@@ -5115,11 +5142,17 @@ function clampThreshold(v, max) {
     renderAttackers();
   }
 
+  function updateBottomAdd() {
+    const el = document.getElementById("add-attacker-bottom");
+    if (el) el.style.display = attackers.some((x) => x.unitId) ? "" : "none";
+  }
+
   function renderAttackers() {
     renderGroupTabs();
     renderGroupMods();
     const wrap = document.getElementById("attackers-list");
     wrap.innerHTML = "";
+    updateBottomAdd();
     if (!attackers.length) {
       wrap.innerHTML =
         '<div class="empty-hint">No attackers added yet. Click "+ Add attacker".</div>';
@@ -5144,6 +5177,7 @@ function clampThreshold(v, max) {
 
     card.innerHTML = `
       <div class="card-head">
+        <button class="btn btn-secondary btn-dup duplicate-attacker" title="Copy this attacker with its weapons and modifiers">Duplicate attacker</button>
         <button class="icon-btn remove-attacker" title="Remove">&times;</button>
       </div>
       <div class="picker-section-label">Select Attacker</div>
@@ -5161,6 +5195,27 @@ function clampThreshold(v, max) {
       <div class="weapon-rows"></div>
       <button class="btn btn-secondary add-weapon-row">+ Add weapon</button>
     `;
+
+    const dupBtn = card.querySelector(".duplicate-attacker");
+    dupBtn.style.display = a.unitId ? "" : "none";
+    dupBtn.addEventListener("click", () => {
+      const ser = serializeAttacker(a);
+      const copy = ser ? deserializeAttacker(ser, []) : null;
+      if (!copy) return;
+      const idx = attackers.findIndex((x) => x.id === a.id);
+      const next = attackers.slice();
+      next.splice(idx + 1, 0, copy);
+      attackers = next;
+      refreshGroupLabels();
+      renderAttackers();
+      const cards = document.querySelectorAll("#attackers-list .attacker-card");
+      const el = cards[idx + 1];
+      if (el && el.scrollIntoView) {
+        try {
+          el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        } catch (e) {}
+      }
+    });
 
     card.querySelector(".remove-attacker").addEventListener("click", () => {
       attackers = attackers.filter((x) => x.id !== a.id);
@@ -5220,6 +5275,8 @@ function clampThreshold(v, max) {
       a.unitSize = u && u.modelsMin ? u.modelsMin : 1;
       sizeInput.value = a.unitSize;
       refreshSizePts();
+      dupBtn.style.display = a.unitId ? "" : "none";
+      updateBottomAdd();
 
       a.weaponRows = [newWeaponRow(u)];
       renderWeaponRows();
@@ -12343,7 +12400,7 @@ function clampThreshold(v, max) {
         subtree: true,
       },
     );
-    document.getElementById("add-attacker").addEventListener("click", () => {
+    const addAttackerAction = () => {
       const first = attackers.find((x) => x.unitId && unitById[x.unitId]);
       attackers.push(
         first
@@ -12362,6 +12419,10 @@ function clampThreshold(v, max) {
           last.scrollIntoView({ behavior: "smooth", block: "center" });
         } catch (e) {}
       }
+    };
+    ["add-attacker", "add-attacker-bottom-btn"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener("click", addAttackerAction);
     });
     CALC_BTN_IDS.forEach((id) => {
       const btn = document.getElementById(id);
