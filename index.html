@@ -10819,8 +10819,19 @@ function clampThreshold(v, max) {
     const roleBadge = unit.role
       ? `<span class="uc-role-badge">${esc(unit.role)}</span>`
       : "";
-    const pointsChip =
-      unit.pointsMin != null
+    const pointParts = [];
+    String(unit.points || "")
+      .split(";")
+      .forEach((part) => {
+        const p = part.trim().replace(/\s*:\s*(\d+)$/, ": $1 pts");
+        if (p && /\d+ pts$/.test(p) && pointParts.indexOf(p) < 0)
+          pointParts.push(p);
+      });
+    const pointsChip = pointParts.length
+      ? pointParts
+          .map((p) => `<span class="uc-points-chip">${esc(p)}</span>`)
+          .join("")
+      : unit.pointsMin != null
         ? `<span class="uc-points-chip">${esc(unit.pointsMinDesc || "Cost")}: ${unit.pointsMin} pts</span>`
         : "";
 
