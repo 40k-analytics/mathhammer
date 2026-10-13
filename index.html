@@ -4120,37 +4120,30 @@ function simulate(attackers, defender, trials) {
             woundSuccess = true;
             isCritWound = false;
           } else {
-            let antiTriggered = false;
+            let effCritWound = critWoundThreshold;
             if (atk.kw.anti && defender.keywords && defender.keywords.length) {
               for (const a of atk.kw.anti) {
                 if (
                   defender.keywords.includes(a.keyword) &&
-                  hitRollNatural >= a.threshold &&
-                  hitRollNatural !== 0
+                  a.threshold < effCritWound
                 ) {
-                  antiTriggered = true;
-                  break;
+                  effCritWound = a.threshold;
                 }
               }
             }
-            if (antiTriggered) {
-              woundSuccess = true;
-              isCritWound = true;
-              sumAntiProcs++;
-            } else {
-              const wr = rollEvalWithTracking(
-                woundThresh,
-                critWoundThreshold,
-                woundRerollPolicy,
-              );
-              if (wr.rerolled) {
-                sumWoundRerolls++;
-                if (wr.convertedToSuccess) sumWoundRerollToSuccess++;
-                if (wr.convertedToCrit) sumWoundRerollToCrit++;
-              }
-              woundSuccess = wr.success;
-              isCritWound = wr.isCrit;
+            const wr = rollEvalWithTracking(
+              woundThresh,
+              effCritWound,
+              woundRerollPolicy,
+            );
+            if (wr.rerolled) {
+              sumWoundRerolls++;
+              if (wr.convertedToSuccess) sumWoundRerollToSuccess++;
+              if (wr.convertedToCrit) sumWoundRerollToCrit++;
             }
+            woundSuccess = wr.success;
+            isCritWound = wr.isCrit;
+            if (wr.isCrit && effCritWound < critWoundThreshold) sumAntiProcs++;
           }
           if (!woundSuccess) continue;
           sumWounds++;
